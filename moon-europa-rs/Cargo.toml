@@ -1,0 +1,54 @@
+[package]
+name = "moon-europa-rs"
+version = "0.1.0"
+edition = "2021"
+description = "Moon Europa - Messaging (Telegram) MCP server in Rust"
+
+[[bin]]
+name = "moon-europa"
+path = "src/main.rs"
+
+[dependencies]
+# Shared library (Qdrant, embeddings, file parsing)
+jupiteros-shared = { path = "../jupiteros-shared" }
+
+# MCP Server
+rmcp = { version = "0.5", features = ["server", "transport-sse-server", "transport-io"] }
+schemars = "1"
+
+# Async runtime
+tokio = { workspace = true }
+
+# Telegram (MTProto, pure Rust)
+grammers-client = { version = "0.9", features = ["fs"] }
+grammers-session = "0.9"
+grammers-tl-types = "0.9"
+grammers-mtsender = "0.9"
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+chrono = { workspace = true }
+
+# Logging
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+
+# Error handling
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+
+# HTTP client (model download, health checks)
+reqwest = { version = "0.12", features = ["rustls-tls", "stream"], default-features = false }
+futures-util = "0.3"
+
+# Archive extraction (Qdrant binary download)
+zip = "2"
+flate2 = "1"
+tar = "0.4"
+
+# Utilities
+async-trait = "0.1"
+dirs = "6"
+dotenvy = "0.15"
+tokio-util = "0.7"

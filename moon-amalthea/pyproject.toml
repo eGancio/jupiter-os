@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=75.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "moon-amalthea"
+version = "0.1.0"
+description = "Moon Amalthea — Deterministic chart & diagram renderer for JupiterOS"
+requires-python = ">=3.10"
+dependencies = [
+    "mcp[cli]>=1.2.0",
+    "jinja2>=3.1.0",
+    "python-dotenv>=1.0.0",
+]
+
+[project.scripts]
+moon-amalthea = "moon_amalthea.server:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

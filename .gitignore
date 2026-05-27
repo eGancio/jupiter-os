@@ -1,0 +1,99 @@
+# Environment / credentials — NEVER commit these
+.env
+.env.*
+!.env.example
+.mcp.json
+credentials.env
+**/credentials*.env
+**/secrets*
+*.key
+*.pem
+*.p12
+*.pfx
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+Lib/
+Scripts/
+pyvenv.cfg
+
+# Node
+node_modules/
+
+# WhatsApp session
+.wwebjs_auth/
+.wwebjs_cache/
+
+# Moon data (ChromaDB, daemon state, sessions)
+memory-mcp/data/
+moon-io/data/
+moon-europa/data/
+moon-io-rs/data/
+moon-europa-rs/data/
+
+# Telegram session
+*.session
+
+# Qdrant init markers
+.qdrant-initialized
+
+# ONNX model (downloaded at runtime)
+moon-europa-rs/model/
+moon-io-rs/model/
+
+# Claude Code local settings
+.claude/
+
+# Rust build artifacts
+target/
+jupiteros/src-tauri/target/
+
+# Installer build artifacts
+installer/build/
+installer/Output/
+installer/*.zip
+installer/get-pip.py
+installer/templates/*.env
+
+# Moon Amalthea output
+moon-amalthea/output/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.cursor/
+*.bak
+*.swp
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# PDF docs (large binary)
+*.pdf
+
+# Logos (binary, tracked separately if needed)
+LOGHI/
+
+# Scraper (private, never publish)
+scraper-ricaricaveicolo/
+
+# Zeus GUI build output
+zeus/gui/dist/
+
+# JupiterOS build output + debug
+jupiteros/dist/
+jupiteros-sessions.json
+.claude-gui-debug.log
+.claude-gui/
+
+# Temp image processing
+LOGO-zoomed.png
+LOGO+DOMAIN.png
+
+# Python egg-info
+*.egg-info/

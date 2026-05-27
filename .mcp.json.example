@@ -1,0 +1,55 @@
+{
+  "mcpServers": {
+    "io": {
+      "type": "sse",
+      "url": "http://127.0.0.1:8100/sse"
+    },
+    "europa": {
+      "type": "sse",
+      "url": "http://127.0.0.1:8200/sse"
+    },
+    "amalthea": {
+      "type": "sse",
+      "url": "http://127.0.0.1:8300/sse"
+    }
+  },
+  "servers": {
+    "io": {
+      "command": "target/release/moon-io.exe",
+      "args": [],
+      "cwd": "moon-io-rs",
+      "env": {
+        "DATA_DIR": "moon-io-rs/data",
+        "IMAP_USERNAME": "YOUR_EMAIL@example.com",
+        "IMAP_PASSWORD": "YOUR_PASSWORD",
+        "QDRANT_URL": "http://127.0.0.1:6334",
+        "MCP_TRANSPORT": "sse",
+        "MCP_PORT": "8100"
+      }
+    },
+    "europa": {
+      "command": "target/release/moon-europa.exe",
+      "args": [],
+      "cwd": "moon-europa-rs",
+      "env": {
+        "DATA_DIR": "moon-europa-rs/data",
+        "TELEGRAM_API_ID": "YOUR_API_ID",
+        "TELEGRAM_API_HASH": "YOUR_API_HASH",
+        "TELEGRAM_FOLDER": "",
+        "QDRANT_URL": "http://127.0.0.1:6334",
+        "MCP_TRANSPORT": "sse",
+        "MCP_PORT": "8200"
+      }
+    },
+    "amalthea": {
+      "command": "moon-amalthea/.venv/Scripts/python.exe",
+      "args": ["-m", "moon_amalthea.server"],
+      "cwd": "moon-amalthea",
+      "env": {
+        "AMALTHEA_OUTPUT_DIR": "moon-amalthea/output",
+        "MCP_TRANSPORT": "sse",
+        "MCP_PORT": "8300"
+      }
+    }
+  }
+}

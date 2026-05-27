@@ -1,0 +1,298 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Font face: local woff2 files ─────────────────────── */
+@font-face {
+  font-family: "Space Grotesk";
+  src: url("/fonts/SpaceGrotesk-latin.woff2") format("woff2");
+  font-weight: 400 800;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Inter";
+  src: url("/fonts/Inter-latin.woff2") format("woff2");
+  font-weight: 300 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
+body {
+  font-family: "Inter", sans-serif;
+}
+
+/* ── Custom scrollbar — Jupiter Orange ────────────────── */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(232, 146, 58, 0.25);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(232, 146, 58, 0.45);
+}
+
+/* ── Selection color ──────────────────────────────────── */
+::selection {
+  background: rgba(232, 146, 58, 0.3);
+  color: #e2e8f0;
+}
+
+/* ── Prose overrides for Jupiter dark theme ───────────── */
+.prose.prose-invert {
+  --tw-prose-body: #e2e8f0;
+  --tw-prose-headings: #ffffff;
+  --tw-prose-bold: #ffffff;
+  --tw-prose-links: #38bdf8;
+  --tw-prose-code: #7dd3fc;
+  --tw-prose-counters: #94a3b8;
+  --tw-prose-bullets: #38bdf8;
+  --tw-prose-hr: #1e1e2e;
+  --tw-prose-quotes: #94a3b8;
+  --tw-prose-quote-borders: #1e3a5f;
+  --tw-prose-th-borders: #1e3a5f;
+  --tw-prose-td-borders: #1e1e2e;
+  font-size: inherit;
+  line-height: 1.65;
+}
+
+.prose.prose-invert h1,
+.prose.prose-invert h2,
+.prose.prose-invert h3,
+.prose.prose-invert h4 {
+  margin-top: 1em;
+  margin-bottom: 0.4em;
+  font-weight: 600;
+}
+
+.prose.prose-invert p {
+  margin-top: 0.4em;
+  margin-bottom: 0.4em;
+}
+
+.prose.prose-invert ul,
+.prose.prose-invert ol {
+  margin-top: 0.3em;
+  margin-bottom: 0.3em;
+  padding-left: 1.4em;
+}
+
+.prose.prose-invert li {
+  margin-top: 0.15em;
+  margin-bottom: 0.15em;
+}
+
+.prose.prose-invert a {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.prose.prose-invert a:hover {
+  color: #7dd3fc;
+}
+
+.prose.prose-invert blockquote {
+  border-left: 3px solid #1e3a5f;
+  padding-left: 0.8em;
+  color: #94a3b8;
+  font-style: italic;
+}
+
+.prose.prose-invert table {
+  border-collapse: collapse;
+  width: 100%;
+}
+.prose.prose-invert th {
+  background: #141420;
+  padding: 0.4em 0.8em;
+  text-align: left;
+  font-weight: 600;
+}
+.prose.prose-invert td {
+  padding: 0.3em 0.8em;
+  border-top: 1px solid #1e1e2e;
+}
+
+.prose.prose-invert hr {
+  border-color: #1e1e2e;
+  margin: 1em 0;
+}
+
+/* ── Zeus GUI utilities ──────────────────────────────── */
+.log-output {
+  user-select: text;
+  cursor: text;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.animate-pulse-dot {
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+/* ── Glassmorphism utilities ──────────────────────────── */
+.glass {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+.glass-strong {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(30px);
+  -webkit-backdrop-filter: blur(30px);
+}
+
+/* ── CTA Gradient buttons ─────────────────────────────── */
+.btn-cta {
+  background: linear-gradient(135deg, #e8923a, #f59e0b);
+  color: white;
+  font-weight: 600;
+}
+.btn-cta:hover {
+  background: linear-gradient(135deg, #f59e0b, #e8923a);
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #e8923a, #d97706);
+  color: white;
+  font-weight: 600;
+}
+.btn-primary:hover {
+  background: linear-gradient(135deg, #d97706, #e8923a);
+}
+
+/* ── Tool Timeline (chat: MCP tool calls) ─────────────── */
+.tool-timeline {
+  list-style: none;
+  margin: 0.4em 0;
+  padding: 0 0 0 1.4em;
+  position: relative;
+}
+
+/* Vertical line passing through dot centers */
+.tool-timeline::before {
+  content: "";
+  position: absolute;
+  left: 0.4em;
+  top: 0.55em;
+  bottom: 0.55em;
+  width: 2px;
+  background: rgba(56, 189, 248, 0.25);
+}
+
+.tool-timeline-item {
+  position: relative;
+  padding: 0.18em 0 0.18em 0.55em;
+  font-size: 0.84em;
+  font-family: "Space Grotesk", ui-monospace, monospace;
+  line-height: 1.5;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35em;
+}
+
+.tool-timeline-dot {
+  position: absolute;
+  left: -1.05em;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  border: 2px solid;
+  z-index: 1;
+  background-clip: padding-box;
+  flex-shrink: 0;
+}
+.tool-timeline-dot[data-status="ok"] {
+  background: #4ade80;
+  border-color: #22c55e;
+}
+.tool-timeline-dot[data-status="err"] {
+  background: #f87171;
+  border-color: #ef4444;
+}
+.tool-timeline-dot[data-status="pending"] {
+  background: #38bdf8;
+  border-color: #0ea5e9;
+  animation: tool-pulse-dot 1.4s ease-in-out infinite;
+}
+
+.tool-badge {
+  padding: 0.08em 0.45em;
+  border-radius: 4px;
+  font-size: 0.78em;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: lowercase;
+}
+
+.tool-name {
+  color: #e2e8f0;
+  font-weight: 500;
+}
+
+.tool-count {
+  color: #38bdf8;
+  font-weight: 700;
+  font-size: 0.88em;
+}
+
+.tool-ok {
+  color: #4ade80;
+  font-weight: 600;
+}
+
+.tool-err {
+  color: #f87171;
+  font-weight: 600;
+}
+
+.tool-pending {
+  color: #38bdf8;
+}
+
+.tool-elapsed {
+  color: #64748b;
+  font-size: 0.78em;
+}
+.tool-elapsed-warn {
+  color: #f59e0b;
+}
+
+.tool-chart-btn {
+  margin-left: 0.2em;
+  font-size: 0.9em;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0 0.2em;
+  opacity: 0.7;
+  transition: opacity 120ms ease;
+}
+.tool-chart-btn:hover {
+  opacity: 1;
+}
+
+@keyframes tool-pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}

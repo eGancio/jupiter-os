@@ -1,0 +1,16 @@
+# =============================================================
+#  Compilazione VELOCE — Tool-AI workspace (nightly)
+# =============================================================
+
+# --- LINKER: rust-lld invece di link.exe (2-4x più veloce) ---
+# Stabilizzato da Rust 1.85+ per x86_64-pc-windows-msvc
+[target.x86_64-pc-windows-msvc]
+rustflags = [
+    "-Clink-self-contained=+linker",  # Usa rust-lld bundled
+    "-Zunstable-options",
+]
+
+# --- BUILD ---
+[build]
+jobs = 16               # Aggiusta al tuo numero di core fisici
+rustc-wrapper = "sccache"  # Cache compilazione — ricompile istantanee

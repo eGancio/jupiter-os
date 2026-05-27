@@ -1,0 +1,48 @@
+cargo-features = ["codegen-backend"]
+
+[workspace]
+resolver = "2"
+members = [
+    "jupiteros-shared",
+    "moon-europa-rs",
+    "moon-io-rs",
+]
+exclude = [
+    "jupiteros/src-tauri",
+]
+
+[workspace.dependencies]
+tokio = { version = "1", features = ["full"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+chrono = { version = "0.4", features = ["serde"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing-appender = "0.2"
+anyhow = "1"
+thiserror = "2"
+
+# =============================================================
+#  Profili compilazione ottimizzati
+# =============================================================
+
+# Dev: massima velocità di compilazione (Cranelift = 2-4x più veloce di LLVM)
+[profile.dev]
+codegen-backend = "cranelift"
+opt-level = 0
+debug = "line-tables-only"  # Debug info minimo (backtrace sì, debugger limitato)
+codegen-units = 256          # Più unità = più parallelismo (link più lento, ma LLD compensa)
+incremental = true
+
+# Le dipendenze in dev le compiliamo con opt-level 1
+# Così il tuo codice runtime non è lentissimo
+[profile.dev.package."*"]
+opt-level = 1
+debug = false
+
+# Release: ottimizzato per produzione
+[profile.release]
+opt-level = 3
+lto = "thin"         # LTO veloce, buon compromesso
+codegen-units = 1    # Migliore ottimizzazione finale
+strip = true         # Rimuovi debug symbols dal binario
