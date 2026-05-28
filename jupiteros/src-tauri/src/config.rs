@@ -2,20 +2,37 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 
-const DEV_BASE: &str = r"c:\Users\Edoardo\PycharmProjects\Tool-AI";
-
 pub const MAX_LOG_LINES: usize = 500;
 
 pub fn get_base_dir() -> PathBuf {
+    // Primary: directory containing the executable (works for both dev and release builds)
     if let Ok(exe) = std::env::current_exe() {
         if let Some(dir) = exe.parent() {
-            let candidate = dir.join(".mcp.json");
-            if candidate.exists() {
+            if dir.join(".mcp.json").exists() {
                 return dir.to_path_buf();
             }
         }
     }
-    PathBuf::from(DEV_BASE)
+    // Secondary: current working directory (useful when running `cargo tauri dev`)
+    if let Ok(cwd) = std::env::current_dir() {
+        if cwd.join(".mcp.json").exists() {
+            return cwd;
+        }
+    }
+    // Final fallback: XDG config dir on Linux/macOS, AppData on Windows
+    #[cfg(target_os = "windows")]
+    {
+        if let Some(appdata) = std::env::var_os("APPDATA") {
+            return PathBuf::from(appdata).join("jupiteros");
+        }
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        if let Some(home) = std::env::var_os("HOME") {
+            return PathBuf::from(home).join(".config").join("jupiteros");
+        }
+    }
+    std::env::temp_dir().join("jupiteros")
 }
 
 pub fn mcp_json_path() -> PathBuf {

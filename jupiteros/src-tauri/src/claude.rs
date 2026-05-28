@@ -201,10 +201,12 @@ impl AgentSidecar {
         app_handle: AppHandle,
         sessions: Arc<Mutex<Vec<ChatSession>>>,
     ) -> Result<Self, String> {
-        let sidecar_path = config::get_base_dir()
-            .join("jupiteros")
-            .join("sidecar")
-            .join("agent.mjs");
+        let base = config::get_base_dir();
+        let sidecar_path = {
+            let with_sub = base.join("jupiteros").join("sidecar").join("agent.mjs");
+            let without_sub = base.join("sidecar").join("agent.mjs");
+            if with_sub.exists() { with_sub } else { without_sub }
+        };
 
         if !sidecar_path.exists() {
             return Err(format!("Sidecar not found: {:?}", sidecar_path));

@@ -439,6 +439,24 @@ rl.on("line", async (line) => {
   }
 });
 
+rl.on("close", () => {
+  process.stderr.write("[SIDECAR] stdin closed (readline close event) — exiting\n");
+  process.exit(0);
+});
+
+process.on("exit", (code) => {
+  process.stderr.write(`[SIDECAR] process.exit called with code ${code}\n`);
+});
+
+process.on("uncaughtException", (err) => {
+  process.stderr.write(`[SIDECAR] uncaughtException: ${err.stack}\n`);
+  process.exit(1);
+});
+
+process.on("unhandledRejection", (reason) => {
+  process.stderr.write(`[SIDECAR] unhandledRejection: ${reason}\n`);
+});
+
 // Handle process signals gracefully
 process.on("SIGTERM", () => {
   for (const [, entry] of sessions) {

@@ -59,6 +59,16 @@ pub fn send_chat_message(
     }
 
     state.send_to_sidecar(cmd).map_err(|e| {
+        // Log the failure so it appears in the debug file
+        let log_path = crate::config::get_base_dir().join(".claude-gui-debug.log");
+        if let Ok(mut log) = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&log_path)
+        {
+            use std::io::Write;
+            let _ = writeln!(log, "[SEND-ERROR] session={} error={}", session_id, e);
+        }
         // Unmark busy on send failure
         if let Ok(mut sessions) = state.sessions.lock() {
             if let Some(s) = sessions.iter_mut().find(|s| s.id == session_id) {

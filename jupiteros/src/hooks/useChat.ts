@@ -206,8 +206,19 @@ export function useChat() {
       try {
         await sendChatMessage(sid, text, imageDataList);
       } catch (e) {
+        const errMsg = String(e);
         setStreaming(false);
-        setError(String(e));
+        setError(errMsg);
+        // Show the error as an assistant message so it's visible in the chat
+        data.messages.push({
+          id: nextMsgId(),
+          role: "assistant",
+          content: `Error: ${errMsg}`,
+          toolCalls: [],
+          timestamp: Date.now(),
+          streaming: false,
+        });
+        syncMessages(sid);
       }
     },
     []
