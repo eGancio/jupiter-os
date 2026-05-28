@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
-use jupiteros_shared::store::{MessageData, MessageStore};
+use jupiteros_shared::store::{EmptyDatePoint, MessageData, MessageStore};
 use rmcp::handler::server::tool::{Parameters, ToolRouter};
 use rmcp::model::*;
 use rmcp::{tool, tool_handler, tool_router, ServerHandler};
@@ -273,6 +273,16 @@ struct IndexEmailsParams {
     full_reindex: Option<bool>,
     /// Account to index (e.g. "primary", "gmail"). Defaults to all configured accounts.
     account: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, JsonSchema)]
+struct RepairEmptyDatesParams {
+    /// Account to repair (e.g. "aruba", "gmail"). REQUIRED so we know which
+    /// backend to query for the IMAP INTERNALDATE / Gmail internalDate.
+    account: String,
+    /// If true, only count matching points and return a preview — does NOT
+    /// modify Qdrant. Default false (actually repair).
+    dry_run: Option<bool>,
 }
 
 #[derive(Serialize, Deserialize, JsonSchema)]
@@ -1601,6 +1611,152 @@ impl MoonIoServer {
         });
 
         Ok("Reset e re-indicizzazione avviati in background. Usa index_status per monitorare il progresso.".to_string())
+    }
+
+    /// Repair Qdrant points whose `date` payload is empty by re-querying
+    /// IMAP INTERNALDATE / Gmail internalDate. Does NOT re-download bodies
+    /// nor recompute embeddings — only patches the date payload.
+    #[tool(
+        name = "repair_empty_dates",
+        description = "Fix Qdrant points whose 'date' payload is empty (broken indexing pre-fix) by re-querying IMAP INTERNALDATE / Gmail internalDate. Lightweight: no body download, no re-embedding. Returns {scanned, repaired, skipped_no_uid, skipped_no_date, errors}."
+    )]
+    async fn repair_empty_dates(
+        &self,
+        params: Parameters<RepairEmptyDatesParams>,
+    ) -> Result<String, String> {
+        let p = params.0;
+        let dry_run = p.dry_run.unwrap_or(false);
+        let account_name = p.account.trim().to_string();
+        if account_name.is_empty() {
+            return Err("Parametro 'account' obbligatorio (es. \"aruba\", \"gmail\").".into());
+        }
+
+        let account = self
+            .config
+            .account(&account_name)
+            .cloned()
+            .ok_or_else(|| format!("Account '{account_name}' non configurato."))?;
+
+        // 1. Scroll Qdrant for points with date = "".
+        let points: Vec<EmptyDatePoint> = self
+            .store
+            .scroll_empty_dates(Some(&account_name))
+            .await
+            .map_err(|e| format!("Scroll empty dates: {e}"))?;
+
+        let scanned = points.len();
+        info!(
+            "repair_empty_dates [{}]: scanned {} points with empty date (dry_run={})",
+            account_name, scanned, dry_run
+        );
+
+        // Group by folder. Skip points without imap_uid (can't query server).
+        let mut by_folder: std::collections::HashMap<String, Vec<(String, u32)>> =
+            std::collections::HashMap::new();
+        let mut skipped_no_uid = 0usize;
+        for pt in points {
+            let Some(uid) = pt.imap_uid else {
+                skipped_no_uid += 1;
+                continue;
+            };
+            if pt.folder.is_empty() {
+                skipped_no_uid += 1;
+                continue;
+            }
+            by_folder
+                .entry(pt.folder.clone())
+                .or_default()
+                .push((pt.point_id, uid));
+        }
+
+        if dry_run {
+            let preview: Vec<Value> = by_folder
+                .iter()
+                .map(|(folder, items)| serde_json::json!({
+                    "folder": folder,
+                    "count": items.len(),
+                }))
+                .collect();
+            return Ok(serde_json::json!({
+                "account": account_name,
+                "dry_run": true,
+                "scanned": scanned,
+                "would_repair": scanned - skipped_no_uid,
+                "skipped_no_uid": skipped_no_uid,
+                "by_folder": preview,
+            })
+            .to_string());
+        }
+
+        // 2. For each folder, query backend for INTERNALDATE per UID.
+        let backend = build_backend(
+            account.clone(),
+            self.config.signature_dir.clone(),
+            self.oauth_cache.clone(),
+        );
+
+        let mut repaired = 0usize;
+        let mut skipped_no_date = 0usize;
+        let mut errors = 0usize;
+
+        for (folder, items) in &by_folder {
+            // Chunk UIDs to keep IMAP commands bounded.
+            for chunk in items.chunks(500) {
+                let uids: Vec<u32> = chunk.iter().map(|(_, u)| *u).collect();
+                let dates = match backend.fetch_internal_dates(folder, &uids).await {
+                    Ok(m) => m,
+                    Err(e) => {
+                        warn!(
+                            "repair_empty_dates [{}] {folder}: fetch_internal_dates failed: {e}",
+                            account_name
+                        );
+                        errors += chunk.len();
+                        continue;
+                    }
+                };
+
+                let mut batch: Vec<(String, String)> = Vec::with_capacity(chunk.len());
+                for (point_id, uid) in chunk {
+                    match dates.get(uid) {
+                        Some(d) => batch.push((point_id.clone(), d.clone())),
+                        None => skipped_no_date += 1,
+                    }
+                }
+
+                if batch.is_empty() {
+                    continue;
+                }
+
+                match self.store.set_date_payload_batch(&batch).await {
+                    Ok(n) => {
+                        repaired += n;
+                        info!(
+                            "repair_empty_dates [{}] {folder}: patched {n}/{} (running total {repaired})",
+                            account_name,
+                            batch.len()
+                        );
+                    }
+                    Err(e) => {
+                        warn!(
+                            "repair_empty_dates [{}] {folder}: set_date_payload_batch failed: {e}",
+                            account_name
+                        );
+                        errors += batch.len();
+                    }
+                }
+            }
+        }
+
+        Ok(serde_json::json!({
+            "account": account_name,
+            "dry_run": false,
+            "scanned": scanned,
+            "repaired": repaired,
+            "skipped_no_uid": skipped_no_uid,
+            "skipped_no_date": skipped_no_date,
+            "errors": errors,
+        })
+        .to_string())
     }
 
     /// Manually trigger email indexing (background).

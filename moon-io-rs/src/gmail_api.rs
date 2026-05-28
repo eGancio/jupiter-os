@@ -16,10 +16,21 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 use base64::Engine as _;
+use chrono::TimeZone;
 use mail_parser::MimeHeaders;
 use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
 use tracing::{debug, info, warn};
+
+/// Convert a Gmail `internalDate` (ms since epoch, as string) to RFC3339.
+/// Returns `None` if the string is empty or doesn't parse.
+fn gmail_internal_date_to_rfc3339(ms_str: &str) -> Option<String> {
+    let ms: i64 = ms_str.parse().ok()?;
+    chrono::Utc
+        .timestamp_millis_opt(ms)
+        .single()
+        .map(|d| d.to_rfc3339())
+}
 
 use crate::config::AccountConfig;
 use crate::email_client::{
@@ -492,7 +503,7 @@ impl GmailApiBackend {
                 })
                 .unwrap_or_default();
             if let Some(parsed) = mail_parser::MessageParser::default().parse(&raw[..]) {
-                return self.parsed_to_emaildata(&parsed, synthetic_uid);
+                return self.parsed_to_emaildata(&parsed, synthetic_uid, &msg.internal_date);
             }
         }
         // Otherwise reconstruct minimal EmailData from payload headers + body
@@ -503,6 +514,7 @@ impl GmailApiBackend {
         &self,
         parsed: &mail_parser::Message<'_>,
         uid: u32,
+        internal_date_ms: &str,
     ) -> EmailData {
         let from = parsed
             .from()
@@ -526,7 +538,13 @@ impl GmailApiBackend {
             .map(|l| l.iter().map(|a| a.address().unwrap_or("").to_string()).collect())
             .unwrap_or_default();
         let subject = parsed.subject().unwrap_or("(nessun oggetto)").to_string();
-        let date = parsed.date().map(|d| d.to_rfc3339()).unwrap_or_default();
+        // Header Date is often missing on bulk newsletters — fall back to
+        // Gmail `internalDate` (ms since epoch, always present from the API).
+        let date = parsed
+            .date()
+            .map(|d| d.to_rfc3339())
+            .or_else(|| gmail_internal_date_to_rfc3339(internal_date_ms))
+            .unwrap_or_default();
         let message_id = parsed.message_id().unwrap_or("").to_string();
         let in_reply_to = parsed.in_reply_to().as_text().map(|s| s.to_string());
         let references = parsed.references().as_text_list().map(|l| {
@@ -601,7 +619,14 @@ impl GmailApiBackend {
         let to_raw = header("To");
         let cc_raw = header("Cc");
         let subject = header("Subject");
-        let date = header("Date");
+        let raw_date = header("Date");
+        // Try to parse the header Date as RFC2822 → RFC3339; otherwise fall back
+        // to Gmail's `internalDate` (ms since epoch, always set by the API).
+        let date = chrono::DateTime::parse_from_rfc2822(raw_date.trim())
+            .ok()
+            .map(|d| d.to_rfc3339())
+            .or_else(|| gmail_internal_date_to_rfc3339(&msg.internal_date))
+            .unwrap_or_default();
         let message_id = header("Message-ID");
 
         let to: Vec<String> = to_raw
@@ -806,6 +831,40 @@ impl MailBackend for GmailApiBackend {
             uids.len()
         );
         Ok(uids)
+    }
+
+    async fn fetch_internal_dates(
+        &self,
+        _folder: &str,
+        uids: &[u32],
+    ) -> Result<HashMap<u32, String>> {
+        if uids.is_empty() {
+            return Ok(HashMap::new());
+        }
+        use futures_util::stream::{self, StreamExt};
+
+        let concurrency = 16;
+        let stream = stream::iter(uids.to_vec()).map(|uid| async move {
+            let gmail_id = self.msgid_for_uid(uid).await.ok()?;
+            let url = format!(
+                "{GMAIL_API}/messages/{gmail_id}?format=minimal&fields=internalDate"
+            );
+            let msg = match self.get_json::<MessageFull>(&url).await {
+                Ok(m) => m,
+                Err(e) => {
+                    warn!("[{}] gmail internalDate {gmail_id}: {e}", self.account.name);
+                    return None;
+                }
+            };
+            gmail_internal_date_to_rfc3339(&msg.internal_date).map(|d| (uid, d))
+        });
+
+        let pairs: Vec<(u32, String)> = stream
+            .buffer_unordered(concurrency)
+            .filter_map(|x| async move { x })
+            .collect()
+            .await;
+        Ok(pairs.into_iter().collect())
     }
 
     async fn fetch_emails_by_uids(
@@ -1144,6 +1203,7 @@ impl MailBackend for GmailApiBackend {
                 let date = parsed
                     .date()
                     .map(|d| d.to_rfc3339())
+                    .or_else(|| gmail_internal_date_to_rfc3339(&msg.internal_date))
                     .unwrap_or_default();
                 bounces.push(BounceInfo {
                     message_id,

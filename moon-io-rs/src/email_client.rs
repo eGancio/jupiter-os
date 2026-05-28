@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
 use base64::Engine as _;
+use chrono::{DateTime, FixedOffset};
 use futures::StreamExt;
 use mail_parser::MimeHeaders;
 use regex::Regex;
@@ -296,7 +297,7 @@ impl EmailClient {
         for msg in &messages_vec {
             if let Some(header) = msg.header() {
                 if let Some(parsed) = mail_parser::MessageParser::default().parse(header) {
-                    let email = self.parse_mail_header(&parsed, msg.uid);
+                    let email = self.parse_mail_header(&parsed, msg.uid, msg.internal_date());
                     results.push(email);
                 }
             }
@@ -316,7 +317,7 @@ impl EmailClient {
 
         let uid_str = email_uid.to_string();
         let messages_stream = session
-            .uid_fetch(&uid_str, "BODY.PEEK[]")
+            .uid_fetch(&uid_str, "(BODY.PEEK[] INTERNALDATE)")
             .await
             .map_err(|e| IoError::Imap(format!("FETCH: {e}")))?;
 
@@ -326,12 +327,13 @@ impl EmailClient {
             .first()
             .ok_or_else(|| IoError::NotFound(format!("Email UID {email_uid} not found")))?;
 
+        let internal_date = msg.internal_date();
         let body = msg.body().unwrap_or_default();
         let parsed = mail_parser::MessageParser::default()
             .parse(body)
             .ok_or_else(|| IoError::Parse("Failed to parse email".into()))?;
 
-        let email = self.parse_full_email(&parsed, Some(email_uid));
+        let email = self.parse_full_email(&parsed, Some(email_uid), internal_date);
 
         session.logout().await.ok();
         Ok(email)
@@ -478,7 +480,7 @@ impl EmailClient {
             .join(",");
 
         let messages_stream = session
-            .uid_fetch(&uid_set, "(UID BODY.PEEK[HEADER])")
+            .uid_fetch(&uid_set, "(UID BODY.PEEK[HEADER] INTERNALDATE)")
             .await
             .map_err(|e| IoError::Imap(format!("FETCH: {e}")))?;
 
@@ -488,7 +490,7 @@ impl EmailClient {
         for msg in &messages_vec {
             if let Some(header) = msg.header() {
                 if let Some(parsed) = mail_parser::MessageParser::default().parse(header) {
-                    results.push(self.parse_mail_header(&parsed, msg.uid));
+                    results.push(self.parse_mail_header(&parsed, msg.uid, msg.internal_date()));
                 }
             }
         }
@@ -766,7 +768,7 @@ impl EmailClient {
             .join(",");
 
         let messages_stream = session
-            .uid_fetch(&uid_set, "BODY.PEEK[]")
+            .uid_fetch(&uid_set, "(BODY.PEEK[] INTERNALDATE)")
             .await
             .map_err(|e| IoError::Imap(format!("FETCH: {e}")))?;
 
@@ -777,6 +779,7 @@ impl EmailClient {
         let mut seen_ids = std::collections::HashSet::new();
 
         for msg in &messages_vec {
+            let internal_date = msg.internal_date();
             let raw = msg.body().unwrap_or_default();
             let parsed = match mail_parser::MessageParser::default().parse(raw) {
                 Some(p) => p,
@@ -800,6 +803,7 @@ impl EmailClient {
                 let date = parsed
                     .date()
                     .map(|d| d.to_rfc3339())
+                    .or_else(|| internal_date.map(|d| d.to_rfc3339()))
                     .unwrap_or_default();
 
                 bounces.push(BounceInfo {
@@ -931,6 +935,49 @@ impl EmailClient {
         Ok(uid_list)
     }
 
+    /// Fetch only `INTERNALDATE` for a list of UIDs. Lightweight (no body,
+    /// no headers). Returns a map UID → RFC3339. UIDs not present on the
+    /// server are silently omitted.
+    pub async fn fetch_internal_dates(
+        &self,
+        folder: &str,
+        uids: &[u32],
+    ) -> Result<std::collections::HashMap<u32, String>> {
+        if uids.is_empty() {
+            return Ok(std::collections::HashMap::new());
+        }
+
+        let mut session = self.connect_imap().await?;
+        session
+            .select(folder)
+            .await
+            .map_err(|e| IoError::Imap(format!("SELECT {folder}: {e}")))?;
+
+        let uid_set: String = uids
+            .iter()
+            .map(|u| u.to_string())
+            .collect::<Vec<_>>()
+            .join(",");
+
+        let messages_stream = session
+            .uid_fetch(&uid_set, "(UID INTERNALDATE)")
+            .await
+            .map_err(|e| IoError::Imap(format!("FETCH INTERNALDATE: {e}")))?;
+
+        let messages_vec = self.collect_fetch(messages_stream).await?;
+
+        let mut out = std::collections::HashMap::with_capacity(messages_vec.len());
+        for msg in &messages_vec {
+            let (Some(uid), Some(idate)) = (msg.uid, msg.internal_date()) else {
+                continue;
+            };
+            out.insert(uid, idate.to_rfc3339());
+        }
+
+        session.logout().await.ok();
+        Ok(out)
+    }
+
     /// Fetch full email data for a list of UIDs (for indexing).
     pub async fn fetch_emails_by_uids(
         &self,
@@ -954,7 +1001,7 @@ impl EmailClient {
             .join(",");
 
         let messages_stream = session
-            .uid_fetch(&uid_set, "(UID BODY.PEEK[])")
+            .uid_fetch(&uid_set, "(UID BODY.PEEK[] INTERNALDATE)")
             .await
             .map_err(|e| IoError::Imap(format!("FETCH: {e}")))?;
 
@@ -962,9 +1009,10 @@ impl EmailClient {
 
         let mut results = Vec::new();
         for msg in &messages_vec {
+            let internal_date = msg.internal_date();
             let raw = msg.body().unwrap_or_default();
             if let Some(parsed) = mail_parser::MessageParser::default().parse(raw) {
-                let email = self.parse_full_email(&parsed, msg.uid);
+                let email = self.parse_full_email(&parsed, msg.uid, internal_date);
                 results.push(email);
             }
         }
@@ -1202,6 +1250,7 @@ impl EmailClient {
         &self,
         parsed: &mail_parser::Message<'_>,
         uid: Option<u32>,
+        internal_date: Option<DateTime<FixedOffset>>,
     ) -> EmailData {
         let from = parsed
             .from()
@@ -1240,9 +1289,12 @@ impl EmailClient {
             .unwrap_or("(nessun oggetto)")
             .to_string();
 
+        // Header Date often missing/malformed on bulk newsletters and certain
+        // mailer-daemon bounces — fall back to IMAP INTERNALDATE (always present).
         let date = parsed
             .date()
             .map(|d| d.to_rfc3339())
+            .or_else(|| internal_date.map(|d| d.to_rfc3339()))
             .unwrap_or_default();
 
         let message_id = parsed.message_id().unwrap_or("").to_string();
@@ -1278,8 +1330,9 @@ impl EmailClient {
         &self,
         parsed: &mail_parser::Message<'_>,
         uid: Option<u32>,
+        internal_date: Option<DateTime<FixedOffset>>,
     ) -> EmailData {
-        let mut email = self.parse_mail_header(parsed, uid);
+        let mut email = self.parse_mail_header(parsed, uid, internal_date);
 
         let body = parsed
             .body_text(0)
@@ -1447,6 +1500,14 @@ impl crate::mail_backend::MailBackend for EmailClient {
         uids: &[u32],
     ) -> Result<Vec<EmailData>> {
         EmailClient::fetch_emails_by_uids(self, folder, uids).await
+    }
+
+    async fn fetch_internal_dates(
+        &self,
+        folder: &str,
+        uids: &[u32],
+    ) -> Result<std::collections::HashMap<u32, String>> {
+        EmailClient::fetch_internal_dates(self, folder, uids).await
     }
 
     async fn search_uids_filtered(

@@ -4,14 +4,16 @@ use std::sync::Arc;
 use chrono::Utc;
 use qdrant_client::qdrant::{
     point_id::PointIdOptions,
+    points_selector::PointsSelectorOneOf,
     vector::Vector as VectorEnum,
     vectors::VectorsOptions,
     vectors_config::Config as VectorsConfigEnum,
     Condition, CreateCollectionBuilder, CreateFieldIndexCollectionBuilder, DeletePointsBuilder,
     DenseVector, Distance, FieldType, Filter, GetPointsBuilder, NamedVectors, OrderBy, PointId,
-    PointStruct, ScrollPointsBuilder, SearchPointsBuilder, SparseIndices, SparseVector,
-    SparseVectorConfig, SparseVectorParams, UpsertPointsBuilder, Value as QdrantValue, Vector,
-    VectorParams, VectorParamsMap, Vectors, VectorsConfig,
+    PointStruct, PointsIdsList, ScrollPointsBuilder, SearchPointsBuilder,
+    SetPayloadPointsBuilder, SparseIndices, SparseVector, SparseVectorConfig, SparseVectorParams,
+    UpsertPointsBuilder, Value as QdrantValue, Vector, VectorParams, VectorParamsMap, Vectors,
+    VectorsConfig,
 };
 use qdrant_client::Qdrant;
 use serde::{Deserialize, Serialize};
@@ -109,6 +111,22 @@ pub struct IndexResult {
 pub struct StoreStats {
     pub total: usize,
     pub by_channel: HashMap<String, usize>,
+}
+
+/// A point in Qdrant whose `date` payload is empty (broken/missing).
+/// Returned by `MessageStore::scroll_empty_dates` so callers can repair the
+/// payload in-place using the IMAP `INTERNALDATE` / Gmail `internalDate`.
+#[derive(Debug, Clone)]
+pub struct EmptyDatePoint {
+    /// Qdrant point ID (UUID v5).
+    pub point_id: String,
+    /// `account` payload field (e.g. "aruba", "gmail"). May be empty for
+    /// legacy pre-multi-account points.
+    pub account: String,
+    /// `folder` payload field (e.g. "INBOX", "INBOX.Sent").
+    pub folder: String,
+    /// IMAP UID — required to fetch INTERNALDATE from the server.
+    pub imap_uid: Option<u32>,
 }
 
 /// Qdrant-backed vector store for messages/emails.
@@ -329,6 +347,101 @@ impl MessageStore {
         self.ensure_collection().await?;
         info!("Collection '{}' recreated", self.collection_name);
         Ok(())
+    }
+
+    /// Scroll all points whose `date` payload is the empty string.
+    ///
+    /// Server-side filter only narrows to namespace + account: the `date`
+    /// field is indexed as `Datetime`, so `Condition::matches("date", "")`
+    /// never returns hits (an empty string is not a valid datetime). We scan
+    /// the account-scoped slice and inspect the raw payload string here.
+    pub async fn scroll_empty_dates(&self, account: Option<&str>) -> Result<Vec<EmptyDatePoint>> {
+        let mut conditions: Vec<Condition> = Vec::new();
+        if let Some(ns) = &self.namespace {
+            conditions.push(Condition::matches("_namespace", ns.clone()));
+        }
+        if let Some(c) = account_condition(account) {
+            conditions.push(c);
+        }
+
+        let mut out = Vec::new();
+        let mut next_offset: Option<PointId> = None;
+        loop {
+            let mut scroll = ScrollPointsBuilder::new(&self.collection_name)
+                .limit(500u32)
+                .with_payload(true)
+                .with_vectors(false);
+            if !conditions.is_empty() {
+                scroll = scroll.filter(Filter::must(conditions.clone()));
+            }
+            if let Some(off) = next_offset {
+                scroll = scroll.offset(off);
+            }
+
+            let response = self
+                .client
+                .scroll(scroll)
+                .await
+                .map_err(|e| SharedError::Qdrant(format!("Scroll empty dates: {e}")))?;
+
+            for pt in &response.result {
+                let date = Self::payload_str(&pt.payload, "date");
+                if !date.is_empty() {
+                    continue;
+                }
+                let Some(id_options) = pt.id.as_ref().and_then(|i| i.point_id_options.as_ref())
+                else {
+                    continue;
+                };
+                let point_id = match id_options {
+                    PointIdOptions::Uuid(s) => s.clone(),
+                    PointIdOptions::Num(n) => n.to_string(),
+                };
+                out.push(EmptyDatePoint {
+                    point_id,
+                    account: Self::payload_str(&pt.payload, "account"),
+                    folder: Self::payload_str(&pt.payload, "folder"),
+                    imap_uid: Self::payload_imap_uid(&pt.payload),
+                });
+            }
+
+            next_offset = response.next_page_offset;
+            if next_offset.is_none() {
+                break;
+            }
+        }
+
+        Ok(out)
+    }
+
+    /// Set the `date` payload field on a batch of points without re-embedding.
+    ///
+    /// Each item is `(point_id, date_rfc3339)`. One Qdrant RPC per point —
+    /// caller is expected to cap concurrency upstream. Returns the number of
+    /// successful updates (errors are logged and skipped).
+    pub async fn set_date_payload_batch(
+        &self,
+        items: &[(String, String)],
+    ) -> Result<usize> {
+        let mut ok = 0usize;
+        for (point_id, date) in items {
+            let mut payload: HashMap<String, QdrantValue> = HashMap::new();
+            payload.insert("date".into(), date.clone().into());
+
+            let selector = PointsSelectorOneOf::Points(PointsIdsList {
+                ids: vec![PointId::from(point_id.as_str())],
+            });
+
+            let req = SetPayloadPointsBuilder::new(&self.collection_name, payload)
+                .points_selector(selector)
+                .wait(false);
+
+            match self.client.set_payload(req).await {
+                Ok(_) => ok += 1,
+                Err(e) => warn!("set_payload {point_id}: {e}"),
+            }
+        }
+        Ok(ok)
     }
 
     /// Build a point ID from a message ID string (deterministic UUID v5).

@@ -8,6 +8,7 @@
 //!
 //! Both share the OAuth access-token cache from `oauth::AccessTokenCache`.
 
+use std::collections::HashMap;
 use std::future::Future;
 use std::path::PathBuf;
 use std::pin::Pin;
@@ -49,6 +50,17 @@ pub trait MailBackend: Send + Sync {
         folder: &str,
         uids: &[u32],
     ) -> Result<Vec<EmailData>>;
+
+    /// Fetch only the server-side `INTERNALDATE` (IMAP) or `internalDate`
+    /// (Gmail) for the given UIDs. Returns a map UID → RFC3339. Used by the
+    /// `repair_empty_dates` MCP tool to fix points whose `date` payload is
+    /// empty without re-downloading the body or re-embedding.
+    async fn fetch_internal_dates(
+        &self,
+        folder: &str,
+        uids: &[u32],
+    ) -> Result<HashMap<u32, String>>;
+
     async fn search_uids_filtered(
         &self,
         folder: &str,
