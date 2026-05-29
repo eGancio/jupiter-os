@@ -3,6 +3,7 @@ import { ChatList } from "../sidebar/ChatList";
 import { MoonList } from "../sidebar/MoonList";
 import { useAutostart } from "../../hooks/useAutostart";
 import { startAll, stopAll } from "../../lib/tauri";
+import { useT } from "../../i18n";
 import type { ServiceInfo, ChatSessionInfo } from "../../types";
 
 interface Props {
@@ -11,6 +12,8 @@ interface Props {
   onSelectMoon: (name: string) => void;
   onMoonInfo: (name: string) => void;
   onRefresh: () => void;
+  onAddMoon: () => void;
+  onRemoveMoon: (name: string) => void;
   chatSessions: ChatSessionInfo[];
   activeSessionId: string | null;
   onSelectSession: (id: string) => void;
@@ -25,6 +28,8 @@ export function Sidebar({
   onSelectMoon,
   onMoonInfo,
   onRefresh,
+  onAddMoon,
+  onRemoveMoon,
   chatSessions,
   activeSessionId,
   onSelectSession,
@@ -33,6 +38,7 @@ export function Sidebar({
   onRenameSession,
 }: Props) {
   const { enabled: autostart, toggle: toggleAutostart } = useAutostart();
+  const { t, lang, setLang } = useT();
 
   const handleStartAll = async () => {
     await startAll();
@@ -70,6 +76,8 @@ export function Sidebar({
           selected={selectedMoon}
           onSelect={onSelectMoon}
           onInfoClick={onMoonInfo}
+          onAddMoon={onAddMoon}
+          onRemoveMoon={onRemoveMoon}
         />
       </div>
 
@@ -82,13 +90,13 @@ export function Sidebar({
             onClick={handleStartAll}
             className="flex-1 px-2 py-1 text-[11px] rounded bg-jupiter-orange/15 text-jupiter-orange border border-jupiter-orange/30 hover:bg-jupiter-orange/25 hover:text-jupiter-orange-light transition-colors"
           >
-            Start All
+            {t("sidebar.startAll")}
           </button>
           <button
             onClick={handleStopAll}
             className="flex-1 px-2 py-1 text-[11px] rounded bg-jupiter-orange/15 text-jupiter-orange border border-jupiter-orange/30 hover:bg-jupiter-orange/25 hover:text-jupiter-orange-light transition-colors"
           >
-            Stop All
+            {t("sidebar.stopAll")}
           </button>
         </div>
         <label className="flex items-center gap-2 text-[11px] text-jupiter-dim cursor-pointer">
@@ -98,8 +106,28 @@ export function Sidebar({
             onChange={toggleAutostart}
             className="rounded border-jupiter-orange/25 bg-jupiter-elevated accent-jupiter-blue"
           />
-          Start with Windows
+          {t("sidebar.startWithSystem")}
         </label>
+
+        {/* Language selector */}
+        <div className="flex items-center gap-1.5 pt-0.5">
+          <span className="text-[11px] text-jupiter-dim flex-1">{t("sidebar.language")}</span>
+          <div className="flex gap-1 bg-jupiter-elevated rounded p-0.5">
+            {(["it", "en"] as const).map((l) => (
+              <button
+                key={l}
+                onClick={() => setLang(l)}
+                className={`px-2 py-0.5 text-[10px] rounded uppercase font-medium transition-colors ${
+                  lang === l
+                    ? "bg-jupiter-orange text-white"
+                    : "text-jupiter-dim hover:text-white"
+                }`}
+              >
+                {l}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
     </aside>
   );

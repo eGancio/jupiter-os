@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { getMoonInfo, getMoonColor } from "../../lib/moonInfo";
+import { useT } from "../../i18n";
 
 interface Props {
   moonName: string;
@@ -14,6 +15,7 @@ const SIZES = [
 ];
 
 export function MoonInfoModal({ moonName, running, onClose }: Props) {
+  const { t } = useT();
   const info = getMoonInfo(moonName);
   const [sizeIdx, setSizeIdx] = useState(1);
   const size = SIZES[sizeIdx];
@@ -50,12 +52,12 @@ export function MoonInfoModal({ moonName, running, onClose }: Props) {
                 }`}
               />
               <span className="text-[10px] text-jupiter-dim">
-                {running ? "Running" : "Stopped"}
+                {running ? t("status.running") : t("status.stopped")}
               </span>
             </div>
             {info && (
               <p className="text-[11px] text-jupiter-dim mt-0.5">
-                {info.category}
+                {t(info.categoryKey)}
               </p>
             )}
           </div>
@@ -88,12 +90,12 @@ export function MoonInfoModal({ moonName, running, onClose }: Props) {
           {info ? (
             <>
               <p className="text-[12px] text-jupiter-muted leading-relaxed mb-3">
-                {info.description}
+                {t(info.descKey)}
               </p>
 
               <div className="flex items-center gap-2 text-[11px] text-jupiter-dim mb-4">
                 <span>
-                  Port:{" "}
+                  {t("moonInfo.port")}:{" "}
                   <span className="text-white font-medium">{info.port}</span>
                 </span>
                 <span className="text-jupiter-dim/30">·</span>
@@ -102,7 +104,7 @@ export function MoonInfoModal({ moonName, running, onClose }: Props) {
 
               <div className="border-t border-jupiter-orange/10 pt-3">
                 <h3 className="text-[10px] font-semibold uppercase tracking-wider text-jupiter-dim mb-2">
-                  Tools ({info.tools.length})
+                  {t("moonInfo.tools", { count: info.tools.length })}
                 </h3>
                 <div className="space-y-1 pr-1">
                   {info.tools.map((tool) => (
@@ -114,7 +116,7 @@ export function MoonInfoModal({ moonName, running, onClose }: Props) {
                         {tool.name}
                       </code>
                       <span className="text-[10px] text-jupiter-muted leading-tight">
-                        {tool.description}
+                        {t(tool.descKey)}
                       </span>
                     </div>
                   ))}
@@ -123,7 +125,7 @@ export function MoonInfoModal({ moonName, running, onClose }: Props) {
             </>
           ) : (
             <p className="text-[12px] text-jupiter-dim">
-              No information available for this service.
+              {t("moonInfo.none")}
             </p>
           )}
         </div>

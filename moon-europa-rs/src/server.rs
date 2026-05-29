@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::future::Future;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -10,16 +11,20 @@ use rmcp::{tool, tool_handler, tool_router, ServerHandler};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::adapters::telegram::TelegramAdapter;
 use crate::adapters::MessagingAdapter;
 use crate::config::Config;
 
+/// Registry of messaging adapters keyed by channel name ("telegram", "slack", "teams").
+pub type AdapterMap = HashMap<String, Arc<dyn MessagingAdapter>>;
+
 /// Moon Europa MCP Server.
 ///
-/// Exposes 10 tools for messaging operations (Telegram, future WhatsApp/Discord).
+/// Exposes the messaging tools and routes channel-specific operations
+/// (send/contacts/media) to the configured adapter for that channel.
 pub struct EuropaServer {
     store: Arc<MessageStore>,
-    adapter: Arc<TelegramAdapter>,
+    adapters: AdapterMap,
+    #[allow(dead_code)]
     config: Config,
     tool_router: ToolRouter<Self>,
 }
@@ -128,13 +133,26 @@ struct IndexMessageParams {
 
 #[tool_router]
 impl EuropaServer {
-    pub fn new(store: Arc<MessageStore>, adapter: Arc<TelegramAdapter>, config: Config) -> Self {
+    pub fn new(store: Arc<MessageStore>, adapters: AdapterMap, config: Config) -> Self {
         Self {
             store,
-            adapter,
+            adapters,
             config,
             tool_router: Self::tool_router(),
         }
+    }
+
+    /// Resolve the adapter for a `channel` parameter (default "telegram").
+    fn adapter(&self, channel: Option<&str>) -> Result<&Arc<dyn MessagingAdapter>, String> {
+        let ch = channel.map(|s| s.trim()).filter(|s| !s.is_empty()).unwrap_or("telegram");
+        self.adapters.get(ch).ok_or_else(|| {
+            let configured: Vec<&str> = self.adapters.keys().map(|s| s.as_str()).collect();
+            format!(
+                "Channel '{ch}' is not configured. Configured channels: [{}]. \
+                 Set it up from the Europa panel in JupiterOS.",
+                configured.join(", ")
+            )
+        })
     }
 
     /// List message headers (date, sender, chat, preview). Fast, metadata only.
@@ -333,6 +351,7 @@ impl EuropaServer {
         params: Parameters<SendMessageParams>,
     ) -> Result<String, String> {
         let p = params.0;
+        let adapter = self.adapter(p.channel.as_deref())?;
         let message = p.message.unwrap_or_default();
         let attachment_paths: Vec<PathBuf> = p
             .attachments
@@ -342,8 +361,7 @@ impl EuropaServer {
             .filter(|p| !p.as_os_str().is_empty())
             .collect();
 
-        let result = self
-            .adapter
+        let result = adapter
             .send_message_and_index(&p.to, &message, &attachment_paths, &self.store)
             .await
             .map_err(|e| format!("Send: {e}"))?;
@@ -360,9 +378,9 @@ impl EuropaServer {
         &self,
         params: Parameters<ListContactsParams>,
     ) -> Result<String, String> {
-        let _p = params.0;
-        let contacts = self
-            .adapter
+        let p = params.0;
+        let adapter = self.adapter(p.channel.as_deref())?;
+        let contacts = adapter
             .list_contacts()
             .await
             .map_err(|e| format!("List contacts: {e}"))?;
@@ -394,6 +412,7 @@ impl EuropaServer {
         params: Parameters<SaveMediaParams>,
     ) -> Result<String, String> {
         let p = params.0;
+        let adapter = self.adapter(p.channel.as_deref())?;
         let last_n = p.last_n.unwrap_or(1).clamp(1, 10) as usize;
         let save_dir = p
             .save_dir
@@ -402,8 +421,7 @@ impl EuropaServer {
 
         let msg_id = p.message_id.filter(|id| *id > 0);
 
-        let files = self
-            .adapter
+        let files = adapter
             .save_media(&p.chat, msg_id, last_n, &save_dir)
             .await
             .map_err(|e| format!("Save media: {e}"))?;

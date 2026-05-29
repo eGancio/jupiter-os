@@ -41,6 +41,19 @@ impl ServiceState {
             return;
         }
 
+        // Kill any orphaned process already on our MCP port (e.g. from a
+        // previous JupiterOS session that wasn't tracked in self.child).
+        if let Some(port_str) = self.def.env.get("MCP_PORT") {
+            if let Ok(port) = port_str.parse::<u16>() {
+                kill_process_on_port(port, &self.logs);
+                // Give the OS a moment to release the port after SIGKILL
+                std::thread::sleep(std::time::Duration::from_millis(200));
+            }
+        }
+
+        // Re-read env from .mcp.json so credentials added after startup are picked up
+        self.refresh_env_from_disk();
+
         let mut cmd = Command::new(&self.def.command);
         cmd.args(&self.def.args);
         cmd.envs(&self.def.env);
@@ -127,6 +140,27 @@ impl ServiceState {
         }
     }
 
+    /// Re-read this service's env vars from .mcp.json so that credentials
+    /// added after JupiterOS startup are picked up on the next Start.
+    fn refresh_env_from_disk(&mut self) {
+        use crate::config::{load_credentials_env, mcp_json_path, McpConfig};
+        let Ok(raw) = std::fs::read_to_string(mcp_json_path()) else { return };
+        let Ok(cfg) = serde_json::from_str::<McpConfig>(&raw) else { return };
+        let source = if cfg.servers.contains_key(&self.name) {
+            cfg.servers.get(&self.name)
+        } else {
+            cfg.daemons.get(&self.name)
+        };
+        if let Some(server_def) = source {
+            let creds = load_credentials_env();
+            let mut env = server_def.env.clone();
+            for (k, v) in &creds {
+                env.entry(k.clone()).or_insert_with(|| v.clone());
+            }
+            self.def.env = env;
+        }
+    }
+
     pub fn stop(&mut self) {
         if let Some(ref mut child) = self.child {
             let _ = child.kill();
@@ -192,5 +226,40 @@ fn push_log(logs: &Arc<Mutex<VecDeque<String>>>, msg: &str) {
             buf.pop_front();
         }
         buf.push_back(msg.to_string());
+    }
+}
+
+/// Kill any process occupying `port` (TCP) so a fresh start can bind it.
+/// Handles orphaned processes from previous JupiterOS sessions.
+fn kill_process_on_port(port: u16, logs: &Arc<Mutex<VecDeque<String>>>) {
+    #[cfg(target_os = "linux")]
+    {
+        // `fuser -k PORT/tcp` sends SIGKILL to every process bound to the port
+        let out = Command::new("fuser")
+            .args(["-k", &format!("{}/tcp", port)])
+            .output();
+        match out {
+            Ok(o) if o.status.success() => {
+                push_log(logs, &format!("{} Killed orphaned process on port {}", timestamp(), port));
+            }
+            _ => {} // Nothing was using the port — that's fine
+        }
+    }
+    #[cfg(target_os = "windows")]
+    {
+        // netstat to find PID, then taskkill
+        if let Ok(out) = Command::new("netstat").args(["-ano"]).output() {
+            let text = String::from_utf8_lossy(&out.stdout);
+            for line in text.lines() {
+                if line.contains(&format!(":{} ", port)) && line.contains("LISTENING") {
+                    if let Some(pid) = line.split_whitespace().last() {
+                        let _ = Command::new("taskkill")
+                            .args(["/PID", pid, "/F"])
+                            .output();
+                        push_log(logs, &format!("{} Killed orphaned process (PID {}) on port {}", timestamp(), pid, port));
+                    }
+                }
+            }
+        }
     }
 }

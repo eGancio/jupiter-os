@@ -1,34 +1,35 @@
 export interface SlashCommand {
   name: string;
-  description: string;
+  /** i18n key for the command description (resolve with the t() helper). */
+  descKey: string;
   usage?: string;
 }
 
 export const COMMANDS: SlashCommand[] = [
   {
     name: "/clear",
-    description: "Clear current chat history",
+    descKey: "cmd.clear.desc",
   },
   {
     name: "/compact",
-    description: "Summarise conversation and start a fresh context window",
+    descKey: "cmd.compact.desc",
   },
   {
     name: "/model",
-    description: "Switch Claude model",
+    descKey: "cmd.model.desc",
     usage: "/model claude-opus-4-5",
   },
   {
     name: "/cost",
-    description: "Show token usage and cost for this session",
+    descKey: "cmd.cost.desc",
   },
   {
     name: "/mcp",
-    description: "List connected MCP servers and their tools",
+    descKey: "cmd.mcp.desc",
   },
   {
     name: "/plan",
-    description: "Toggle plan mode (Claude proposes before acting)",
+    descKey: "cmd.plan.desc",
   },
 ];
 

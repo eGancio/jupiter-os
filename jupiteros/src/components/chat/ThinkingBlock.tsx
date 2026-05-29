@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useT } from "../../i18n";
 
 interface Props {
   thinking: string;
@@ -6,23 +7,34 @@ interface Props {
 }
 
 export function ThinkingBlock({ thinking, streaming }: Props) {
+  const { t } = useT();
   const [expanded, setExpanded] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Count lines for summary
-  const lines = thinking.split("\n").filter((l) => l.trim().length > 0);
+  // While streaming the panel is always open and follows the latest text.
+  // Once the turn ends it collapses to a tidy header; the user can re-open it.
+  const open = streaming || expanded;
+
   const charCount = thinking.length;
+  const charLabel =
+    charCount > 1000
+      ? t("thinking.kchars", { count: Math.round(charCount / 1000) })
+      : t("thinking.chars", { count: charCount });
 
-  // Preview: first meaningful line, truncated
-  const firstLine = lines[0] || "";
-  const preview = firstLine.length > 100 ? firstLine.slice(0, 97) + "..." : firstLine;
+  // Auto-scroll to the bottom as new thinking text arrives during streaming.
+  useEffect(() => {
+    if (streaming && scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [thinking, streaming]);
 
   return (
     <div className="mb-2">
       <button
-        onClick={() => setExpanded(!expanded)}
+        onClick={() => setExpanded((v) => !v)}
         className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-jupiter-surface/60 border border-jupiter-blue/20 hover:border-jupiter-blue/40 transition-colors w-full text-left group"
       >
-        {/* Thinking icon */}
+        {/* Icon: animated dots while streaming, brain when idle */}
         <span className="flex-shrink-0">
           {streaming ? (
             <span className="flex gap-0.5">
@@ -39,44 +51,28 @@ export function ThinkingBlock({ thinking, streaming }: Props) {
         </span>
 
         <span className="text-[0.85em] font-medium text-jupiter-blue">
-          {streaming ? "Thinking..." : "Thinking"}
+          {streaming ? t("thinking.thinking") : t("thinking.reasoning")}
         </span>
 
+        {!streaming && charCount > 0 && (
+          <span className="text-[0.8em] text-jupiter-dim ml-1">{charLabel}</span>
+        )}
+
+        {/* Chevron — hidden while streaming (panel is locked open) */}
         {!streaming && (
-          <span className="text-[0.8em] text-jupiter-dim ml-1">
-            {charCount > 1000 ? `${Math.round(charCount / 1000)}k chars` : `${charCount} chars`}
+          <span className="ml-auto text-jupiter-dim text-[0.8em] flex-shrink-0 group-hover:text-jupiter-blue transition-colors">
+            {expanded ? "▾" : "▸"}
           </span>
         )}
-
-        {/* Preview when collapsed */}
-        {!expanded && !streaming && preview && (
-          <span className="text-[0.8em] text-jupiter-muted truncate ml-1 flex-1 min-w-0">
-            {preview}
-          </span>
-        )}
-
-        <span className="ml-auto text-jupiter-dim text-[0.8em] flex-shrink-0 group-hover:text-jupiter-blue transition-colors">
-          {expanded ? "▾" : "▸"}
-        </span>
       </button>
 
-      {/* Expanded thinking content */}
-      {expanded && (
+      {/* Content panel: full thinking text, scrollable. Auto-scrolls while
+          streaming, free-scroll once expanded after completion. */}
+      {open && thinking && (
         <div className="mt-1 rounded-md bg-jupiter-surface/40 border border-jupiter-blue/15 overflow-hidden">
-          <div className="px-3 py-2 max-h-[400px] overflow-y-auto">
-            <pre className="text-[0.85em] text-jupiter-muted leading-relaxed whitespace-pre-wrap font-sans">
+          <div ref={scrollRef} className="px-3 py-2 max-h-[320px] overflow-y-auto">
+            <pre className="text-[0.85em] text-jupiter-muted leading-relaxed whitespace-pre-wrap font-sans m-0">
               {thinking}
-            </pre>
-          </div>
-        </div>
-      )}
-
-      {/* Streaming: auto-show last few lines */}
-      {streaming && !expanded && (
-        <div className="mt-1 rounded-md bg-jupiter-surface/30 border border-jupiter-blue/10 overflow-hidden">
-          <div className="px-3 py-1.5">
-            <pre className="text-[0.8em] text-jupiter-dim leading-relaxed whitespace-pre-wrap font-sans">
-              {lines.slice(-3).join("\n")}
             </pre>
           </div>
         </div>

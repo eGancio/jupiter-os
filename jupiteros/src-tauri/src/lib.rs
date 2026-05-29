@@ -5,6 +5,7 @@ mod claude;
 mod commands;
 mod config;
 mod credentials;
+mod europa_credentials;
 mod services;
 mod state;
 
@@ -24,6 +25,8 @@ pub fn run() {
     tauri::Builder::default()
         .manage(AppState::new())
         .manage(ChatState::new())
+        .manage(europa_credentials::TelegramAuth::default())
+        .manage(europa_credentials::TeamsAuth::default())
         .invoke_handler(tauri::generate_handler![
             commands::get_services,
             commands::get_virtual_moons,
@@ -36,6 +39,10 @@ pub fn run() {
             commands::clear_logs,
             commands::is_autostart_enabled,
             commands::set_autostart,
+            commands::add_local_moon,
+            commands::add_remote_moon,
+            commands::remove_moon,
+            commands::remove_local_moon,
             chat_commands::create_chat_session,
             chat_commands::send_chat_message,
             chat_commands::stop_chat,
@@ -57,6 +64,16 @@ pub fn run() {
             credentials::oauth_disconnect,
             credentials::oauth_connect_gmail,
             credentials::account_remove,
+            europa_credentials::europa_channels_list,
+            europa_credentials::telegram_save_api,
+            europa_credentials::telegram_request_code,
+            europa_credentials::telegram_submit_code,
+            europa_credentials::telegram_submit_password,
+            europa_credentials::telegram_save_bot,
+            europa_credentials::slack_save,
+            europa_credentials::teams_start_device_code,
+            europa_credentials::teams_poll_device_code,
+            europa_credentials::europa_channel_remove,
         ])
         .setup(|app| {
             let handle = app.handle().clone();

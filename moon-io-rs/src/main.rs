@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use rmcp::ServiceExt;
 use tokio::sync::Mutex;
-use tracing::{error, info};
+use tracing::{error, info, warn};
 use tracing_subscriber::prelude::*;
 use tracing_subscriber::EnvFilter;
 
@@ -75,6 +75,14 @@ async fn main() -> anyhow::Result<()> {
     setup::ensure_onnx_model(&config.onnx_model_dir).await?;
     setup::ensure_qdrant(&config.qdrant_url, &config.data_dir).await?;
 
+    // Point ORT to the bundled runtime library if present in data/lib/
+    // and not already overridden by the environment
+    let bundled_ort = config.data_dir.join("lib").join("libonnxruntime.so");
+    if bundled_ort.exists() && std::env::var("ORT_DYLIB_PATH").is_err() {
+        std::env::set_var("ORT_DYLIB_PATH", &bundled_ort);
+        info!("ORT dylib: {:?}", bundled_ort);
+    }
+
     // Load embedding model
     info!(
         "Loading ONNX embedding model from {:?}...",
@@ -101,7 +109,7 @@ async fn main() -> anyhow::Result<()> {
         // Monitor daemon task — log if it exits or panics
         tokio::spawn(async move {
             match handle.await {
-                Ok(()) => error!("Email daemon exited unexpectedly (no error)"),
+                Ok(()) => warn!("Email daemon exited (no error) — this is unexpected"),
                 Err(e) => error!("Email daemon PANICKED: {e}"),
             }
         });

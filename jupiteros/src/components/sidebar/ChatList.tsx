@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { useT } from "../../i18n";
 import type { ChatSessionInfo } from "../../types";
 
 interface Props {
@@ -11,6 +12,7 @@ interface Props {
 }
 
 export function ChatList({ sessions, activeId, onSelect, onNew, onDelete, onRename }: Props) {
+  const { t } = useT();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
@@ -38,12 +40,12 @@ export function ChatList({ sessions, activeId, onSelect, onNew, onDelete, onRena
     <div className="mb-1">
       <div className="flex items-center justify-between px-3 mb-1">
         <h3 className="text-[10px] font-semibold uppercase tracking-wider text-jupiter-dim">
-          Chats
+          {t("chatlist.title")}
         </h3>
         <button
           onClick={onNew}
           className="w-5 h-5 flex items-center justify-center text-[13px] text-jupiter-dim hover:text-jupiter-orange rounded transition-colors"
-          title="New chat"
+          title={t("chatlist.new")}
         >
           +
         </button>
@@ -51,7 +53,7 @@ export function ChatList({ sessions, activeId, onSelect, onNew, onDelete, onRena
       <div className="px-2 max-h-[200px] overflow-y-auto space-y-0.5">
         {sessions.length === 0 ? (
           <div className="px-3 py-1.5 text-[11px] text-jupiter-dim italic">
-            No chats
+            {t("chatlist.empty")}
           </div>
         ) : (
           sessions.map((s) => {
@@ -95,7 +97,7 @@ export function ChatList({ sessions, activeId, onSelect, onNew, onDelete, onRena
                       startRename(s.id, s.title);
                     }}
                   >
-                    {s.title || "New chat"}
+                    {s.title || t("chatlist.untitled")}
                   </span>
                 )}
 
@@ -108,7 +110,7 @@ export function ChatList({ sessions, activeId, onSelect, onNew, onDelete, onRena
                         startRename(s.id, s.title);
                       }}
                       className="w-4 h-4 flex items-center justify-center text-[10px] text-jupiter-dim hover:text-jupiter-blue rounded"
-                      title="Rename"
+                      title={t("chatlist.rename")}
                     >
                       &#9998;
                     </button>
@@ -118,7 +120,7 @@ export function ChatList({ sessions, activeId, onSelect, onNew, onDelete, onRena
                         onDelete(s.id);
                       }}
                       className="w-4 h-4 flex items-center justify-center text-[10px] text-jupiter-dim hover:text-jupiter-red rounded"
-                      title="Delete"
+                      title={t("chatlist.delete")}
                     >
                       &#10005;
                     </button>

@@ -4,27 +4,28 @@ use std::time::Duration;
 use jupiteros_shared::store::MessageStore;
 use tracing::{error, info, warn};
 
-use crate::adapters::telegram::{IndexerState, TelegramAdapter};
+use crate::adapters::telegram::IndexerState;
 use crate::adapters::MessagingAdapter;
 use crate::config::Config;
 use crate::error::Result;
 
-/// Background Telegram indexer daemon.
+/// Background indexer daemon for a single messaging channel.
 ///
 /// Two phases:
 /// 1. Bulk indexing - Import all message history (incremental, stateful)
 /// 2. Real-time listener - Index new messages as they arrive (blocks forever)
 ///
-/// Auto-restarts on crash after a configurable delay.
-pub struct TelegramDaemon {
-    adapter: Arc<TelegramAdapter>,
+/// Auto-restarts on crash after a configurable delay. Works for any adapter
+/// implementing [`MessagingAdapter`] (Telegram, Slack, Teams, ...).
+pub struct ChannelDaemon {
+    adapter: Arc<dyn MessagingAdapter>,
     store: Arc<MessageStore>,
     config: Config,
 }
 
-impl TelegramDaemon {
+impl ChannelDaemon {
     pub fn new(
-        adapter: Arc<TelegramAdapter>,
+        adapter: Arc<dyn MessagingAdapter>,
         store: Arc<MessageStore>,
         config: Config,
     ) -> Self {

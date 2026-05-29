@@ -2594,6 +2594,7 @@ dependencies = [
  "tokio-util",
  "tracing",
  "tracing-subscriber",
+ "urlencoding",
  "zip",
 ]
 
@@ -3732,6 +3733,7 @@ dependencies = [
  "js-sys",
  "log",
  "mime",
+ "mime_guess",
  "native-tls",
  "percent-encoding",
  "pin-project-lite",

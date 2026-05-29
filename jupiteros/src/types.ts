@@ -13,6 +13,15 @@ export interface LogLines {
   lines: string[];
 }
 
+export interface AddLocalMoonParams {
+  name: string;
+  command: string;
+  args: string[];
+  cwd: string | null;
+  envVars: string[];
+  port: number;
+}
+
 export interface LogLineEvent {
   service: string;
   line: string;
@@ -42,6 +51,14 @@ export interface ToolCallInfo {
   startedAt?: number;
 }
 
+/** A single ordered chunk of an assistant turn, in arrival order.
+ * Used to render thinking/text/tool blocks chronologically (interleaved)
+ * instead of bucketed (all thinking → all tools → all text). */
+export type MessagePart =
+  | { kind: "thinking"; text: string }
+  | { kind: "text"; text: string }
+  | { kind: "tool"; tool: ToolCallInfo };
+
 export interface ChatMessage {
   id: string;
   role: "user" | "assistant" | "system";
@@ -49,6 +66,9 @@ export interface ChatMessage {
   thinking?: string;
   images?: { dataUrl: string; name: string }[];
   toolCalls: ToolCallInfo[];
+  /** Ordered blocks for sequential rendering. Absent on legacy/reloaded
+   * messages, which fall back to bucketed rendering. */
+  parts?: MessagePart[];
   timestamp: number;
   streaming?: boolean;
 }

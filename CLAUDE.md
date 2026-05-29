@@ -49,7 +49,15 @@ Usare `read_recent_emails` SOLO quando l'utente chiede esplicitamente di LEGGERE
 
 ## REGOLA #2 — Moon Europa (server `europa`) — Messaging
 
-**Moon Europa gestisce TUTTO ciò che riguarda messaggistica**: Telegram (e futuro WhatsApp, Discord).
+**Moon Europa gestisce TUTTO ciò che riguarda messaggistica**: Telegram (account o bot), Slack, Teams.
+
+### Canali (`channel`)
+
+I tool accettano il parametro `channel` ∈ {`telegram`, `slack`, `teams`} (default `telegram`).
+Il setup di ogni canale si fa dalla GUI: pannello del Moon `europa` → "Configura un canale".
+- `telegram`: account utente (login telefono + codice OTP) **oppure** bot (token @BotFather).
+- `slack`: bot token `xoxb-…`.
+- `teams`: login Microsoft (OAuth). `save_media` non è supportato per slack/teams/bot.
 
 ### Tool di DEFAULT: `list_messages` (solo header)
 

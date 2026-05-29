@@ -1,12 +1,15 @@
 export interface MoonTool {
   name: string;
-  description: string;
+  /** i18n key for the tool description (resolve with the t() helper). */
+  descKey: string;
 }
 
 export interface MoonInfo {
   displayName: string;
-  category: string;
-  description: string;
+  /** i18n key for the category label. */
+  categoryKey: string;
+  /** i18n key for the description paragraph. */
+  descKey: string;
   port: number;
   location: string;
   tools: MoonTool[];
@@ -15,71 +18,68 @@ export interface MoonInfo {
 const MOON_INFO: Record<string, MoonInfo> = {
   io: {
     displayName: "Moon Io",
-    category: "Email & Calendar",
-    description:
-      "Handles all email operations via IMAP/SMTP/CalDAV, including multi-account support (Aruba, Gmail OAuth), semantic search with Qdrant + ONNX embeddings, calendar events, and file attachment extraction.",
+    categoryKey: "moon.io.category",
+    descKey: "moon.io.desc",
     port: 8100,
     location: "Local · Rust",
     tools: [
-      { name: "list_emails", description: "List email headers (fast, default)" },
-      { name: "read_recent_emails", description: "Read email bodies (max 5)" },
-      { name: "search_emails", description: "Semantic search across emails" },
-      { name: "search_by_contact", description: "All emails with a contact" },
-      { name: "send_email", description: "Send a new email (requires draft approval)" },
-      { name: "reply_email", description: "Reply in thread (requires draft approval)" },
-      { name: "save_attachment", description: "Download an email attachment" },
-      { name: "get_email_attachments", description: "List attachments of an email" },
-      { name: "extract_file_text", description: "Extract text from PDF/DOCX/XLSX" },
-      { name: "list_calendar_events", description: "List upcoming calendar events" },
-      { name: "create_calendar_event", description: "Create a calendar event" },
-      { name: "get_email_signature", description: "Show current email signature" },
-      { name: "set_email_signature", description: "Set email signature" },
-      { name: "get_stats", description: "Mailbox statistics" },
+      { name: "list_emails", descKey: "moontool.io.list_emails" },
+      { name: "read_recent_emails", descKey: "moontool.io.read_recent_emails" },
+      { name: "search_emails", descKey: "moontool.io.search_emails" },
+      { name: "search_by_contact", descKey: "moontool.io.search_by_contact" },
+      { name: "send_email", descKey: "moontool.io.send_email" },
+      { name: "reply_email", descKey: "moontool.io.reply_email" },
+      { name: "save_attachment", descKey: "moontool.io.save_attachment" },
+      { name: "get_email_attachments", descKey: "moontool.io.get_email_attachments" },
+      { name: "extract_file_text", descKey: "moontool.io.extract_file_text" },
+      { name: "list_calendar_events", descKey: "moontool.io.list_calendar_events" },
+      { name: "create_calendar_event", descKey: "moontool.io.create_calendar_event" },
+      { name: "get_email_signature", descKey: "moontool.io.get_email_signature" },
+      { name: "set_email_signature", descKey: "moontool.io.set_email_signature" },
+      { name: "get_stats", descKey: "moontool.io.get_stats" },
     ],
   },
   europa: {
     displayName: "Moon Europa",
-    category: "Messaging",
-    description:
-      "Handles Telegram messaging via native MTProto (grammers), with semantic search powered by Qdrant + ONNX embeddings. Future support for WhatsApp and Discord planned.",
+    categoryKey: "moon.europa.category",
+    descKey: "moon.europa.desc",
     port: 8200,
     location: "Local · Rust",
     tools: [
-      { name: "list_messages", description: "List message headers (fast, default)" },
-      { name: "read_messages", description: "Read message bodies (max 5)" },
-      { name: "search_messages", description: "Semantic search across messages" },
-      { name: "search_by_contact", description: "All messages with a contact" },
-      { name: "send_message", description: "Send a message (requires approval)" },
-      { name: "list_contacts", description: "List available Telegram contacts" },
-      { name: "save_media", description: "Download media from a chat" },
-      { name: "extract_file_text", description: "Extract text from PDF/DOCX/XLSX" },
-      { name: "get_stats", description: "Messaging statistics" },
+      { name: "list_messages", descKey: "moontool.europa.list_messages" },
+      { name: "read_messages", descKey: "moontool.europa.read_messages" },
+      { name: "search_messages", descKey: "moontool.europa.search_messages" },
+      { name: "search_by_contact", descKey: "moontool.europa.search_by_contact" },
+      { name: "send_message", descKey: "moontool.europa.send_message" },
+      { name: "list_contacts", descKey: "moontool.europa.list_contacts" },
+      { name: "save_media", descKey: "moontool.europa.save_media" },
+      { name: "extract_file_text", descKey: "moontool.europa.extract_file_text" },
+      { name: "get_stats", descKey: "moontool.europa.get_stats" },
     ],
   },
   amalthea: {
     displayName: "Moon Amalthea",
-    category: "Charts & Diagrams",
-    description:
-      "Generates 16 types of deterministic charts and diagrams using ECharts and Mermaid. Returns self-contained HTML files that render in the JupiterOS chart panel.",
+    categoryKey: "moon.amalthea.category",
+    descKey: "moon.amalthea.desc",
     port: 8300,
     location: "Local · Python",
     tools: [
-      { name: "bar_chart", description: "Vertical or horizontal bar chart" },
-      { name: "line_chart", description: "Line chart with optional multi-series" },
-      { name: "pie_chart", description: "Pie or donut chart" },
-      { name: "scatter_chart", description: "Scatter / bubble chart" },
-      { name: "heatmap", description: "Calendar or matrix heatmap" },
-      { name: "treemap", description: "Hierarchical treemap" },
-      { name: "funnel_chart", description: "Funnel / conversion chart" },
-      { name: "gauge_chart", description: "Gauge / speedometer" },
-      { name: "radar_chart", description: "Radar / spider chart" },
-      { name: "candlestick_chart", description: "OHLC candlestick chart" },
-      { name: "sankey_diagram", description: "Sankey flow diagram" },
-      { name: "graph_network", description: "Force-directed network graph" },
-      { name: "mermaid_flowchart", description: "Mermaid flowchart" },
-      { name: "mermaid_sequence", description: "Mermaid sequence diagram" },
-      { name: "mermaid_gantt", description: "Mermaid Gantt chart" },
-      { name: "mermaid_er", description: "Mermaid entity-relationship diagram" },
+      { name: "bar_chart", descKey: "moontool.amalthea.bar_chart" },
+      { name: "line_chart", descKey: "moontool.amalthea.line_chart" },
+      { name: "pie_chart", descKey: "moontool.amalthea.pie_chart" },
+      { name: "scatter_chart", descKey: "moontool.amalthea.scatter_chart" },
+      { name: "heatmap", descKey: "moontool.amalthea.heatmap" },
+      { name: "treemap", descKey: "moontool.amalthea.treemap" },
+      { name: "funnel_chart", descKey: "moontool.amalthea.funnel_chart" },
+      { name: "gauge_chart", descKey: "moontool.amalthea.gauge_chart" },
+      { name: "radar_chart", descKey: "moontool.amalthea.radar_chart" },
+      { name: "candlestick_chart", descKey: "moontool.amalthea.candlestick_chart" },
+      { name: "sankey_diagram", descKey: "moontool.amalthea.sankey_diagram" },
+      { name: "graph_network", descKey: "moontool.amalthea.graph_network" },
+      { name: "mermaid_flowchart", descKey: "moontool.amalthea.mermaid_flowchart" },
+      { name: "mermaid_sequence", descKey: "moontool.amalthea.mermaid_sequence" },
+      { name: "mermaid_gantt", descKey: "moontool.amalthea.mermaid_gantt" },
+      { name: "mermaid_er", descKey: "moontool.amalthea.mermaid_er" },
     ],
   },
 };

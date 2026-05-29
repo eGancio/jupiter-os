@@ -209,7 +209,11 @@ impl Config {
                 if accounts.iter().any(|a| a.name == name) {
                     continue;
                 }
-                let prefix = name.to_uppercase();
+                let prefix = name
+                    .to_uppercase()
+                    .chars()
+                    .map(|c| if c.is_alphanumeric() { c } else { '_' })
+                    .collect::<String>();
                 let user = std::env::var(format!("{prefix}_IMAP_USERNAME")).unwrap_or_default();
                 let pass = match std::env::var(format!("{prefix}_IMAP_PASSWORD")) {
                     Ok(p) if !p.is_empty() => p,

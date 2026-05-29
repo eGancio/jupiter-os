@@ -4,6 +4,8 @@ import { useLogs } from "../../hooks/useLogs";
 import { LogViewer } from "./LogViewer";
 import { StatusBadge } from "./StatusBadge";
 import { CredentialsPanel } from "./CredentialsPanel";
+import { EuropaCredentialsPanel } from "./EuropaCredentialsPanel";
+import { useT } from "../../i18n";
 
 interface Props {
   service: ServiceInfo | null;
@@ -11,17 +13,18 @@ interface Props {
 }
 
 export function ServiceDetail({ service, onRefresh }: Props) {
+  const { t } = useT();
   const { lines, scrollRef, clearLogs } = useLogs(service?.name ?? null);
 
   if (!service) {
     return (
       <div className="flex-1 flex items-center justify-center text-jupiter-dim text-sm">
-        Select a Moon to see details
+        {t("service.selectMoon")}
       </div>
     );
   }
 
-  const kindLabel = service.kind === "McpServer" ? "MCP Server" : "Daemon";
+  const kindLabel = service.kind === "McpServer" ? t("service.mcpServer") : t("service.daemon");
 
   const handleStart = async () => {
     await startService(service.name);
@@ -64,14 +67,14 @@ export function ServiceDetail({ service, onRefresh }: Props) {
       <div className="flex items-center gap-1.5 mb-2 flex-wrap">
         {service.virtual ? (
           <span className="px-2.5 py-1 text-[11px] rounded bg-jupiter-elevated text-jupiter-dim border border-jupiter-orange/25">
-            stdio · on-demand
+            {t("service.stdio")}
           </span>
         ) : !service.running ? (
           <button
             onClick={handleStart}
             className="px-2.5 py-1 text-[11px] rounded bg-jupiter-green/15 text-jupiter-green border border-jupiter-green/30 hover:bg-jupiter-green/25 transition-colors"
           >
-            Start
+            {t("service.start")}
           </button>
         ) : (
           <>
@@ -79,13 +82,13 @@ export function ServiceDetail({ service, onRefresh }: Props) {
               onClick={handleStop}
               className="px-2.5 py-1 text-[11px] rounded bg-jupiter-red/15 text-jupiter-red border border-jupiter-red/30 hover:bg-jupiter-red/25 transition-colors"
             >
-              Stop
+              {t("service.stop")}
             </button>
             <button
               onClick={handleRestart}
               className="px-2.5 py-1 text-[11px] rounded bg-jupiter-amber/15 text-jupiter-amber border border-jupiter-amber/30 hover:bg-jupiter-amber/25 transition-colors"
             >
-              Restart
+              {t("service.restart")}
             </button>
           </>
         )}
@@ -96,7 +99,7 @@ export function ServiceDetail({ service, onRefresh }: Props) {
             onClick={clearLogs}
             className="px-2 py-1 text-[10px] rounded text-jupiter-dim hover:text-white hover:bg-jupiter-elevated transition-colors"
           >
-            Clear
+            {t("service.clear")}
           </button>
         )}
       </div>
@@ -104,9 +107,12 @@ export function ServiceDetail({ service, onRefresh }: Props) {
       {/* Credentials (only for the email server "io") */}
       <CredentialsPanel serviceName={service.name} />
 
+      {/* Messaging channels setup (only for the messaging server "europa") */}
+      <EuropaCredentialsPanel serviceName={service.name} />
+
       {/* Logs */}
       <div className="text-[10px] text-jupiter-dim mb-1 font-semibold uppercase tracking-wider">
-        Logs
+        {t("service.logs")}
       </div>
       <LogViewer lines={lines} scrollRef={scrollRef} />
     </div>

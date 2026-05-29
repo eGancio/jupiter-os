@@ -1,4 +1,5 @@
 import type { ChartEntry } from "../../types";
+import { useT } from "../../i18n";
 
 interface Props {
   charts: ChartEntry[];
@@ -17,6 +18,7 @@ export function ChartPanel({
   onRemoveChart,
   onClose,
 }: Props) {
+  const { t } = useT();
   if (!activeChart) return null;
 
   return (
@@ -25,10 +27,10 @@ export function ChartPanel({
       <div className="h-9 border-b border-jupiter-orange/25 flex items-center justify-between px-3 bg-jupiter-surface/50 flex-shrink-0">
         <div className="flex items-center gap-2">
           <span className="text-[11px] font-semibold text-white uppercase tracking-wider">
-            Chart Preview
+            {t("chart.preview")}
           </span>
           <span className="text-[10px] text-jupiter-dim">
-            {charts.length} chart{charts.length !== 1 ? "s" : ""}
+            {t("chart.count", { count: charts.length })}
           </span>
         </div>
         <button

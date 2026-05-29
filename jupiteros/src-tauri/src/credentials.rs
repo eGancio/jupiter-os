@@ -103,7 +103,8 @@ pub fn credentials_list() -> Result<Vec<CredentialEntry>, String> {
             if accounts.iter().any(|(n, _)| n == name) {
                 continue;
             }
-            let user_key = format!("{}_IMAP_USERNAME", name.to_uppercase());
+            let prefix: String = name.to_uppercase().chars().map(|c| if c.is_alphanumeric() { c } else { '_' }).collect();
+            let user_key = format!("{prefix}_IMAP_USERNAME");
             let user = env
                 .get(&user_key)
                 .and_then(|v| v.as_str())
@@ -213,7 +214,12 @@ pub fn credentials_add_account(
         }
         _ => {
             // Generic account: add to ACCOUNTS list + {NAME}_IMAP_USERNAME
-            let prefix = account.to_uppercase();
+            // Sanitize: env var names must be alphanumeric+underscore only
+            let prefix = account
+                .to_uppercase()
+                .chars()
+                .map(|c| if c.is_alphanumeric() { c } else { '_' })
+                .collect::<String>();
 
             // ACCOUNTS list
             let mut list: Vec<String> = env
@@ -237,6 +243,11 @@ pub fn credentials_add_account(
             env.insert(
                 format!("{prefix}_IMAP_USERNAME"),
                 serde_json::Value::String(email),
+            );
+            // Store password in .mcp.json as well — keyring can be unavailable
+            env.insert(
+                format!("{prefix}_IMAP_PASSWORD"),
+                serde_json::Value::String(password.clone()),
             );
             if let Some(host) = imap_host.as_deref().filter(|s| !s.is_empty()) {
                 env.insert(
@@ -271,9 +282,27 @@ pub fn credentials_add_account(
 // OAuth 2.0 — Gmail / Google Workspace
 // ---------------------------------------------------------------------------
 
-/// Path to the moon-io.exe binary used for the OAuth subcommand.
+/// Path to the moon-io binary used for the OAuth subcommand.
+/// Reads the command from .mcp.json servers.io so it's always consistent
+/// with what the GUI uses to start the service.
 fn moon_io_binary() -> std::path::PathBuf {
-    crate::config::get_base_dir().join("target/release/moon-io.exe")
+    if let Ok(raw) = std::fs::read_to_string(crate::config::mcp_json_path()) {
+        if let Ok(cfg) = serde_json::from_str::<crate::config::McpConfig>(&raw) {
+            if let Some(server) = cfg.servers.get("io") {
+                let p = std::path::PathBuf::from(&server.command);
+                if p.is_absolute() {
+                    return p;
+                }
+                return crate::config::get_base_dir().join(&server.command);
+            }
+        }
+    }
+    // Fallback: platform-appropriate name relative to project root
+    let bin = if cfg!(target_os = "windows") { "moon-io.exe" } else { "moon-io" };
+    crate::config::get_base_dir()
+        .join("target")
+        .join("release")
+        .join(bin)
 }
 
 #[derive(Serialize)]
@@ -446,7 +475,7 @@ pub fn account_remove(account: String) -> Result<(), String> {
             env.remove("SMTP_PORT");
         } else {
             // Generic ACCOUNTS pattern
-            let prefix = account.to_uppercase();
+            let prefix: String = account.to_uppercase().chars().map(|c| if c.is_alphanumeric() { c } else { '_' }).collect();
             env.remove(&format!("{prefix}_IMAP_USERNAME"));
             env.remove(&format!("{prefix}_IMAP_PASSWORD"));
             env.remove(&format!("{prefix}_IMAP_HOST"));

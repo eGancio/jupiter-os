@@ -60,6 +60,10 @@ pub struct TelegramAdapter {
     /// Resolved recipient cache: lowercase name/query → (Peer, PeerRef).
     /// Avoids re-iterating all dialogs on repeated sends to the same recipient.
     resolved_cache: Mutex<HashMap<String, (Peer, PeerRef)>>,
+    /// Snapshot of all contacts, filled by resolve_entities(). Lets list_contacts
+    /// return instantly instead of re-iterating ~hundreds of dialogs over the
+    /// network (which can take >60s and trip the MCP client timeout).
+    contacts_cache: Mutex<Vec<Contact>>,
 }
 
 impl TelegramAdapter {
@@ -70,6 +74,7 @@ impl TelegramAdapter {
             _runner_handle: Mutex::new(None),
             peer_refs: Mutex::new(HashMap::new()),
             resolved_cache: Mutex::new(HashMap::new()),
+            contacts_cache: Mutex::new(Vec::new()),
         }
     }
 
@@ -90,12 +95,27 @@ impl TelegramAdapter {
         let to_trimmed = to.trim();
         let to_lower = to_trimmed.to_lowercase();
 
-        // 0. Check resolved cache first (instant, no API call)
+        // 0. Check resolved cache first (instant, no API call). The daemon's
+        // resolve_entities() pre-populates this with every dialog's display name,
+        // so we can also do a partial match here and avoid the (very slow,
+        // network-bound) full dialog iteration below.
         {
             let cache = self.resolved_cache.lock().await;
             if let Some((peer, peer_ref)) = cache.get(&to_lower) {
-                debug!("Recipient '{}' found in cache", to_trimmed);
+                debug!("Recipient '{}' found in cache (exact)", to_trimmed);
                 return Ok((peer.clone(), *peer_ref));
+            }
+            if to_lower.len() >= 3 {
+                if let Some((peer, peer_ref)) = cache.iter().find_map(|(name, v)| {
+                    if name.contains(&to_lower) || to_lower.contains(name.as_str()) {
+                        Some(v)
+                    } else {
+                        None
+                    }
+                }) {
+                    debug!("Recipient '{}' found in cache (partial)", to_trimmed);
+                    return Ok((peer.clone(), *peer_ref));
+                }
             }
         }
 
@@ -436,6 +456,16 @@ impl MessagingAdapter for TelegramAdapter {
     }
 
     async fn list_contacts(&self) -> Result<Vec<Contact>> {
+        // Fast path: return the snapshot built by resolve_entities() (the daemon
+        // populates it at startup). Iterating all dialogs live is network-bound
+        // and can take >60s on large accounts, tripping the MCP client timeout.
+        {
+            let cached = self.contacts_cache.lock().await;
+            if !cached.is_empty() {
+                return Ok(cached.clone());
+            }
+        }
+
         let guard = self.get_client().await?;
         let client = guard.as_ref().unwrap();
 
@@ -465,6 +495,7 @@ impl MessagingAdapter for TelegramAdapter {
             });
         }
 
+        *self.contacts_cache.lock().await = contacts.clone();
         Ok(contacts)
     }
 
@@ -678,6 +709,7 @@ impl MessagingAdapter for TelegramAdapter {
         let client = guard.as_ref().unwrap();
 
         let mut entities = Vec::new();
+        let mut contacts: Vec<Contact> = Vec::new();
         let mut refs_map = HashMap::new();
         let mut resolved_map: HashMap<String, (Peer, PeerRef)> = HashMap::new();
 
@@ -719,26 +751,36 @@ impl MessagingAdapter for TelegramAdapter {
                 }
             }
 
-            let entity_type = match peer {
-                Peer::User(_) => ContactType::User,
-                Peer::Group(_) => ContactType::Group,
-                Peer::Channel(_) => ContactType::Channel,
+            let (entity_type, username) = match peer {
+                Peer::User(u) => (ContactType::User, u.username().map(|s| s.to_string())),
+                Peer::Group(_) => (ContactType::Group, None),
+                Peer::Channel(ch) => (ContactType::Channel, ch.username().map(|s| s.to_string())),
             };
 
             // Cache the PeerRef for use in bulk_index
             let peer_ref = dialog.peer_ref();
             refs_map.insert(peer_id, peer_ref);
 
+            let display_name = peer.name().unwrap_or_default().to_string();
+
             // Pre-populate resolved cache so send_message is instant for monitored contacts
             let peer_clone = peer.clone();
-            let name_lower = peer.name().unwrap_or_default().to_lowercase();
+            let name_lower = display_name.to_lowercase();
             if !name_lower.is_empty() {
                 resolved_map.insert(name_lower, (peer_clone, peer_ref));
             }
 
+            // Snapshot for list_contacts (avoids a slow live dialog iteration later)
+            contacts.push(Contact {
+                name: display_name.clone(),
+                id: peer_id,
+                contact_type: entity_type.clone(),
+                username,
+            });
+
             entities.push(Entity {
                 id: peer_id,
-                name: peer.name().unwrap_or_default().to_string(),
+                name: display_name,
                 entity_type,
             });
         }
@@ -747,6 +789,8 @@ impl MessagingAdapter for TelegramAdapter {
         *self.peer_refs.lock().await = refs_map;
         // Store resolved recipient cache
         *self.resolved_cache.lock().await = resolved_map;
+        // Store contacts snapshot
+        *self.contacts_cache.lock().await = contacts;
 
         info!("Resolved {} entities for indexing", entities.len());
         Ok(entities)

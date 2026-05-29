@@ -3,8 +3,9 @@ import { ChatMessage } from "../chat/ChatMessage";
 import { InputBar } from "../chat/InputBar";
 import { COMMANDS } from "../../lib/commands";
 import { getClaudeMdStatus } from "../../lib/tauri";
-import type { useChat } from "../../hooks/useChat";
+import { useT } from "../../i18n";
 import type { ServiceInfo } from "../../types";
+import type { useChat } from "../../hooks/useChat";
 
 const ZOOM_MIN = 0.7;
 const ZOOM_MAX = 1.5;
@@ -31,6 +32,7 @@ interface Props {
 
 export function ChatArea({ chat, services, onPreviewChart }: Props) {
   const { messages, streaming, sendMessage, stopStreaming, newSession, activeTool, activeThinking, getUsage, addSystemMessage, clearMessages, lastInputTokens, changeModel, activeFile } = chat;
+  const { t } = useT();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [zoom, setZoom] = useState(1);
   const [permissionMode, setPermissionMode] = useState<"auto" | "ask" | "plan">("auto");
@@ -100,12 +102,12 @@ export function ChatArea({ chat, services, onPreviewChart }: Props) {
         case "/model": {
           const m = args.trim().toLowerCase();
           if (!m || !["haiku", "sonnet", "opus"].includes(m)) {
-            addSystemMessage("Usage: `/model haiku|sonnet|opus`");
+            addSystemMessage(t("cmd.model.usage"));
           } else {
             changeModel(m).then(() => {
-              addSystemMessage(`Model changed to **${m}**. Takes effect from the next message.`);
+              addSystemMessage(t("cmd.model.changed", { model: m }));
             }).catch((e: unknown) => {
-              addSystemMessage(`Model change error: ${e}`);
+              addSystemMessage(t("cmd.model.error", { error: String(e) }));
             });
           }
           break;
@@ -114,13 +116,13 @@ export function ChatArea({ chat, services, onPreviewChart }: Props) {
         case "/cost": {
           const usage = getUsage();
           const lines = [
-            "**Current session costs**",
+            t("cmd.cost.title"),
             "",
-            `| Metric | Value |`,
+            `| ${t("cmd.cost.metric")} | ${t("cmd.cost.value")} |`,
             `|--------|-------|`,
-            `| Input tokens | ${usage.inputTokens.toLocaleString()} |`,
-            `| Output tokens | ${usage.outputTokens.toLocaleString()} |`,
-            `| Total cost | $${usage.totalCostUsd.toFixed(4)} |`,
+            `| ${t("cmd.cost.inputTokens")} | ${usage.inputTokens.toLocaleString()} |`,
+            `| ${t("cmd.cost.outputTokens")} | ${usage.outputTokens.toLocaleString()} |`,
+            `| ${t("cmd.cost.totalCost")} | $${usage.totalCostUsd.toFixed(4)} |`,
           ];
           addSystemMessage(lines.join("\n"));
           break;
@@ -128,9 +130,9 @@ export function ChatArea({ chat, services, onPreviewChart }: Props) {
 
         case "/help": {
           const lines = [
-            "**Available commands**",
+            t("cmd.help.title"),
             "",
-            ...COMMANDS.map((c) => `- \`${c.name}\` — ${c.description}${c.usage ? ` (${c.usage})` : ""}`),
+            ...COMMANDS.map((c) => `- \`${c.name}\` — ${t(c.descKey)}${c.usage ? ` (${c.usage})` : ""}`),
           ];
           addSystemMessage(lines.join("\n"));
           break;
@@ -138,15 +140,15 @@ export function ChatArea({ chat, services, onPreviewChart }: Props) {
 
         case "/mcp": {
           if (!services || services.length === 0) {
-            addSystemMessage("No MCP servers configured.");
+            addSystemMessage(t("cmd.mcp.none"));
           } else {
             const lines = [
-              "**Moons Status (MCP Servers)**",
+              t("cmd.mcp.title"),
               "",
-              `| Moon | Status | Type |`,
+              `| ${t("cmd.mcp.colMoon")} | ${t("cmd.mcp.colStatus")} | ${t("cmd.mcp.colType")} |`,
               `|------|--------|------|`,
               ...services.map((s) =>
-                `| ${s.name} | ${s.running ? "Active" : "Stopped"} | ${s.kind === "McpServer" ? "MCP" : "Daemon"} |`
+                `| ${s.name} | ${s.running ? t("cmd.mcp.active") : t("cmd.mcp.stopped")} | ${s.kind === "McpServer" ? "MCP" : "Daemon"} |`
               ),
             ];
             addSystemMessage(lines.join("\n"));
@@ -165,7 +167,7 @@ export function ChatArea({ chat, services, onPreviewChart }: Props) {
               .join("\n");
 
             await chat.compactSession();
-            addSystemMessage("Context compacted — context window reset.");
+            addSystemMessage(t("cmd.compact.done"));
 
             if (summaryParts) {
               sendMessage(
@@ -178,19 +180,19 @@ export function ChatArea({ chat, services, onPreviewChart }: Props) {
         case "/plan": {
           if (permissionMode === "plan") {
             setPermissionMode("auto");
-            addSystemMessage("**Plan mode deactivated.** Switched to Edit automatically.");
+            addSystemMessage(t("cmd.plan.off"));
           } else {
             setPermissionMode("plan");
-            addSystemMessage("**Plan mode activated.** The next message will include the plan instruction.");
+            addSystemMessage(t("cmd.plan.on"));
           }
           break;
         }
 
         default:
-          addSystemMessage(`Unknown command: \`${name}\``);
+          addSystemMessage(t("cmd.unknown", { name }));
       }
     },
-    [newSession, stopStreaming, getUsage, addSystemMessage, clearMessages, services, messages, sendMessage, permissionMode, changeModel]
+    [newSession, stopStreaming, getUsage, addSystemMessage, clearMessages, services, messages, sendMessage, permissionMode, changeModel, t]
   );
 
   // Wrap sendMessage to prepend plan instruction when in plan mode
@@ -227,12 +229,12 @@ export function ChatArea({ chat, services, onPreviewChart }: Props) {
       <div className="h-9 border-b border-jupiter-orange/25 flex items-center px-2 gap-1 bg-jupiter-surface/50 flex-shrink-0">
         <div className="px-3 py-1 text-[11px] rounded bg-jupiter-elevated text-white flex items-center gap-1.5">
           <span className={`w-1.5 h-1.5 rounded-full ${streaming ? "bg-jupiter-green animate-pulse" : "bg-jupiter-dim"}`} />
-          Chat
+          {t("chat.tab")}
         </div>
         <button
           onClick={newSession}
           className="px-2 py-1 text-[11px] text-jupiter-dim hover:text-jupiter-blue hover:bg-jupiter-elevated rounded transition-colors"
-          title="New chat"
+          title={t("chat.newChat")}
         >
           +
         </button>
@@ -253,21 +255,21 @@ export function ChatArea({ chat, services, onPreviewChart }: Props) {
           <button
             onClick={zoomOut}
             className="w-6 h-6 flex items-center justify-center text-[13px] text-jupiter-dim hover:text-white hover:bg-jupiter-elevated rounded transition-colors"
-            title="Zoom out (Ctrl+-)"
+            title={t("chat.zoomOut")}
           >
             −
           </button>
           <button
             onClick={zoomReset}
             className="px-1.5 h-6 flex items-center justify-center text-[10px] text-jupiter-dim hover:text-white hover:bg-jupiter-elevated rounded transition-colors font-mono"
-            title="Reset zoom (Ctrl+0)"
+            title={t("chat.zoomReset")}
           >
             {Math.round(zoom * 100)}%
           </button>
           <button
             onClick={zoomIn}
             className="w-6 h-6 flex items-center justify-center text-[13px] text-jupiter-dim hover:text-white hover:bg-jupiter-elevated rounded transition-colors"
-            title="Zoom in (Ctrl++)"
+            title={t("chat.zoomIn")}
           >
             +
           </button>
@@ -312,6 +314,7 @@ export function ChatArea({ chat, services, onPreviewChart }: Props) {
 }
 
 function WaitingIndicator({ activeTool, activeThinking }: { activeTool: string | null; activeThinking: boolean }) {
+  const { t } = useT();
   const moon = activeTool ? toolToMoon(activeTool) : null;
   const toolName = activeTool ? toolDisplayName(activeTool) : null;
 
@@ -326,15 +329,15 @@ function WaitingIndicator({ activeTool, activeThinking }: { activeTool: string |
           </div>
           {activeTool ? (
             <span className="text-[0.85em] text-jupiter-muted">
-              Using <span className="font-mono text-jupiter-amber">{toolName}</span>
+              {t("chat.using")} <span className="font-mono text-jupiter-amber">{toolName}</span>
               {moon && (
-                <> on <span className="text-jupiter-blue">{moon}</span></>
+                <> {t("chat.on")} <span className="text-jupiter-blue">{moon}</span></>
               )}
             </span>
           ) : activeThinking ? (
-            <span className="text-[0.85em] text-jupiter-blue">Thinking...</span>
+            <span className="text-[0.85em] text-jupiter-blue">{t("chat.thinking")}</span>
           ) : (
-            <span className="text-[0.85em] text-jupiter-muted">Waiting...</span>
+            <span className="text-[0.85em] text-jupiter-muted">{t("chat.waiting")}</span>
           )}
         </div>
       </div>
@@ -343,6 +346,7 @@ function WaitingIndicator({ activeTool, activeThinking }: { activeTool: string |
 }
 
 function ActivityBar({ activeTool }: { activeTool: string | null }) {
+  const { t } = useT();
   const moon = activeTool ? toolToMoon(activeTool) : null;
   const toolName = activeTool ? toolDisplayName(activeTool) : null;
 
@@ -351,9 +355,9 @@ function ActivityBar({ activeTool }: { activeTool: string | null }) {
       <div className="bg-jupiter-elevated/30 border border-jupiter-orange/15 rounded-lg px-3 py-1.5 flex items-center gap-2">
         <span className="w-1.5 h-1.5 rounded-full bg-jupiter-amber animate-pulse" />
         <span className="text-[0.8em] text-jupiter-muted">
-          Running <span className="font-mono text-jupiter-amber">{toolName}</span>
+          {t("chat.running")} <span className="font-mono text-jupiter-amber">{toolName}</span>
           {moon && (
-            <> on <span className="text-jupiter-blue">{moon}</span></>
+            <> {t("chat.on")} <span className="text-jupiter-blue">{moon}</span></>
           )}
         </span>
       </div>
@@ -362,6 +366,7 @@ function ActivityBar({ activeTool }: { activeTool: string | null }) {
 }
 
 function EmptyState() {
+  const { t } = useT();
   return (
     <div className="flex-1 flex flex-col items-center justify-center text-jupiter-dim h-full">
       <div className="text-center max-w-md space-y-4">
@@ -371,9 +376,9 @@ function EmptyState() {
           <p className="text-[11px] text-jupiter-blue tracking-widest font-display">jupiteros.ai</p>
         </div>
         <p className="text-sm leading-relaxed text-jupiter-muted">
-          Type a message to start a conversation with Claude.
+          {t("chat.empty.body1")}
           <br />
-          MCP servers (Moons) are active in the sidebar.
+          {t("chat.empty.body2")}
         </p>
       </div>
     </div>

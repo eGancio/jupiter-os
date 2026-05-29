@@ -7,6 +7,7 @@ import {
   accountRemove,
   type CredentialEntry,
 } from "../../lib/tauri";
+import { useT } from "../../i18n";
 
 interface Props {
   /** Service name. The panel only renders for "io". */
@@ -16,6 +17,7 @@ interface Props {
 type AddPreset = "gmail-oauth" | "custom";
 
 export function CredentialsPanel({ serviceName }: Props) {
+  const { t } = useT();
   const [entries, setEntries] = useState<CredentialEntry[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState<string | null>(null);
@@ -101,7 +103,7 @@ export function CredentialsPanel({ serviceName }: Props) {
   const handleOAuthConnect = async () => {
     if (!addEmail.trim()) return;
     setOauthBusy(true);
-    setOauthMessage("Apertura browser per consenso Google… completa il login e torna qui.");
+    setOauthMessage(t("creds.oauthMessage"));
     setError(null);
     try {
       const msg = await oauthConnectGmail(addEmail.trim());
@@ -121,14 +123,7 @@ export function CredentialsPanel({ serviceName }: Props) {
   /// Total account removal: keyring (password + OAuth) + .mcp.json env.
   /// The account disappears from the list.
   const handleRemove = async (account: string) => {
-    if (
-      !confirm(
-        `Rimuovere completamente l'account '${account}'?\n` +
-          `Cancellerà credenziali (password + OAuth) e l'entry dal .mcp.json.\n` +
-          `Le email già indicizzate in Qdrant restano (non vengono toccate).`
-      )
-    )
-      return;
+    if (!confirm(t("creds.removeConfirm", { account }))) return;
     setBusy(true);
     try {
       await accountRemove(account);
@@ -147,8 +142,8 @@ export function CredentialsPanel({ serviceName }: Props) {
   return (
     <div className="mb-3 border border-jupiter-orange/25 rounded p-2.5 bg-jupiter-bg/40">
       <div className="text-[10px] text-jupiter-dim mb-2 font-semibold uppercase tracking-wider">
-        Account credentials
-        <span className="ml-1 normal-case text-jupiter-dim/70">(Windows Credential Manager)</span>
+        {t("creds.title")}
+        <span className="ml-1 normal-case text-jupiter-dim/70">{t("creds.keyring")}</span>
       </div>
 
       {error && (
@@ -156,10 +151,10 @@ export function CredentialsPanel({ serviceName }: Props) {
       )}
 
       {entries === null ? (
-        <div className="text-[11px] text-jupiter-dim">Loading…</div>
+        <div className="text-[11px] text-jupiter-dim">{t("common.loading")}</div>
       ) : entries.length === 0 ? (
         <div className="text-[11px] text-jupiter-dim">
-          Nessun account configurato. Click <span className="text-white">+ Add account</span> qui sotto.
+          {t("creds.emptyBefore")}<span className="text-white">{t("creds.addAccount")}</span>{t("creds.emptyAfter")}
         </div>
       ) : (
         <div className="space-y-2">
@@ -176,7 +171,7 @@ export function CredentialsPanel({ serviceName }: Props) {
                 ) : e.has_password ? (
                   <span className="text-jupiter-green text-[10px]">✓ password</span>
                 ) : (
-                  <span className="text-jupiter-amber text-[10px]">× missing</span>
+                  <span className="text-jupiter-amber text-[10px]">{t("creds.missing")}</span>
                 )}
               </div>
 
@@ -203,7 +198,7 @@ export function CredentialsPanel({ serviceName }: Props) {
                         setDraftPassword("");
                       }
                     }}
-                    placeholder="new password"
+                    placeholder={t("creds.newPassword")}
                     className={inputCls}
                   />
                   <div className="flex gap-1.5">
@@ -212,7 +207,7 @@ export function CredentialsPanel({ serviceName }: Props) {
                       disabled={busy || !draftPassword.trim()}
                       className="flex-1 px-2 py-1 text-[10px] rounded bg-jupiter-green/15 text-jupiter-green border border-jupiter-green/30 hover:bg-jupiter-green/25 disabled:opacity-40 transition-colors"
                     >
-                      Save
+                      {t("common.save")}
                     </button>
                     <button
                       onClick={() => {
@@ -221,21 +216,21 @@ export function CredentialsPanel({ serviceName }: Props) {
                       }}
                       className="px-2 py-1 text-[10px] rounded text-jupiter-dim hover:text-white hover:bg-jupiter-elevated transition-colors"
                     >
-                      Cancel
+                      {t("common.cancel")}
                     </button>
                   </div>
                 </div>
               ) : e.has_oauth ? (
                 <div className="flex gap-1.5">
                   <span className="flex-1 px-2 py-1 text-[10px] text-jupiter-dim italic">
-                    Gestito da Google (refresh token nel keyring)
+                    {t("creds.googleManaged")}
                   </span>
                   <button
                     onClick={() => handleRemove(e.account)}
                     disabled={busy}
                     className="px-2 py-1 text-[10px] rounded text-jupiter-red hover:bg-jupiter-red/15 transition-colors"
                   >
-                    Delete
+                    {t("common.delete")}
                   </button>
                 </div>
               ) : (
@@ -248,14 +243,14 @@ export function CredentialsPanel({ serviceName }: Props) {
                     }}
                     className="flex-1 px-2 py-1 text-[10px] rounded bg-jupiter-orange/15 text-jupiter-orange border border-jupiter-orange/30 hover:bg-jupiter-orange/25 transition-colors"
                   >
-                    {e.has_password ? "Update password" : "Set password"}
+                    {e.has_password ? t("creds.updatePassword") : t("creds.setPassword")}
                   </button>
                   <button
                     onClick={() => handleRemove(e.account)}
                     disabled={busy}
                     className="px-2 py-1 text-[10px] rounded text-jupiter-red hover:bg-jupiter-red/15 transition-colors"
                   >
-                    Delete
+                    {t("common.delete")}
                   </button>
                 </div>
               )}
@@ -271,12 +266,12 @@ export function CredentialsPanel({ serviceName }: Props) {
             onClick={() => setAdding(true)}
             className="w-full px-2 py-1.5 text-[11px] rounded border border-dashed border-jupiter-orange/30 text-jupiter-orange hover:bg-jupiter-orange/10 transition-colors"
           >
-            + Add account
+            {t("creds.addAccount")}
           </button>
         ) : (
           <div className="space-y-2">
             <div className="text-[10px] text-jupiter-dim uppercase tracking-wider font-semibold">
-              Add new account
+              {t("creds.addNew")}
             </div>
 
             {/* Preset selector — solo 2 opzioni */}
@@ -299,7 +294,7 @@ export function CredentialsPanel({ serviceName }: Props) {
                     : "text-jupiter-dim border-jupiter-orange/15 hover:border-jupiter-orange/30"
                 }`}
               >
-                Custom IMAP
+                {t("creds.customImap")}
               </button>
             </div>
 
@@ -308,7 +303,7 @@ export function CredentialsPanel({ serviceName }: Props) {
                 {/* Email only — client_id/secret hardcoded in the binary */}
                 <div className="space-y-1">
                   <label className="block text-[10px] text-jupiter-dim uppercase tracking-wider">
-                    Email Gmail
+                    {t("creds.emailGmail")}
                   </label>
                   <input
                     type="email"
@@ -319,15 +314,13 @@ export function CredentialsPanel({ serviceName }: Props) {
                       if (ev.key === "Enter") handleOAuthConnect();
                       if (ev.key === "Escape") resetAddForm();
                     }}
-                    placeholder="you@gmail.com  o  you@yourworkspace.com"
+                    placeholder={t("creds.emailGmailPh")}
                     className={inputCls}
                   />
                 </div>
 
                 <div className="text-[10px] text-jupiter-dim leading-snug">
-                  Click <span className="text-white">Connect with Google</span> →
-                  si apre il browser → fai login + accetta consenso. Niente
-                  password salvata: solo un refresh token cifrato nel keyring.
+                  {t("creds.oauthHelpBefore")}<span className="text-white">{t("creds.connectGoogle")}</span>{t("creds.oauthHelpAfter")}
                 </div>
 
                 {oauthMessage && (
@@ -342,14 +335,14 @@ export function CredentialsPanel({ serviceName }: Props) {
                     disabled={oauthBusy || !addEmail.trim()}
                     className="flex-1 px-2 py-1 text-[10px] rounded bg-jupiter-green/15 text-jupiter-green border border-jupiter-green/30 hover:bg-jupiter-green/25 disabled:opacity-40 transition-colors"
                   >
-                    {oauthBusy ? "Apertura browser…" : "Connect with Google"}
+                    {oauthBusy ? t("creds.openingBrowser") : t("creds.connectGoogle")}
                   </button>
                   <button
                     onClick={resetAddForm}
                     disabled={oauthBusy}
                     className="px-2 py-1 text-[10px] rounded text-jupiter-dim hover:text-white hover:bg-jupiter-elevated transition-colors"
                   >
-                    Cancel
+                    {t("common.cancel")}
                   </button>
                 </div>
               </>
@@ -358,20 +351,20 @@ export function CredentialsPanel({ serviceName }: Props) {
                 {/* Custom IMAP */}
                 <div className="space-y-1">
                   <label className="block text-[10px] text-jupiter-dim uppercase tracking-wider">
-                    Account name
+                    {t("creds.accountName")}
                   </label>
                   <input
                     autoFocus
                     value={addAccountName}
                     onChange={(ev) => setAddAccountName(ev.target.value)}
-                    placeholder="e.g. outlook, work"
+                    placeholder={t("creds.accountNamePh")}
                     className={inputCls}
                   />
                 </div>
 
                 <div className="space-y-1">
                   <label className="block text-[10px] text-jupiter-dim uppercase tracking-wider">
-                    Email address
+                    {t("creds.emailAddress")}
                   </label>
                   <input
                     type="email"
@@ -384,7 +377,7 @@ export function CredentialsPanel({ serviceName }: Props) {
 
                 <div className="space-y-1">
                   <label className="block text-[10px] text-jupiter-dim uppercase tracking-wider">
-                    IMAP host
+                    {t("creds.imapHost")}
                   </label>
                   <input
                     value={addImapHost}
@@ -396,7 +389,7 @@ export function CredentialsPanel({ serviceName }: Props) {
 
                 <div className="space-y-1">
                   <label className="block text-[10px] text-jupiter-dim uppercase tracking-wider">
-                    Password
+                    {t("creds.password")}
                   </label>
                   <input
                     type="password"
@@ -406,7 +399,7 @@ export function CredentialsPanel({ serviceName }: Props) {
                       if (ev.key === "Enter") handleAddCustom();
                       if (ev.key === "Escape") resetAddForm();
                     }}
-                    placeholder="password"
+                    placeholder={t("creds.passwordPh")}
                     className={inputCls}
                   />
                 </div>
@@ -422,13 +415,13 @@ export function CredentialsPanel({ serviceName }: Props) {
                     }
                     className="flex-1 px-2 py-1 text-[10px] rounded bg-jupiter-green/15 text-jupiter-green border border-jupiter-green/30 hover:bg-jupiter-green/25 disabled:opacity-40 transition-colors"
                   >
-                    Add account
+                    {t("creds.addBtn")}
                   </button>
                   <button
                     onClick={resetAddForm}
                     className="px-2 py-1 text-[10px] rounded text-jupiter-dim hover:text-white hover:bg-jupiter-elevated transition-colors"
                   >
-                    Cancel
+                    {t("common.cancel")}
                   </button>
                 </div>
               </>
@@ -438,9 +431,9 @@ export function CredentialsPanel({ serviceName }: Props) {
       </div>
 
       <div className="text-[10px] text-jupiter-dim/80 mt-2.5 leading-snug">
-        Le credenziali sono cifrate dal Windows Credential Manager (servizio{" "}
-        <code className="text-white">MoonIo</code>). Dopo aver salvato, fai{" "}
-        <span className="text-white">Restart</span> del server `io`.
+        {t("creds.footerBefore")}
+        <code className="text-white">MoonIo</code>{t("creds.footerMid")}
+        <span className="text-white">{t("creds.footerRestart")}</span>{t("creds.footerAfter")}
       </div>
     </div>
   );

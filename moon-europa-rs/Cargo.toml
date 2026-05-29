@@ -38,8 +38,9 @@ tracing-subscriber = { workspace = true }
 anyhow = { workspace = true }
 thiserror = { workspace = true }
 
-# HTTP client (model download, health checks)
-reqwest = { version = "0.12", features = ["rustls-tls", "stream"], default-features = false }
+# HTTP client (model download, health checks, Slack/Teams/Telegram-bot APIs)
+reqwest = { version = "0.12", features = ["rustls-tls", "stream", "json", "multipart"], default-features = false }
+urlencoding = "2"
 futures-util = "0.3"
 
 # Archive extraction (Qdrant binary download)

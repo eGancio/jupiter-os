@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useT } from "../../i18n";
 import type { ToolCallInfo } from "../../types";
 
 interface Props {
@@ -111,6 +112,7 @@ function PendingElapsed({ startedAt }: { startedAt: number }) {
 }
 
 export function ToolTimeline({ toolCalls, onPreviewChart }: Props) {
+  const { t } = useT();
   if (toolCalls.length === 0) return null;
   const groups = groupCalls(toolCalls);
 
@@ -144,7 +146,7 @@ export function ToolTimeline({ toolCalls, onPreviewChart }: Props) {
                 type="button"
                 onClick={() => onPreviewChart(chartPath)}
                 className="tool-chart-btn"
-                title="Apri chart"
+                title={t("tool.openChart")}
               >
                 📊
               </button>

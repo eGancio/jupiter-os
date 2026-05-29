@@ -11,6 +11,10 @@
     "amalthea": {
       "type": "sse",
       "url": "http://127.0.0.1:8300/sse"
+    },
+    "gtd": {
+      "type": "http",
+      "url": "https://YOUR_JUPITEROS_HOST/mcp-gtd/YOUR_TOKEN/"
     }
   },
   "servers": {
@@ -36,6 +40,11 @@
         "TELEGRAM_API_ID": "YOUR_API_ID",
         "TELEGRAM_API_HASH": "YOUR_API_HASH",
         "TELEGRAM_FOLDER": "",
+        "TELEGRAM_BOT_TOKEN": "",
+        "SLACK_BOT_TOKEN": "",
+        "TEAMS_CLIENT_ID": "",
+        "TEAMS_TENANT_ID": "",
+        "TEAMS_REFRESH_TOKEN": "",
         "QDRANT_URL": "http://127.0.0.1:6334",
         "MCP_TRANSPORT": "sse",
         "MCP_PORT": "8200"

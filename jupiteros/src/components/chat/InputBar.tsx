@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useMemo } from "react";
 import type { PastedImage } from "../../types";
 import { getCompletions, type SlashCommand } from "../../lib/commands";
+import { useT } from "../../i18n";
 
 type PermissionMode = "auto" | "ask" | "plan";
 
@@ -18,13 +19,14 @@ interface Props {
   activeFile?: string | null;
 }
 
-const PERMISSION_LABELS: Record<PermissionMode, string> = {
-  auto: "Edit automatically",
-  ask: "Ask before edits",
-  plan: "Plan mode",
+const PERMISSION_LABEL_KEYS: Record<PermissionMode, string> = {
+  auto: "input.permission.auto",
+  ask: "input.permission.ask",
+  plan: "input.permission.plan",
 };
 
-export function InputBar({ onSend, onStop, onCommand, disabled: _disabled, streaming, zoom = 1, permissionMode = "auto", onPermissionModeChange, activeTool, contextPercent = 0, activeFile }: Props) {
+export function InputBar({ onSend, onStop, onCommand, disabled: _disabled, streaming, zoom = 1, permissionMode = "auto", onPermissionModeChange, activeTool, activeFile }: Props) {
+  const { t } = useT();
   const [text, setText] = useState("");
   const [images, setImages] = useState<PastedImage[]>([]);
   const [selectedCompletion, setSelectedCompletion] = useState(0);
@@ -200,7 +202,7 @@ export function InputBar({ onSend, onStop, onCommand, disabled: _disabled, strea
               onMouseEnter={() => setSelectedCompletion(i)}
             >
               <span className="font-mono text-jupiter-amber">{cmd.name}</span>
-              <span className="text-jupiter-dim">{cmd.description}</span>
+              <span className="text-jupiter-dim">{t(cmd.descKey)}</span>
             </button>
           ))}
         </div>
@@ -223,7 +225,7 @@ export function InputBar({ onSend, onStop, onCommand, disabled: _disabled, strea
           onKeyDown={handleKeyDown}
           onInput={handleInput}
           onPaste={handlePaste}
-          placeholder={planMode ? "Plan mode — describe what to implement..." : "Type a message..."}
+          placeholder={planMode ? t("input.placeholderPlan") : t("input.placeholder")}
           rows={1}
           style={{ fontSize: `${14 * zoom}px` }}
           className="w-full bg-transparent text-white outline-none placeholder:text-jupiter-dim resize-none overflow-hidden px-4 pt-3 pb-1"
@@ -265,10 +267,10 @@ export function InputBar({ onSend, onStop, onCommand, disabled: _disabled, strea
                   ? "text-jupiter-blue hover:text-jupiter-blue"
                   : "text-white/60 hover:text-white/80"
               }`}
-              title="Click to change mode"
+              title={t("input.changeMode")}
             >
               <span className="text-[10px]">&#9654;&#9654;</span>
-              <span>{PERMISSION_LABELS[permissionMode]}</span>
+              <span>{t(PERMISSION_LABEL_KEYS[permissionMode])}</span>
             </button>
 
             {/* Active tool + file context */}
@@ -284,16 +286,6 @@ export function InputBar({ onSend, onStop, onCommand, disabled: _disabled, strea
               </span>
             )}
 
-            {/* Context usage with half-moon icon */}
-            <span className={`flex items-center gap-1.5 whitespace-nowrap ${
-              contextPercent >= 80 ? "text-jupiter-red" : contextPercent >= 50 ? "text-jupiter-amber" : "text-white/40"
-            }`}>
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" className="flex-shrink-0">
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/>
-                <path d="M12 4c-4.41 0-8 3.59-8 8s3.59 8 8 8V4z"/>
-              </svg>
-              {contextPercent}% used
-            </span>
           </div>
 
           {/* Right — action buttons */}
@@ -309,7 +301,7 @@ export function InputBar({ onSend, onStop, onCommand, disabled: _disabled, strea
             <button
               onClick={handleAttachClick}
               className="w-7 h-7 flex items-center justify-center text-white/30 hover:text-white rounded-md hover:bg-white/10 transition-colors"
-              title="Attach image"
+              title={t("input.attach")}
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48" />
@@ -320,7 +312,7 @@ export function InputBar({ onSend, onStop, onCommand, disabled: _disabled, strea
             <button
               onClick={() => { setText("/"); textareaRef.current?.focus(); }}
               className="w-7 h-7 flex items-center justify-center text-white/30 hover:text-white rounded-md hover:bg-white/10 transition-colors text-[14px] font-bold"
-              title="Slash commands"
+              title={t("input.slash")}
             >
               /
             </button>
@@ -330,7 +322,7 @@ export function InputBar({ onSend, onStop, onCommand, disabled: _disabled, strea
               <button
                 onClick={onStop}
                 className="w-7 h-7 flex items-center justify-center rounded-lg bg-jupiter-red/80 text-white hover:bg-jupiter-red transition-colors"
-                title="Stop (Esc)"
+                title={t("input.stop")}
               >
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
                   <rect x="4" y="4" width="16" height="16" rx="2" />
@@ -347,7 +339,7 @@ export function InputBar({ onSend, onStop, onCommand, disabled: _disabled, strea
                   ? "bg-jupiter-blue hover:bg-jupiter-blue/80"
                   : "bg-jupiter-orange hover:bg-jupiter-orange-light"
               }`}
-              title="Send (Enter)"
+              title={t("input.send")}
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="12" y1="19" x2="12" y2="5" />

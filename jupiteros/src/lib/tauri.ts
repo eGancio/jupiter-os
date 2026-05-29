@@ -84,6 +84,29 @@ export function flushSessionMessages(
   return invoke("flush_session_messages", { sessionId, messages: payload });
 }
 
+export function addLocalMoon(params: import("../types").AddLocalMoonParams): Promise<void> {
+  return invoke("add_local_moon", {
+    name: params.name,
+    command: params.command,
+    args: params.args,
+    cwd: params.cwd,
+    envVars: params.envVars,
+    port: params.port,
+  });
+}
+
+export function addRemoteMoon(name: string, url: string, moonType: string): Promise<void> {
+  return invoke("add_remote_moon", { name, url, moonType });
+}
+
+export function removeMoon(name: string): Promise<void> {
+  return invoke("remove_moon", { name });
+}
+
+export function removeLocalMoon(name: string): Promise<void> {
+  return invoke("remove_local_moon", { name });
+}
+
 export function getClaudeMdStatus(): Promise<ClaudeMdStatus> {
   return invoke("get_claude_md_status");
 }
@@ -174,4 +197,67 @@ export function oauthConnectGmail(email: string): Promise<string> {
 
 export function accountRemove(account: string): Promise<void> {
   return invoke("account_remove", { account });
+}
+
+// ── Europa messaging channels (Telegram / Slack / Teams) ────────────────────
+
+export interface EuropaChannel {
+  channel: string;
+  mode: string;
+  configured: boolean;
+  authorized: boolean;
+  detail: string;
+}
+
+export function europaChannelsList(): Promise<EuropaChannel[]> {
+  return invoke("europa_channels_list");
+}
+
+export function telegramSaveApi(apiId: string, apiHash: string): Promise<void> {
+  return invoke("telegram_save_api", { apiId, apiHash });
+}
+
+/** Returns "code_sent" or "already_authorized". */
+export function telegramRequestCode(phone: string): Promise<string> {
+  return invoke("telegram_request_code", { phone });
+}
+
+/** Returns "done" or "password_required". */
+export function telegramSubmitCode(code: string): Promise<string> {
+  return invoke("telegram_submit_code", { code });
+}
+
+/** Returns "done". */
+export function telegramSubmitPassword(password: string): Promise<string> {
+  return invoke("telegram_submit_password", { password });
+}
+
+export function telegramSaveBot(token: string): Promise<void> {
+  return invoke("telegram_save_bot", { token });
+}
+
+export function slackSave(token: string): Promise<void> {
+  return invoke("slack_save", { token });
+}
+
+export interface DeviceCodeInfo {
+  user_code: string;
+  verification_uri: string;
+  message: string;
+}
+
+export function teamsStartDeviceCode(
+  clientId: string,
+  tenantId: string
+): Promise<DeviceCodeInfo> {
+  return invoke("teams_start_device_code", { clientId, tenantId });
+}
+
+/** Returns "pending" or "done". */
+export function teamsPollDeviceCode(): Promise<string> {
+  return invoke("teams_poll_device_code");
+}
+
+export function europaChannelRemove(channel: string): Promise<void> {
+  return invoke("europa_channel_remove", { channel });
 }

@@ -159,18 +159,21 @@ impl EmailDaemon {
         );
 
         if self.config.accounts.is_empty() {
-            error!("No email accounts configured!");
-            return;
+            warn!("No email accounts configured — daemon idle. Configure accounts in .mcp.json and restart Moon Io.");
+            loop {
+                tokio::time::sleep(Duration::from_secs(3600)).await;
+            }
         }
+        let accounts = self.config.accounts.clone();
 
         // Per-account folder map + per-account auth circuit breaker.
         // The breaker is created here so it covers Phase 1 (bulk), Phase 2
         // (attachments), AND Phase 3 (IDLE+poller) — preventing the startup
         // burst of failures from rebuilding an IP lockout.
         let mut account_folders: Vec<(AccountConfig, Vec<String>, Arc<Mutex<AuthBreaker>>)> =
-            Vec::with_capacity(self.config.accounts.len());
+            Vec::with_capacity(accounts.len());
 
-        for account in &self.config.accounts {
+        for account in &accounts {
             let folders = self.discover_folders(account).await;
             if folders.is_empty() {
                 warn!("[{}] No folders to index, skipping", account.name);

@@ -32,6 +32,31 @@ function nextMsgId() {
   return `msg-${Date.now()}-${++msgCounter}`;
 }
 
+// ── Sequential parts accumulation ───────────────────────────────
+// These keep the legacy fields (thinking/content/toolCalls) in sync — needed
+// for persistence — while also appending to `parts` so the UI can render
+// thinking/text/tool blocks in true chronological order. The `tool` part holds
+// the SAME ToolCallInfo reference stored in toolCalls[], so result updates
+// propagate to the rendered part automatically.
+function appendThinkingPart(msg: ChatMessage, text: string) {
+  msg.thinking = (msg.thinking || "") + text;
+  const parts = (msg.parts ||= []);
+  const tail = parts[parts.length - 1];
+  if (tail && tail.kind === "thinking") tail.text += text;
+  else parts.push({ kind: "thinking", text });
+}
+function appendTextPart(msg: ChatMessage, text: string) {
+  msg.content += text;
+  const parts = (msg.parts ||= []);
+  const tail = parts[parts.length - 1];
+  if (tail && tail.kind === "text") tail.text += text;
+  else parts.push({ kind: "text", text });
+}
+function pushToolPart(msg: ChatMessage, tc: ToolCallInfo) {
+  msg.toolCalls.push(tc);
+  (msg.parts ||= []).push({ kind: "tool", tool: tc });
+}
+
 /** Messages + metadata stored per session */
 interface SessionData {
   messages: ChatMessage[];
@@ -240,7 +265,7 @@ export function useChat() {
         const msgs = data.messages;
         const last = msgs[msgs.length - 1];
         if (last && last.role === "assistant" && last.streaming) {
-          last.thinking = (last.thinking || "") + event.payload.thinking;
+          appendThinkingPart(last, event.payload.thinking);
         } else {
           msgs.push({
             id: nextMsgId(),
@@ -248,6 +273,7 @@ export function useChat() {
             content: "",
             thinking: event.payload.thinking,
             toolCalls: [],
+            parts: [{ kind: "thinking", text: event.payload.thinking }],
             timestamp: Date.now(),
             streaming: true,
           });
@@ -273,13 +299,14 @@ export function useChat() {
         const msgs = data.messages;
         const last = msgs[msgs.length - 1];
         if (last && last.role === "assistant" && last.streaming) {
-          last.content += event.payload.text;
+          appendTextPart(last, event.payload.text);
         } else {
           msgs.push({
             id: nextMsgId(),
             role: "assistant",
             content: event.payload.text,
             toolCalls: [],
+            parts: [{ kind: "text", text: event.payload.text }],
             timestamp: Date.now(),
             streaming: true,
           });
@@ -308,13 +335,14 @@ export function useChat() {
           startedAt: Date.now(),
         };
         if (last && last.role === "assistant") {
-          last.toolCalls.push(tc);
+          pushToolPart(last, tc);
         } else {
           msgs.push({
             id: nextMsgId(),
             role: "assistant",
             content: "",
             toolCalls: [tc],
+            parts: [{ kind: "tool", tool: tc }],
             timestamp: Date.now(),
             streaming: true,
           });
