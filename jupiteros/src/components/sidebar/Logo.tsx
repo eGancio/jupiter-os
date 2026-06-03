@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Edoardo Mancinelli
+
 export function Logo() {
   return (
     <div className="flex items-center justify-center px-4 py-3 gap-2.5">

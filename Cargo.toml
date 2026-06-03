@@ -6,10 +6,18 @@ members = [
     "jupiteros-shared",
     "moon-europa-rs",
     "moon-io-rs",
+    "moon-ganymede-rs",
 ]
 exclude = [
     "jupiteros/src-tauri",
 ]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "AGPL-3.0-or-later"
+repository = "https://github.com/eGancio/jupiter-os"
+authors = ["Edoardo Mancinelli <e.mancinelli@brunelleschi.ai>"]
 
 [workspace.dependencies]
 tokio = { version = "1", features = ["full"] }

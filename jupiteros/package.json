@@ -3,9 +3,16 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "description": "JupiterOS — desktop chat for Claude + MCP servers (Tauri v2 + React frontend)",
+  "license": "AGPL-3.0-or-later",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/eGancio/jupiter-os.git"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
+    "typecheck": "tsc --noEmit",
     "preview": "vite preview",
     "tauri": "tauri"
   },

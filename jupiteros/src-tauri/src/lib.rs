@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Edoardo Mancinelli
+
 mod autostart;
 mod chat_commands;
 mod chat_state;

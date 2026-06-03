@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Edoardo Mancinelli
+
 import type { ServiceInfo } from "../../types";
 import { ServiceDetail } from "../services/ServiceDetail";
 import { useT } from "../../i18n";

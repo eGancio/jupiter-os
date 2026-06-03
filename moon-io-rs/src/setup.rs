@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Edoardo Mancinelli
+
 //! Auto-setup: ONNX model download + Qdrant download & auto-start.
 //!
 //! Called once at startup to ensure all dependencies are ready

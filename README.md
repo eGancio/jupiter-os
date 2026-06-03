@@ -48,9 +48,14 @@ Bring your own — any stdio, SSE or HTTP MCP server works out of the box.
 
 ### Build
 
+> **Platforms.** The Rust/Tauri code is cross-platform (Linux, macOS, Windows). The
+> `setup-linux.sh` helper is **Debian/Ubuntu only** (`apt-get`); on Fedora, macOS or
+> Windows install the [Tauri prerequisites](https://tauri.app/start/prerequisites/) and
+> the tools in the table above by hand, then run the build steps below.
+
 ```bash
-git clone https://github.com/jupiter-os/jupiteros.git
-cd jupiteros
+git clone https://github.com/eGancio/jupiter-os.git
+cd jupiter-os
 
 # Rust Moons + shared library
 cargo build --release
@@ -63,6 +68,20 @@ npm run tauri build
 
 The desktop binary lands in `jupiteros/src-tauri/target/release/`.
 
+> **Note.** The GUI must be built with `npm run tauri build` — a bare `cargo build
+> --release` does not bundle the frontend and produces a non-functional window.
+
+### Authentication (Anthropic API key)
+
+JupiterOS is **bring-your-own-key** — it never ships or proxies a key. Export your
+Anthropic API key in the environment that launches the app:
+
+```bash
+export ANTHROPIC_API_KEY=sk-ant-...
+```
+
+The chat sidecar reads it from the environment at startup; nothing is stored by JupiterOS.
+
 ### Configure
 
 1. Copy `.mcp.json.example` to `.mcp.json`
@@ -74,7 +93,9 @@ The desktop binary lands in `jupiteros/src-tauri/target/release/`.
 
 1. Open the app — the sidebar lists the Moons
 2. Click **Start** on each Moon you want active
-3. On first run, Qdrant and the ONNX model auto-download (~170 MB total)
+3. On first run, each Rust Moon downloads its runtime dependencies on demand: the Qdrant
+   binary (~80 MB, from GitHub releases) and the BGE-M3 ONNX embedding model (~570 MB,
+   from Hugging Face). Allow a few minutes and a stable connection for the first start.
 4. For Moon Europa: enter the Telegram OTP when prompted
 
 ## Architecture

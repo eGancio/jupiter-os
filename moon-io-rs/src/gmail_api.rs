@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Edoardo Mancinelli
+
 //! Gmail REST API backend (`https://gmail.googleapis.com/gmail/v1/users/me`).
 //!
 //! Used in place of IMAP+XOAUTH2 for Gmail Workspace accounts, because

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Edoardo Mancinelli
+
 import { useState, useRef, useCallback, useMemo } from "react";
 import type { PastedImage } from "../../types";
 import { getCompletions, type SlashCommand } from "../../lib/commands";

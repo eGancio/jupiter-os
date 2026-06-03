@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Edoardo Mancinelli
+
 import { useEffect, useRef, useState, useCallback } from "react";
 import { ChatMessage } from "../chat/ChatMessage";
 import { InputBar } from "../chat/InputBar";

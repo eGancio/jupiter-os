@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Edoardo Mancinelli
+
 // English UI strings. Keys are shared 1:1 with it.ts. English is the fallback
 // language: every key used in the app must exist here.
 export const en: Record<string, string> = {

@@ -115,6 +115,39 @@ Rispondere SEMPRE in italiano a meno che l'utente non scriva in un'altra lingua.
 
 Visibili dalla GUI JupiterOS nel pannello **Service Detail** di ciascun Moon (click su un Moon nella sidebar).
 
+## REGOLA #7 — Moon Ganymede (server `ganymede`) — Wiki / Memoria operativa
+
+**Moon Ganymede è la memoria operativa**: lo *stato mutevole* delle faccende dell'utente (a che punto è il progetto X, decisioni prese con una società, referenti, questioni aperte). Sono cose che cambiano e devono restare ispezionabili. È un sistema SEPARATO dal RAG email/messaggi: file `.md` su disco in `wiki/`, niente vettori.
+
+### Lettura: tool BUILT-IN, non Ganymede
+I file del Wiki si **leggono** con i tool standard `Read` / `Grep` / `Glob` puntati su `wiki/`. Per il briefing parti da `wiki/_index/README.md` e dagli indici-vista `wiki/_index/by-*.md`. Se un'informazione operativa è già nel Wiki, **non ricaricarla** da email/messaggi.
+
+### Scrittura: SOLO via `wiki_commit_fact`
+**MAI** usare `Write`/`Edit` direttamente su `wiki/` (bypassa validazione tag, backup e reindex). Ogni modifica passa per i tool Ganymede.
+
+### Flusso OBBLIGATORIO per salvare un fatto
+1. **Estrai il fatto**, non il transcript: cosa è cambiato (decisione, stato, referente, questione aperta).
+2. `wiki_list_taxonomy` — vedi assi e valori ammessi, per usare tag esistenti.
+3. `wiki_find_target(query)` — trova il file-entità da AGGIORNARE; se `found=false` crei un nuovo file (un file per entità/faccenda, cartella per `tipo`).
+4. Se esiste, `Read` del file e costruisci il merge (append datato nelle sezioni; aggiorna `Sintesi`/`stato`/`aggiornato`). Niente duplicati.
+5. `wiki_validate_tags(content)` — normalizza/valida; raccogli eventuali `unknown` con suggerimenti.
+6. **BOZZA OBBLIGATORIA**: mostra all'utente file di destinazione, frontmatter, diff delle sezioni e tag non riconosciuti. Attendi **conferma esplicita** (come per le email, REGOLA #4).
+7. `wiki_commit_fact(path, content)`. Se ci sono tag nuovi confermati dall'utente, usa `allow_new_tags=true` (oppure prima `wiki_add_tag`). Il commit fa backup, scrive in modo atomico e rigenera gli indici.
+
+### Setup iniziale (primo uso)
+Al primo avvio Ganymede crea `wiki/_taxonomy.yaml` (vocabolario di default) e `wiki/_template.md`. Se la tassonomia è ancora "vuota" sugli assi aperti, **proponi all'utente** quali società/reparti/referenti ricorrenti aggiungere e, dopo conferma, registrali con `wiki_add_tag`. Il file `_taxonomy.yaml` è modificabile a mano dall'utente.
+
+### Tabella: quale tool per quale richiesta
+
+| Richiesta utente | Tool / azione |
+|---|---|
+| "a che punto siamo con X?" / "stato dei progetti" | `Read`/`Grep` su `wiki/` + `wiki/_index/*` (built-in) |
+| "ricordati che..." / "salva che..." / cambio di stato | flusso OBBLIGATORIO → `wiki_commit_fact` |
+| "quali valori posso usare per reparto?" | `wiki_list_taxonomy` |
+| "esiste già una scheda per Acme?" | `wiki_find_target(query="Acme")` |
+| "aggiungi la società Acme alla tassonomia" | `wiki_add_tag(asse="societa", valore="acme-srl")` (dopo conferma) |
+| dopo modifiche manuali ai `.md` | `wiki_reindex` |
+
 ## Architettura
 
 ```
@@ -137,6 +170,11 @@ moon-amalthea/         # Moon Amalthea — Charts (Python)
 │                        16 tipi di grafici/diagrammi deterministici
 │                        ECharts + Mermaid
 │
+moon-ganymede-rs/      # Moon Ganymede — Wiki / memoria operativa (Rust)
+│                        file .md + frontmatter YAML in wiki/, niente vettori
+│                        lettura via tool built-in, scrittura via wiki_commit_fact
+│                        tassonomia controllata + indici-vista generati
+│
 .mcp.json              # Config Moon servers (locale, gitignored)
 .mcp.json.example      # Template generico per nuovi contributor
 ```
@@ -148,6 +186,7 @@ moon-amalthea/         # Moon Amalthea — Charts (Python)
 | `io` | Email (IMAP/SMTP/CalDAV + Qdrant) | 8100 | Rust |
 | `europa` | Messaging (Telegram + Qdrant) | 8200 | Rust |
 | `amalthea` | Chart/visualization | 8300 | Python |
+| `ganymede` | Wiki / memoria operativa (file .md) | 8400 | Rust |
 
 ## Credenziali
 

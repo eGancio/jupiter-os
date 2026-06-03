@@ -12,6 +12,10 @@
       "type": "sse",
       "url": "http://127.0.0.1:8300/sse"
     },
+    "ganymede": {
+      "type": "sse",
+      "url": "http://127.0.0.1:8400/sse"
+    },
     "gtd": {
       "type": "http",
       "url": "https://YOUR_JUPITEROS_HOST/mcp-gtd/YOUR_TOKEN/"
@@ -58,6 +62,17 @@
         "AMALTHEA_OUTPUT_DIR": "moon-amalthea/output",
         "MCP_TRANSPORT": "sse",
         "MCP_PORT": "8300"
+      }
+    },
+    "ganymede": {
+      "command": "target/release/moon-ganymede.exe",
+      "args": [],
+      "cwd": "moon-ganymede-rs",
+      "env": {
+        "GANYMEDE_WIKI_DIR": "../wiki",
+        "DATA_DIR": "../data",
+        "MCP_TRANSPORT": "sse",
+        "MCP_PORT": "8400"
       }
     }
   }

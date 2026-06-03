@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Edoardo Mancinelli
+
 import { useState } from "react";
 import { Sidebar } from "./components/layout/Sidebar";
 import { ChatArea } from "./components/layout/ChatArea";

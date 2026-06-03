@@ -1,8 +1,11 @@
 [package]
 name = "moon-europa-rs"
-version = "0.1.0"
-edition = "2021"
-description = "Moon Europa - Messaging (Telegram) MCP server in Rust"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "Moon Europa - Messaging (Telegram/Slack/Teams) MCP server in Rust"
 
 [[bin]]
 name = "moon-europa"

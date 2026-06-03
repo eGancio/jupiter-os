@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Edoardo Mancinelli
+
 // Italian UI strings. Keys are shared 1:1 with en.ts.
 export const it: Record<string, string> = {
   // ── common ──

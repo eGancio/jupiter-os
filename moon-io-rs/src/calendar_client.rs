@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Edoardo Mancinelli
+
 use chrono::{DateTime, NaiveDate, Utc};
 use reqwest::Client;
 use tracing::info;

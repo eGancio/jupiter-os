@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Edoardo Mancinelli
+
 use std::collections::VecDeque;
 use std::io::{BufRead, BufReader};
 use std::process::{Child, Command, Stdio};

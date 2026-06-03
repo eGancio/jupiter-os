@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Edoardo Mancinelli
+
 export interface SlashCommand {
   name: string;
   /** i18n key for the command description (resolve with the t() helper). */

@@ -2,6 +2,10 @@
 name = "jupiteros"
 version = "0.1.0"
 edition = "2021"
+description = "JupiterOS — desktop chat for Claude + MCP servers (Tauri shell)"
+license = "AGPL-3.0-or-later"
+repository = "https://github.com/eGancio/jupiter-os"
+authors = ["Edoardo Mancinelli <e.mancinelli@brunelleschi.ai>"]
 
 [lib]
 name = "jupiteros_lib"

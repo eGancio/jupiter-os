@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Edoardo Mancinelli
+
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 import { en } from "./en";
 import { it } from "./it";

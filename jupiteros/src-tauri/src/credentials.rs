@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Edoardo Mancinelli
+
 //! Tauri commands for managing email credentials in the Windows Credential
 //! Manager (service "MoonIo"). Mirrors what `moon-io.exe credentials ...` does,
 //! so the CLI and the GUI share the same vault.

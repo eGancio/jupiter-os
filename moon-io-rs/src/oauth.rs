@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Edoardo Mancinelli
+
 //! OAuth 2.0 (Authorization Code Flow with PKCE) for Gmail IMAP/SMTP.
 //!
 //! Flow:

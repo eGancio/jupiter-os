@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Edoardo Mancinelli
+
 import type { ServiceInfo } from "../../types";
 import { getMoonColor, getMoonInfo } from "../../lib/moonInfo";
 import { useT } from "../../i18n";

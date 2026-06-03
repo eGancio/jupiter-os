@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Edoardo Mancinelli
+
 //! Slack adapter using the Slack Web API (https://api.slack.com/web).
 //!
 //! Auth = a bot token (`xoxb-...`) created from https://api.slack.com/apps
