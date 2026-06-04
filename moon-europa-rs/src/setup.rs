@@ -124,8 +124,17 @@ pub async fn ensure_qdrant(qdrant_url: &str, data_dir: &Path) -> anyhow::Result<
 
     let qdrant_dir = data_dir.join("qdrant");
     let qdrant_bin = qdrant_dir.join(qdrant_binary_name());
-    let qdrant_storage = qdrant_dir.join("storage");
-    let qdrant_snapshots = qdrant_dir.join("snapshots");
+
+    // Storage/snapshots root. All Moons share a single Qdrant on port 6334,
+    // so they MUST agree on one storage directory — otherwise whichever Moon
+    // wins the startup race after a reboot picks its own (possibly empty)
+    // storage and the others see a phantom "data loss". QDRANT_STORAGE_DIR
+    // pins that shared location; without it we fall back to the per-Moon dir.
+    let storage_root = std::env::var("QDRANT_STORAGE_DIR")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| qdrant_dir.clone());
+    let qdrant_storage = storage_root.join("storage");
+    let qdrant_snapshots = storage_root.join("snapshots");
 
     std::fs::create_dir_all(&qdrant_storage).context("Create Qdrant storage dir")?;
     std::fs::create_dir_all(&qdrant_snapshots).context("Create Qdrant snapshots dir")?;

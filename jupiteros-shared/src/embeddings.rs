@@ -89,8 +89,19 @@ impl OnnxEmbedding {
             .commit_from_file(&model_path)
             .map_err(|e| SharedError::Embedding(format!("Load model: {e}")))?;
 
-        let tokenizer = tokenizers::Tokenizer::from_file(&tokenizer_path)
+        let mut tokenizer = tokenizers::Tokenizer::from_file(&tokenizer_path)
             .map_err(|e| SharedError::Embedding(format!("Load tokenizer: {e}")))?;
+
+        // Cap tokenization at MAX_SEQ_LEN so pathological inputs (huge base64
+        // blobs, inlined images, minified HTML) can't blow up BPE encoding.
+        // Without this the tokenizer chews the full ~30k-char body before the
+        // model ever sees the 512-token cap, which can wedge a whole batch.
+        tokenizer
+            .with_truncation(Some(tokenizers::TruncationParams {
+                max_length: MAX_SEQ_LEN,
+                ..Default::default()
+            }))
+            .map_err(|e| SharedError::Embedding(format!("Set tokenizer truncation: {e}")))?;
 
         info!("BGE-M3 embedding model loaded ({} dense dims, sparse enabled)", BGE_M3_DENSE_DIM);
 

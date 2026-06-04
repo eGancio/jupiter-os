@@ -16,9 +16,17 @@ use crate::blacklist::Blacklist;
 use crate::error::{IoError, Result};
 use crate::mail_backend::MailBackend;
 
-const BATCH_SIZE: usize = 500;
+// Smaller batches commit to Qdrant sooner (progress is persisted every
+// BATCH_SIZE emails) and bound the blast radius of any single slow email
+// during a full re-index. 500 was large enough that one pathological message
+// could stall an entire batch with nothing committed.
+const BATCH_SIZE: usize = 64;
 const ATTACH_MAX_CHARS: usize = 2000;
-const MAX_TEXT_LEN: usize = 30_000;
+// The embedding model (BGE-M3) only consumes ~512 tokens via CLS pooling,
+// i.e. roughly 2-2.5k characters, so anything beyond a few thousand chars is
+// discarded anyway. Keeping this tight prevents the tokenizer from chewing
+// huge base64/HTML bodies, which was wedging the indexer.
+const MAX_TEXT_LEN: usize = 4_000;
 
 /// Find the largest byte index <= `i` that sits on a UTF-8 char boundary.
 /// Prevents panics when slicing strings with multi-byte characters (e.g. \u{a0}).
