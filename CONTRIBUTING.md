@@ -14,6 +14,7 @@ Whether you want to fix a bug, polish a Moon, build a new one, or improve docs: 
 - [Coding style](#coding-style)
 - [Commit messages](#commit-messages)
 - [Pull request process](#pull-request-process)
+- [Referral & sponsorship transparency](#referral--sponsorship-transparency)
 - [Reporting bugs & security issues](#reporting-bugs--security-issues)
 - [License of your contribution](#license-of-your-contribution)
 
@@ -43,8 +44,8 @@ This project follows the [Contributor Covenant 2.1](CODE_OF_CONDUCT.md). By part
 ### First build
 
 ```bash
-git clone https://github.com/jupiter-os/jupiteros.git
-cd jupiteros
+git clone https://github.com/eGancio/jupiter-os.git
+cd jupiter-os
 
 # 1. Build the Rust Moons + shared library
 cargo build --release
@@ -84,8 +85,10 @@ This rebuilds on save and gives you devtools.
 jupiteros-shared/   Shared Rust library: Qdrant client, ONNX embeddings, file parsing
 jupiteros/          Desktop GUI (Tauri v2 + React + TypeScript)
 moon-io-rs/         Email Moon (IMAP/SMTP/CalDAV, Rust)
-moon-europa-rs/     Messaging Moon (Telegram, Rust)
+moon-europa-rs/     Messaging Moon (Telegram + multi-channel, Rust)
 moon-amalthea/      Charts & diagrams Moon (Python)
+moon-ganymede-rs/   Operational wiki / memory Moon (Rust)
+moon-callisto/      Video → transcription Moon (Python)
 .github/            Workflows, issue & PR templates
 docs/               Architecture, Moon authoring guide
 ```
@@ -96,7 +99,7 @@ Each Moon is a self-contained MCP server. Adding one does **not** require touchi
 
 A Moon is just an MCP server that the JupiterOS GUI can spawn and talk to. To create one:
 
-1. **Pick a name** from Jupiter's moons (Ganymede, Callisto, Pandora, Titan, …). Check the [roadmap](docs/ROADMAP.md) so you don't collide with planned work.
+1. **Pick a name** from Jupiter's moons (Ganymede, Callisto, Pandora, Titan, …). Check the [roadmap](ROADMAP.md) so you don't collide with planned work.
 2. **Create the crate / package** at the repo root (`moon-<name>/` for Rust, or `moon-<name>/` with a `pyproject.toml` for Python).
 3. **Implement the MCP server** exposing a small, focused set of tools. Keep tool inputs/outputs typed and documented.
 4. **Add a settings entry** the GUI can show in the *Services* panel so users can start/stop your Moon.
@@ -159,6 +162,27 @@ A clean Conventional Commit history powers our generated `CHANGELOG.md`.
 6. **One reviewer approval** is required to merge. Squash-merge by default — your branch's commit history is rewritten into one Conventional Commit on `main`.
 
 PRs that touch the **chat sidecar** (`jupiteros/sidecar/agent.mjs`) or the **agent integration** need extra care — that path is load-bearing for the GUI. Include a screenshot or short clip showing the GUI still works.
+
+## Referral & sponsorship transparency
+
+JupiterOS is funded by disclosed integration referrals and professional services
+(see [SPONSORS.md](SPONSORS.md)). To keep that promise enforceable, one rule is
+**non-negotiable**:
+
+> **No referral link enters the codebase without its row in `SPONSORS.md` in the same
+> commit, and an inline disclosure shown to the user in the product.**
+
+A PR that adds or changes a referral/affiliate link must, in the same PR:
+
+1. Add (or update) the partner's row in `SPONSORS.md`.
+2. **Visibly disclose** the referral at the point of use in the UI.
+3. Respect the global opt-out (Settings → Privacy) — a user who opted out must never be
+   routed through a referral.
+4. Use **partner-side attribution only** (a referral link/code). Client-side tracking or
+   telemetry to attribute conversions is never accepted.
+
+PRs that add a referral without all four will not be merged. This isn't bureaucracy —
+it's the whole reason users can trust the recommendations.
 
 ## Reporting bugs & security issues
 

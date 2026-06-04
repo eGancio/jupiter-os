@@ -18,13 +18,15 @@ JupiterOS is a Tauri-based desktop application that gives you a native chat inte
 
 ## Pre-configured Moons
 
-JupiterOS ships with 3 reference MCP servers ("Moons"):
+JupiterOS ships with 5 reference MCP servers ("Moons"):
 
 | Moon | Function | Stack | Port |
 |------|----------|-------|------|
 | **Io** | Email (IMAP/SMTP, CalDAV, semantic search) | Rust + Qdrant | 8100 |
-| **Europa** | Messaging (Telegram, semantic search) | Rust + Qdrant | 8200 |
+| **Europa** | Messaging (Telegram + multi-channel, semantic search) | Rust + Qdrant | 8200 |
 | **Amalthea** | Charts & diagrams (16 deterministic types) | Python + ECharts/Mermaid | 8300 |
+| **Ganymede** | Operational wiki / memory (Markdown + YAML) | Rust | 8400 |
+| **Callisto** | Video → transcription (yt-dlp + faster-whisper) | Python | 8500 |
 
 Bring your own — any stdio, SSE or HTTP MCP server works out of the box.
 
