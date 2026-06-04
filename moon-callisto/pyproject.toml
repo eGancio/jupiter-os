@@ -1,0 +1,28 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Copyright (C) 2026 Edoardo Mancinelli
+
+[build-system]
+requires = ["setuptools>=75.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "moon-callisto"
+version = "0.1.0"
+description = "Moon Callisto — Video → clean transcript extractor for JupiterOS"
+license = "AGPL-3.0-or-later"
+authors = [{ name = "Edoardo Mancinelli", email = "e.mancinelli@brunelleschi.ai" }]
+requires-python = ">=3.10"
+dependencies = [
+    "mcp[cli]>=1.2.0",
+    "python-dotenv>=1.0.0",
+    "faster-whisper>=1.0.0",
+]
+
+[project.urls]
+Repository = "https://github.com/eGancio/jupiter-os"
+
+[project.scripts]
+moon-callisto = "moon_callisto.server:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

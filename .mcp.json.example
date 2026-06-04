@@ -16,6 +16,10 @@
       "type": "sse",
       "url": "http://127.0.0.1:8400/sse"
     },
+    "callisto": {
+      "type": "sse",
+      "url": "http://127.0.0.1:8500/sse"
+    },
     "gtd": {
       "type": "http",
       "url": "https://YOUR_JUPITEROS_HOST/mcp-gtd/YOUR_TOKEN/"
@@ -31,6 +35,7 @@
         "IMAP_USERNAME": "YOUR_EMAIL@example.com",
         "IMAP_PASSWORD": "YOUR_PASSWORD",
         "QDRANT_URL": "http://127.0.0.1:6334",
+        "QDRANT_STORAGE_DIR": "/ABSOLUTE/PATH/TO/jupiter-os/data/qdrant",
         "MCP_TRANSPORT": "sse",
         "MCP_PORT": "8100"
       }
@@ -50,6 +55,7 @@
         "TEAMS_TENANT_ID": "",
         "TEAMS_REFRESH_TOKEN": "",
         "QDRANT_URL": "http://127.0.0.1:6334",
+        "QDRANT_STORAGE_DIR": "/ABSOLUTE/PATH/TO/jupiter-os/data/qdrant",
         "MCP_TRANSPORT": "sse",
         "MCP_PORT": "8200"
       }
@@ -73,6 +79,16 @@
         "DATA_DIR": "../data",
         "MCP_TRANSPORT": "sse",
         "MCP_PORT": "8400"
+      }
+    },
+    "callisto": {
+      "command": "moon-callisto/.venv/Scripts/python.exe",
+      "args": ["-m", "moon_callisto.server"],
+      "cwd": "moon-callisto",
+      "env": {
+        "CALLISTO_OUTPUT_DIR": "moon-callisto/output",
+        "MCP_TRANSPORT": "sse",
+        "MCP_PORT": "8500"
       }
     }
   }

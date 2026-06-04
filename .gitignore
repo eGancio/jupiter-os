@@ -60,6 +60,9 @@ installer/templates/*.env
 # Moon Amalthea output
 moon-amalthea/output/
 
+# Moon Callisto output (video transcripts)
+moon-callisto/output/
+
 # IDE
 .idea/
 *.iml
