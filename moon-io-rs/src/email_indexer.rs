@@ -296,16 +296,26 @@ impl EmailIndexer {
                 }
             }
 
-            // Save state after each batch (resumable)
-            state.folders.insert(
-                folder.to_string(),
-                FolderState {
-                    last_uid: max_uid,
-                    last_indexed_at: Utc::now().to_rfc3339(),
-                },
-            );
-            if let Err(e) = state.save(&self.state_path) {
-                warn!("Failed to save indexer state: {e}");
+            // Save state after each batch (resumable) — ONLY for the unbounded
+            // incremental/full pass (limit == 0). A bounded "recent N" pass
+            // (limit > 0, e.g. the Phase-2 attachment extraction of the latest
+            // 50 emails) indexes the HIGHEST UIDs without touching everything
+            // below them, so persisting max_uid there would wrongly advance the
+            // incremental cursor to the top of the mailbox and permanently
+            // strand every older, not-yet-indexed email. The watermark means
+            // "everything up to here is indexed", which is only true for the
+            // contiguous limit==0 pass — so only that pass may own it.
+            if limit == 0 {
+                state.folders.insert(
+                    folder.to_string(),
+                    FolderState {
+                        last_uid: max_uid,
+                        last_indexed_at: Utc::now().to_rfc3339(),
+                    },
+                );
+                if let Err(e) = state.save(&self.state_path) {
+                    warn!("Failed to save indexer state: {e}");
+                }
             }
         }
 

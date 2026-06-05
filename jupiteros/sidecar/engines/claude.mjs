@@ -48,6 +48,7 @@ export class ClaudeAgentEngine {
       systemPrompt: { type: "preset", preset: "claude_code" },
       settingSources: ["user", "project", "local"],
       allowedTools: ALLOWED_TOOLS,
+      skills: "all",
       includePartialMessages: true,
       persistSession: true,
       thinking: { type: "adaptive" },

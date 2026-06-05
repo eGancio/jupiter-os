@@ -8,6 +8,7 @@ mod claude;
 mod commands;
 mod config;
 mod credentials;
+mod emails;
 mod europa_credentials;
 mod services;
 mod state;
@@ -58,6 +59,7 @@ pub fn run() {
             chat_commands::get_chat_model,
             chat_commands::get_chat_engine,
             chat_commands::set_chat_engine,
+            emails::list_emails_io,
             chat_commands::get_claude_md_status,
             chat_commands::read_chart_file,
             chat_commands::flush_session_messages,

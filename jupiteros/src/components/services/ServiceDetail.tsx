@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Edoardo Mancinelli
 
+import { useEffect, useState } from "react";
 import type { ServiceInfo } from "../../types";
 import { startService, stopService, restartService } from "../../lib/tauri";
 import { useLogs } from "../../hooks/useLogs";
@@ -8,6 +9,7 @@ import { LogViewer } from "./LogViewer";
 import { StatusBadge } from "./StatusBadge";
 import { CredentialsPanel } from "./CredentialsPanel";
 import { EuropaCredentialsPanel } from "./EuropaCredentialsPanel";
+import { EmailsPanel } from "./EmailsPanel";
 import { useT } from "../../i18n";
 
 interface Props {
@@ -15,9 +17,17 @@ interface Props {
   onRefresh: () => void;
 }
 
+type Tab = "details" | "emails";
+
 export function ServiceDetail({ service, onRefresh }: Props) {
   const { t } = useT();
   const { lines, scrollRef, clearLogs } = useLogs(service?.name ?? null);
+  const [tab, setTab] = useState<Tab>("details");
+
+  // Reset to the details tab whenever the selected moon changes.
+  useEffect(() => {
+    setTab("details");
+  }, [service?.name]);
 
   if (!service) {
     return (
@@ -27,6 +37,7 @@ export function ServiceDetail({ service, onRefresh }: Props) {
     );
   }
 
+  const isIo = service.name === "io";
   const kindLabel = service.kind === "McpServer" ? t("service.mcpServer") : t("service.daemon");
 
   const handleStart = async () => {
@@ -66,58 +77,86 @@ export function ServiceDetail({ service, onRefresh }: Props) {
 
       <hr className="border-jupiter-orange/25 mb-2" />
 
-      {/* Controls */}
-      <div className="flex items-center gap-1.5 mb-2 flex-wrap">
-        {service.virtual ? (
-          <span className="px-2.5 py-1 text-[11px] rounded bg-jupiter-elevated text-jupiter-dim border border-jupiter-orange/25">
-            {t("service.stdio")}
-          </span>
-        ) : !service.running ? (
-          <button
-            onClick={handleStart}
-            className="px-2.5 py-1 text-[11px] rounded bg-jupiter-green/15 text-jupiter-green border border-jupiter-green/30 hover:bg-jupiter-green/25 transition-colors"
-          >
-            {t("service.start")}
-          </button>
-        ) : (
-          <>
+      {/* Tabs — only Moon Io has an Emails view */}
+      {isIo && (
+        <div className="grid grid-cols-2 gap-1 text-[10px] mb-2 flex-shrink-0">
+          {([
+            ["details", "Service Detail"],
+            ["emails", "Email"],
+          ] as const).map(([id, label]) => (
             <button
-              onClick={handleStop}
-              className="px-2.5 py-1 text-[11px] rounded bg-jupiter-red/15 text-jupiter-red border border-jupiter-red/30 hover:bg-jupiter-red/25 transition-colors"
+              key={id}
+              onClick={() => setTab(id)}
+              className={`px-2 py-1 rounded border transition-colors ${
+                tab === id
+                  ? "bg-jupiter-orange/20 text-jupiter-orange border-jupiter-orange/40"
+                  : "text-jupiter-dim border-jupiter-orange/15 hover:border-jupiter-orange/30"
+              }`}
             >
-              {t("service.stop")}
+              {label}
             </button>
-            <button
-              onClick={handleRestart}
-              className="px-2.5 py-1 text-[11px] rounded bg-jupiter-amber/15 text-jupiter-amber border border-jupiter-amber/30 hover:bg-jupiter-amber/25 transition-colors"
-            >
-              {t("service.restart")}
-            </button>
-          </>
-        )}
-        {!service.virtual && <StatusBadge running={service.running} />}
-        <div className="flex-1" />
-        {!service.virtual && (
-          <button
-            onClick={clearLogs}
-            className="px-2 py-1 text-[10px] rounded text-jupiter-dim hover:text-white hover:bg-jupiter-elevated transition-colors"
-          >
-            {t("service.clear")}
-          </button>
-        )}
-      </div>
+          ))}
+        </div>
+      )}
 
-      {/* Credentials (only for the email server "io") */}
-      <CredentialsPanel serviceName={service.name} />
+      {isIo && tab === "emails" ? (
+        <EmailsPanel />
+      ) : (
+        <>
+          {/* Controls */}
+          <div className="flex items-center gap-1.5 mb-2 flex-wrap">
+            {service.virtual ? (
+              <span className="px-2.5 py-1 text-[11px] rounded bg-jupiter-elevated text-jupiter-dim border border-jupiter-orange/25">
+                {t("service.stdio")}
+              </span>
+            ) : !service.running ? (
+              <button
+                onClick={handleStart}
+                className="px-2.5 py-1 text-[11px] rounded bg-jupiter-green/15 text-jupiter-green border border-jupiter-green/30 hover:bg-jupiter-green/25 transition-colors"
+              >
+                {t("service.start")}
+              </button>
+            ) : (
+              <>
+                <button
+                  onClick={handleStop}
+                  className="px-2.5 py-1 text-[11px] rounded bg-jupiter-red/15 text-jupiter-red border border-jupiter-red/30 hover:bg-jupiter-red/25 transition-colors"
+                >
+                  {t("service.stop")}
+                </button>
+                <button
+                  onClick={handleRestart}
+                  className="px-2.5 py-1 text-[11px] rounded bg-jupiter-amber/15 text-jupiter-amber border border-jupiter-amber/30 hover:bg-jupiter-amber/25 transition-colors"
+                >
+                  {t("service.restart")}
+                </button>
+              </>
+            )}
+            {!service.virtual && <StatusBadge running={service.running} />}
+            <div className="flex-1" />
+            {!service.virtual && (
+              <button
+                onClick={clearLogs}
+                className="px-2 py-1 text-[10px] rounded text-jupiter-dim hover:text-white hover:bg-jupiter-elevated transition-colors"
+              >
+                {t("service.clear")}
+              </button>
+            )}
+          </div>
 
-      {/* Messaging channels setup (only for the messaging server "europa") */}
-      <EuropaCredentialsPanel serviceName={service.name} />
+          {/* Credentials (only for the email server "io") */}
+          <CredentialsPanel serviceName={service.name} />
 
-      {/* Logs */}
-      <div className="text-[10px] text-jupiter-dim mb-1 font-semibold uppercase tracking-wider">
-        {t("service.logs")}
-      </div>
-      <LogViewer lines={lines} scrollRef={scrollRef} />
+          {/* Messaging channels setup (only for the messaging server "europa") */}
+          <EuropaCredentialsPanel serviceName={service.name} />
+
+          {/* Logs */}
+          <div className="text-[10px] text-jupiter-dim mb-1 font-semibold uppercase tracking-wider">
+            {t("service.logs")}
+          </div>
+          <LogViewer lines={lines} scrollRef={scrollRef} />
+        </>
+      )}
     </div>
   );
 }

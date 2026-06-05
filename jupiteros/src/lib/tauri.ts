@@ -75,6 +75,21 @@ export function setChatEngine(engine: string): Promise<void> {
   return invoke("set_chat_engine", { engine });
 }
 
+export interface EmailItem {
+  uid: number;
+  subject: string;
+  sender: string;
+  recipient: string;
+  date: string;
+  body: string;
+  folder: string;
+  account: string;
+}
+
+export function listEmailsIo(limit?: number): Promise<EmailItem[]> {
+  return invoke("list_emails_io", { limit });
+}
+
 export function flushSessionMessages(
   sessionId: string,
   messages: ChatMessage[]
