@@ -94,6 +94,10 @@ pub struct ChatMsg {
 
 // ── Lightweight chat session (metadata only) ─────────────────
 
+fn default_engine() -> String {
+    "claude".to_string()
+}
+
 /// Serializable subset for disk persistence
 #[derive(Clone, Serialize, Deserialize)]
 pub struct ChatSessionPersist {
@@ -101,6 +105,8 @@ pub struct ChatSessionPersist {
     pub sdk_session_id: Option<String>,
     pub messages: Vec<ChatMsg>,
     pub model: String,
+    #[serde(default = "default_engine")]
+    pub engine: String,
     pub title: String,
     pub created_at: u64,
     pub updated_at: u64,
@@ -111,6 +117,7 @@ pub struct ChatSession {
     pub sdk_session_id: Option<String>,
     pub messages: Vec<ChatMsg>,
     pub model: String,
+    pub engine: String,
     pub title: String,
     pub created_at: u64,
     pub updated_at: u64,
@@ -125,6 +132,7 @@ impl ChatSession {
             sdk_session_id: None,
             messages: Vec::new(),
             model: "sonnet".to_string(),
+            engine: "claude".to_string(),
             title: "Nuova chat".to_string(),
             created_at: now,
             updated_at: now,
@@ -138,6 +146,7 @@ impl ChatSession {
             sdk_session_id: p.sdk_session_id,
             messages: p.messages,
             model: p.model,
+            engine: p.engine,
             title: p.title,
             created_at: p.created_at,
             updated_at: p.updated_at,
@@ -151,6 +160,7 @@ impl ChatSession {
             sdk_session_id: self.sdk_session_id.clone(),
             messages: self.messages.clone(),
             model: self.model.clone(),
+            engine: self.engine.clone(),
             title: self.title.clone(),
             created_at: self.created_at,
             updated_at: self.updated_at,

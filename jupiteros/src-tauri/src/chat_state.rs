@@ -11,6 +11,7 @@ use crate::config;
 pub struct ChatState {
     pub sessions: Arc<Mutex<Vec<ChatSession>>>,
     pub model: Arc<Mutex<String>>,
+    pub engine: Arc<Mutex<String>>,
     pub sidecar: Arc<Mutex<Option<AgentSidecar>>>,
 }
 
@@ -21,6 +22,7 @@ impl ChatState {
         Self {
             sessions: Arc::new(Mutex::new(saved)),
             model: Arc::new(Mutex::new("sonnet".to_string())),
+            engine: Arc::new(Mutex::new("claude".to_string())),
             sidecar: Arc::new(Mutex::new(None)),
         }
     }
@@ -61,6 +63,7 @@ impl ChatState {
                     "cmd": "create_session",
                     "id": s.id,
                     "model": s.model,
+                    "engine": s.engine,
                     "cwd": cwd.to_string_lossy().to_string(),
                     "mcp_config": mcp_config.to_string_lossy().to_string(),
                 });
@@ -103,8 +106,10 @@ impl ChatState {
     pub fn create_session(&self) -> String {
         let id = uuid::Uuid::new_v4().to_string();
         let model = self.model.lock().unwrap().clone();
+        let engine = self.engine.lock().unwrap().clone();
         let mut session = ChatSession::new(id.clone());
         session.model = model.clone();
+        session.engine = engine.clone();
 
         if let Ok(mut sessions) = self.sessions.lock() {
             sessions.push(session);
@@ -118,6 +123,7 @@ impl ChatState {
             "cmd": "create_session",
             "id": id,
             "model": model,
+            "engine": engine,
             "cwd": cwd.to_string_lossy(),
             "mcp_config": mcp_config.to_string_lossy(),
         }));
@@ -131,5 +137,13 @@ impl ChatState {
 
     pub fn set_model(&self, model: String) {
         *self.model.lock().unwrap() = model;
+    }
+
+    pub fn get_engine(&self) -> String {
+        self.engine.lock().unwrap().clone()
+    }
+
+    pub fn set_engine(&self, engine: String) {
+        *self.engine.lock().unwrap() = engine;
     }
 }

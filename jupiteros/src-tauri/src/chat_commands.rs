@@ -207,6 +207,17 @@ pub fn get_chat_model(state: State<'_, ChatState>) -> String {
 }
 
 #[tauri::command]
+pub fn get_chat_engine(state: State<'_, ChatState>) -> String {
+    state.get_engine()
+}
+
+#[tauri::command]
+pub fn set_chat_engine(engine: String, state: State<'_, ChatState>) {
+    // Affects future sessions only (engine is chosen at session creation).
+    state.set_engine(engine);
+}
+
+#[tauri::command]
 pub fn read_chart_file(path: String) -> Result<String, String> {
     std::fs::read_to_string(&path).map_err(|e| format!("Cannot read chart file: {}", e))
 }
