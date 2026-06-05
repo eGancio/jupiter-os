@@ -5,7 +5,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { ChatMessage } from "../chat/ChatMessage";
 import { InputBar } from "../chat/InputBar";
 import { COMMANDS } from "../../lib/commands";
-import { getClaudeMdStatus } from "../../lib/tauri";
+import { getClaudeMdStatus, getChatEngine } from "../../lib/tauri";
 import { useT } from "../../i18n";
 import type { ServiceInfo } from "../../types";
 import type { useChat } from "../../hooks/useChat";
@@ -31,9 +31,10 @@ interface Props {
   chat: ReturnType<typeof useChat>;
   services?: ServiceInfo[];
   onPreviewChart?: (filePath: string) => void;
+  onOpenEngineSettings?: () => void;
 }
 
-export function ChatArea({ chat, services, onPreviewChart }: Props) {
+export function ChatArea({ chat, services, onPreviewChart, onOpenEngineSettings }: Props) {
   const { messages, streaming, sendMessage, stopStreaming, newSession, activeTool, activeThinking, getUsage, addSystemMessage, clearMessages, lastInputTokens, changeModel, activeFile } = chat;
   const { t } = useT();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -41,6 +42,7 @@ export function ChatArea({ chat, services, onPreviewChart }: Props) {
   const [permissionMode, setPermissionMode] = useState<"auto" | "ask" | "plan">("auto");
   const [claudeMdExists, setClaudeMdExists] = useState(false);
   const [claudeMdPath, setClaudeMdPath] = useState("");
+  const [engine, setEngine] = useState("claude");
 
   // Check CLAUDE.md status on mount
   useEffect(() => {
@@ -50,6 +52,11 @@ export function ChatArea({ chat, services, onPreviewChart }: Props) {
         setClaudeMdPath(status.path);
       })
       .catch(() => { /* ignore */ });
+  }, []);
+
+  // Active engine for the tab-bar badge (model comes from chat.model, reactive)
+  useEffect(() => {
+    getChatEngine().then(setEngine).catch(() => { /* default claude */ });
   }, []);
 
   // Auto-scroll to bottom on new messages or active tool change
@@ -253,8 +260,18 @@ export function ChatArea({ chat, services, onPreviewChart }: Props) {
           </div>
         )}
 
+        {/* Engine & model settings */}
+        <button
+          onClick={onOpenEngineSettings}
+          className="ml-auto px-2 py-0.5 text-[10px] rounded bg-jupiter-blue/10 text-jupiter-blue border border-jupiter-blue/25 hover:bg-jupiter-blue/20 flex items-center gap-1 transition-colors font-mono"
+          title="Engine & model"
+        >
+          <span className="text-[11px]">&#9881;</span>
+          {engine} · {chat.model}
+        </button>
+
         {/* Zoom controls */}
-        <div className="ml-auto flex items-center gap-0.5">
+        <div className="flex items-center gap-0.5">
           <button
             onClick={zoomOut}
             className="w-6 h-6 flex items-center justify-center text-[13px] text-jupiter-dim hover:text-white hover:bg-jupiter-elevated rounded transition-colors"

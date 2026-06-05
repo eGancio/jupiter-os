@@ -67,6 +67,14 @@ export function setChatModel(model: string): Promise<void> {
   return invoke("set_chat_model", { model });
 }
 
+export function getChatEngine(): Promise<string> {
+  return invoke("get_chat_engine");
+}
+
+export function setChatEngine(engine: string): Promise<void> {
+  return invoke("set_chat_engine", { engine });
+}
+
 export function flushSessionMessages(
   sessionId: string,
   messages: ChatMessage[]

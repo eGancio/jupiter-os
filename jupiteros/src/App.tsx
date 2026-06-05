@@ -11,6 +11,7 @@ import { useChat } from "./hooks/useChat";
 import { useChartPanel } from "./hooks/useChartPanel";
 import { MoonInfoModal } from "./components/services/MoonInfoModal";
 import { AddMoonModal } from "./components/services/AddMoonModal";
+import { EngineSettings } from "./components/settings/EngineSettings";
 import { removeMoon } from "./lib/tauri";
 import { useT } from "./i18n";
 
@@ -19,6 +20,7 @@ function App() {
   const [selectedMoon, setSelectedMoon] = useState<string | null>(null);
   const [infoMoonName, setInfoMoonName] = useState<string | null>(null);
   const [showAddMoon, setShowAddMoon] = useState(false);
+  const [showEngineSettings, setShowEngineSettings] = useState(false);
   const { services, refresh } = useServices();
   const chat = useChat();
   const chartPanel = useChartPanel();
@@ -66,7 +68,12 @@ function App() {
         onDeleteSession={chat.deleteSession}
         onRenameSession={chat.renameSession}
       />
-      <ChatArea chat={chat} services={services} onPreviewChart={chartPanel.openChartByPath} />
+      <ChatArea
+        chat={chat}
+        services={services}
+        onPreviewChart={chartPanel.openChartByPath}
+        onOpenEngineSettings={() => setShowEngineSettings(true)}
+      />
       {showChartPanel && (
         <ChartPanel
           charts={chartPanel.charts}
@@ -96,6 +103,12 @@ function App() {
           suggestedPort={suggestedPort}
           onClose={() => setShowAddMoon(false)}
           onAdded={refresh}
+        />
+      )}
+      {showEngineSettings && (
+        <EngineSettings
+          chat={chat}
+          onClose={() => setShowEngineSettings(false)}
         />
       )}
     </div>
