@@ -234,6 +234,27 @@ export const en: Record<string, string> = {
   "moon.europa.desc": "Handles Telegram messaging via native MTProto (grammers), with semantic search powered by Qdrant + ONNX embeddings. Future support for WhatsApp and Discord planned.",
   "moon.amalthea.category": "Charts & Diagrams",
   "moon.amalthea.desc": "Generates 16 types of deterministic charts and diagrams using ECharts and Mermaid. Returns self-contained HTML files that render in the JupiterOS chart panel.",
+  "moon.metis.category": "Knowledge Base & RAG",
+  "moon.metis.desc": "Local, citable knowledge layer: ingests heterogeneous documents (PDF/DOCX/XLSX/TXT) into a Qdrant-backed RAG and returns passages with source + page/section citations. Cite-or-abstain, fully local.",
+  // metis tools
+  "moontool.metis.metis_preview": "Preview first pages to judge the document nature",
+  "moontool.metis.metis_ingest": "Index a single file (page-aware, structural chunking)",
+  "moontool.metis.metis_ingest_folder": "Index a whole folder (incremental, resumable)",
+  "moontool.metis.metis_search": "Cited hybrid search over the knowledge base",
+  "moontool.metis.metis_list_documents": "List indexed documents",
+  "moontool.metis.metis_doc_info": "Inspect a document's chunks (page/section)",
+  "moontool.metis.metis_get_chunk": "Fetch a chunk's full text for exact citation",
+  "moontool.metis.metis_classify_nature": "Guess a document's nature via the local LLM",
+
+  "moon.himalia.category": "Web Research",
+  "moon.himalia.desc": "Web research for LLMs via Tavily: returns clean, citable results and full-text extraction of a page. Powers the web step of deep research (search + verify on the primary source). Needs a Tavily API key (free tier); falls back to native WebSearch/WebFetch if unset.",
+  "moontool.himalia.web_search": "Clean web search (title, URL, content) for discovery",
+  "moontool.himalia.web_extract": "Extract a page's clean full text to verify a claim",
+
+  "moon.elara.category": "News & Community Signal",
+  "moon.elara.desc": "External high-signal sources for market/idea-validation research: real-time news (GDELT, no key) and community pain/sentiment (Reddit official API). Queried live; the deep-research skill distils into citable insights — raw firehose never enters Metis. Reddit needs an app id/secret; news works without.",
+  "moontool.elara.news_search": "Real-time news search via GDELT (no key)",
+  "moontool.elara.reddit_search": "Reddit community search (pain/sentiment signal)",
 
   // io tools
   "moontool.io.list_emails": "List email headers (fast, default)",

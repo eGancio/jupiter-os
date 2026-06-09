@@ -10,6 +10,7 @@ mod config;
 mod credentials;
 mod emails;
 mod europa_credentials;
+mod metis;
 mod services;
 mod state;
 
@@ -27,6 +28,7 @@ struct StatusChanged {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .manage(AppState::new())
         .manage(ChatState::new())
         .manage(europa_credentials::TelegramAuth::default())
@@ -60,6 +62,11 @@ pub fn run() {
             chat_commands::get_chat_engine,
             chat_commands::set_chat_engine,
             emails::list_emails_io,
+            metis::metis_ingest_paths,
+            metis::metis_list_documents,
+            metis::metis_delete_document,
+            metis::metis_open_file,
+            metis::metis_reveal_file,
             chat_commands::get_claude_md_status,
             chat_commands::read_chart_file,
             chat_commands::flush_session_messages,

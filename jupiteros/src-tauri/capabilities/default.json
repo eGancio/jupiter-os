@@ -3,6 +3,7 @@
   "description": "Default capabilities for JupiterOS",
   "windows": ["main"],
   "permissions": [
-    "core:default"
+    "core:default",
+    "dialog:default"
   ]
 }

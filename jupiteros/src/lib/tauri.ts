@@ -90,6 +90,59 @@ export function listEmailsIo(limit?: number): Promise<EmailItem[]> {
   return invoke("list_emails_io", { limit });
 }
 
+// ── Moon Metis (knowledge base ingestion) ──────────────────────────────────────
+
+export interface MetisIngestResult {
+  source_path: string;
+  /** "indexed" | "skipped" | "scanned" | "empty" | "error" */
+  status: string;
+  doc_id: string;
+  title: string;
+  nature: string;
+  pages: number;
+  chunks: number;
+  message: string;
+}
+
+/** Ingest files/folders into Moon Metis (deterministic, no chat/LLM). */
+export function metisIngestPaths(
+  paths: string[],
+  nature?: string,
+  recursive = true,
+  force = false
+): Promise<MetisIngestResult[]> {
+  return invoke("metis_ingest_paths", { paths, nature, recursive, force });
+}
+
+export interface MetisDoc {
+  doc_id: string;
+  title: string;
+  source_path: string;
+  nature: string;
+  pages: number;
+  chunks: number;
+}
+
+/** List documents currently indexed in the Metis knowledge base. */
+export function metisListDocuments(): Promise<MetisDoc[]> {
+  return invoke("metis_list_documents");
+}
+
+/** Remove a document (all its chunks) from the knowledge base by doc_id. */
+export function metisDeleteDocument(docId: string): Promise<void> {
+  return invoke("metis_delete_document", { docId });
+}
+
+/** Open a document with the OS default application. */
+export function metisOpenFile(path: string): Promise<void> {
+  return invoke("metis_open_file", { path });
+}
+
+/** Reveal a document in the OS file manager (or open its folder). */
+export function metisRevealFile(path: string): Promise<void> {
+  return invoke("metis_reveal_file", { path });
+}
+
 export function flushSessionMessages(
   sessionId: string,
   messages: ChatMessage[]

@@ -3,7 +3,7 @@
 
 import { useEffect, useState } from "react";
 import type { useChat } from "../../hooks/useChat";
-import { getChatEngine } from "../../lib/tauri";
+import { getChatEngine, setChatEngine } from "../../lib/tauri";
 
 interface Props {
   chat: ReturnType<typeof useChat>;
@@ -18,12 +18,14 @@ interface EngineDef {
   note?: string;
 }
 
-// Phase 0.2: only Claude is wired. Ollama / Gemini are shown disabled so the
-// structure is visible — Phase 0.3/0.5 flip `available` and add a backend list.
+// Claude + local Ollama are wired. Gemini is shown disabled so the structure
+// is visible. The engine binds at session creation, so switching engine starts
+// a new chat (see handleSelectEngine). Ollama Phase A is chat-only (no Moons).
 const ENGINES: EngineDef[] = [
-  { id: "claude", name: "Claude (Anthropic)", models: ["haiku", "sonnet", "opus"], available: true },
-  { id: "ollama", name: "Ollama (local)", models: [], available: false, note: "coming soon" },
-  { id: "gemini", name: "Gemini (Google)", models: [], available: false, note: "coming soon" },
+  { id: "claude", name: "Claude (Anthropic)", models: ["sonnet", "haiku", "opus"], available: true },
+  { id: "ollama", name: "Ollama (local)", models: ["qwen2.5:7b"], available: true },
+  { id: "gemini", name: "Gemini (Google)", models: ["gemini-2.5-flash", "gemini-flash-latest", "gemini-2.5-pro"], available: true },
+  { id: "groq", name: "Groq (free, fast)", models: ["llama-3.3-70b-versatile", "openai/gpt-oss-120b", "llama-3.1-8b-instant"], available: true },
 ];
 
 export function EngineSettings({ chat, onClose }: Props) {
@@ -43,6 +45,24 @@ export function EngineSettings({ chat, onClose }: Props) {
   }, [onClose]);
 
   const active = ENGINES.find((e) => e.id === engine) ?? ENGINES[0];
+
+  // The engine is fixed at session creation, so switching it starts a NEW chat.
+  // Reset the model to one valid for the target engine BEFORE newSession(),
+  // because create_session snapshots engine+model at creation time.
+  const handleSelectEngine = async (id: string) => {
+    if (id === engine) return;
+    const target = ENGINES.find((x) => x.id === id);
+    if (!target || !target.available) return;
+    const nextModel = target.models.includes(model) ? model : target.models[0];
+    try {
+      await setChatEngine(id);
+      if (nextModel && nextModel !== model) await chat.changeModel(nextModel);
+      await chat.newSession();
+      setEngine(id);
+    } catch {
+      /* ignore */
+    }
+  };
 
   return (
     <div
@@ -84,7 +104,7 @@ export function EngineSettings({ chat, onClose }: Props) {
                   <button
                     key={e.id}
                     disabled={!e.available}
-                    onClick={() => e.available && setEngine(e.id)}
+                    onClick={() => void handleSelectEngine(e.id)}
                     className={`w-full text-left px-3 py-2 rounded border text-[12px] flex items-center justify-between transition-colors ${
                       selected
                         ? "border-jupiter-orange/50 bg-jupiter-orange/10 text-white"
@@ -134,7 +154,8 @@ export function EngineSettings({ chat, onClose }: Props) {
 
           {/* Footer note */}
           <p className="text-[10px] text-jupiter-dim leading-relaxed border-t border-jupiter-orange/10 pt-3">
-            More engines (local Ollama, Gemini) are coming. Your Anthropic API key lives in{" "}
+            Ollama runs a local model on your machine (offline; chat only for now — Moon
+            tools coming). Gemini is coming. Your Anthropic API key lives in{" "}
             <code className="text-jupiter-muted">credentials.env</code>.
           </p>
         </div>

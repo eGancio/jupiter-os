@@ -10,6 +10,7 @@ import { StatusBadge } from "./StatusBadge";
 import { CredentialsPanel } from "./CredentialsPanel";
 import { EuropaCredentialsPanel } from "./EuropaCredentialsPanel";
 import { EmailsPanel } from "./EmailsPanel";
+import { MetisIngestPanel } from "./MetisIngestPanel";
 import { useT } from "../../i18n";
 
 interface Props {
@@ -17,7 +18,7 @@ interface Props {
   onRefresh: () => void;
 }
 
-type Tab = "details" | "emails";
+type Tab = "details" | "emails" | "ingest";
 
 export function ServiceDetail({ service, onRefresh }: Props) {
   const { t } = useT();
@@ -38,6 +39,13 @@ export function ServiceDetail({ service, onRefresh }: Props) {
   }
 
   const isIo = service.name === "io";
+  const isMetis = service.name === "metis";
+  // The optional second tab for moons that have a dedicated panel.
+  const secondTab: [Tab, string] | null = isIo
+    ? ["emails", "Email"]
+    : isMetis
+    ? ["ingest", "Ingest"]
+    : null;
   const kindLabel = service.kind === "McpServer" ? t("service.mcpServer") : t("service.daemon");
 
   const handleStart = async () => {
@@ -77,30 +85,31 @@ export function ServiceDetail({ service, onRefresh }: Props) {
 
       <hr className="border-jupiter-orange/25 mb-2" />
 
-      {/* Tabs — only Moon Io has an Emails view */}
-      {isIo && (
+      {/* Tabs — moons with a dedicated panel (Io → Email, Metis → Ingest) */}
+      {secondTab && (
         <div className="grid grid-cols-2 gap-1 text-[10px] mb-2 flex-shrink-0">
-          {([
-            ["details", "Service Detail"],
-            ["emails", "Email"],
-          ] as const).map(([id, label]) => (
-            <button
-              key={id}
-              onClick={() => setTab(id)}
-              className={`px-2 py-1 rounded border transition-colors ${
-                tab === id
-                  ? "bg-jupiter-orange/20 text-jupiter-orange border-jupiter-orange/40"
-                  : "text-jupiter-dim border-jupiter-orange/15 hover:border-jupiter-orange/30"
-              }`}
-            >
-              {label}
-            </button>
-          ))}
+          {([["details", "Service Detail"], secondTab] as [Tab, string][]).map(
+            ([id, label]) => (
+              <button
+                key={id}
+                onClick={() => setTab(id)}
+                className={`px-2 py-1 rounded border transition-colors ${
+                  tab === id
+                    ? "bg-jupiter-orange/20 text-jupiter-orange border-jupiter-orange/40"
+                    : "text-jupiter-dim border-jupiter-orange/15 hover:border-jupiter-orange/30"
+                }`}
+              >
+                {label}
+              </button>
+            )
+          )}
         </div>
       )}
 
       {isIo && tab === "emails" ? (
         <EmailsPanel />
+      ) : isMetis && tab === "ingest" ? (
+        <MetisIngestPanel />
       ) : (
         <>
           {/* Controls */}

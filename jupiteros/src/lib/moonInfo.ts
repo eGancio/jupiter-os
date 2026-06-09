@@ -85,12 +85,54 @@ const MOON_INFO: Record<string, MoonInfo> = {
       { name: "mermaid_er", descKey: "moontool.amalthea.mermaid_er" },
     ],
   },
+  metis: {
+    displayName: "Moon Metis",
+    categoryKey: "moon.metis.category",
+    descKey: "moon.metis.desc",
+    port: 8600,
+    location: "Local · Rust",
+    tools: [
+      { name: "metis_preview", descKey: "moontool.metis.metis_preview" },
+      { name: "metis_ingest", descKey: "moontool.metis.metis_ingest" },
+      { name: "metis_ingest_folder", descKey: "moontool.metis.metis_ingest_folder" },
+      { name: "metis_search", descKey: "moontool.metis.metis_search" },
+      { name: "metis_list_documents", descKey: "moontool.metis.metis_list_documents" },
+      { name: "metis_doc_info", descKey: "moontool.metis.metis_doc_info" },
+      { name: "metis_get_chunk", descKey: "moontool.metis.metis_get_chunk" },
+      { name: "metis_classify_nature", descKey: "moontool.metis.metis_classify_nature" },
+    ],
+  },
+  himalia: {
+    displayName: "Moon Himalia",
+    categoryKey: "moon.himalia.category",
+    descKey: "moon.himalia.desc",
+    port: 8700,
+    location: "Local · Rust",
+    tools: [
+      { name: "web_search", descKey: "moontool.himalia.web_search" },
+      { name: "web_extract", descKey: "moontool.himalia.web_extract" },
+    ],
+  },
+  elara: {
+    displayName: "Moon Elara",
+    categoryKey: "moon.elara.category",
+    descKey: "moon.elara.desc",
+    port: 8800,
+    location: "Local · Rust",
+    tools: [
+      { name: "news_search", descKey: "moontool.elara.news_search" },
+      { name: "reddit_search", descKey: "moontool.elara.reddit_search" },
+    ],
+  },
 };
 
 const MOON_COLORS: Record<string, string> = {
   io: "#f59e0b",
   europa: "#3b82f6",
   amalthea: "#8b5cf6",
+  metis: "#06b6d4",
+  himalia: "#10b981",
+  elara: "#ec4899",
 };
 
 export function getMoonInfo(moonName: string): MoonInfo | null {

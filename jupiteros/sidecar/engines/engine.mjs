@@ -50,6 +50,38 @@ export function expandEnv(value) {
   return value.replace(/\$\{([A-Z0-9_]+)\}/gi, (_, name) => process.env[name] ?? "");
 }
 
+// ── Per-message tool routing (engine-agnostic) ───────────────
+// Local/free models choke when handed ALL Moon tools on every call: the schemas
+// alone cost thousands of tokens (Groq free is ~12k tokens/MINUTE), and with a
+// big tool menu the model calls things at random (e.g. a calendar lookup for
+// "ciao"). So expose only the tools of the Moon(s) the message is actually about.
+// Returns a Set of allowed tool names, or null (no relevant Moon → send no tools
+// and let the model just chat). Claude doesn't use this — it has its own
+// deferred-tool/ToolSearch mechanism via the SDK.
+
+const MOON_KEYWORDS = {
+  io: ["email", "mail", "posta", "inbox", "mittente", "allegat", "calendar", "evento", "appuntament", "firma", "casella"],
+  europa: ["messaggi", "messaggio", "telegram", "slack", "teams", "contatt", "chat di"],
+  gtd: ["task", "gtd", "progett", "obiettiv", "milestone", "attività", "attivita", "todo", "da fare", "cosa devo", "retrospettiv", "scadenz"],
+  metis: ["document", "norma", "bando", "preventiv", "fascicol", "knowledge", "cerca nei", "nei miei file", "pdf"],
+  amalthea: ["grafic", "chart", "diagramm", "istogramm", "torta", "barre", "plot", "visualizz", "mappa mentale", "flowchart"],
+  callisto: ["video", "trascriv", "trascrizion", "youtube", "sottotitol"],
+};
+
+export function relevantToolNames(message, index) {
+  const m = String(message || "").toLowerCase();
+  const moons = new Set();
+  for (const [moon, kws] of Object.entries(MOON_KEYWORDS)) {
+    if (kws.some((k) => m.includes(k))) moons.add(moon);
+  }
+  if (moons.size === 0) return null; // nothing relevant → no tools, just chat
+  const names = new Set();
+  for (const [name, info] of index) {
+    if (moons.has(info.server)) names.add(name);
+  }
+  return names.size ? names : null;
+}
+
 export function loadMcpServers(configPath) {
   try {
     const raw = fs.readFileSync(configPath, "utf-8");
