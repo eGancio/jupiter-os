@@ -18,10 +18,18 @@
 import * as readline from "readline";
 import { createEngine, registerEngine } from "./engines/engine.mjs";
 import { ClaudeAgentEngine } from "./engines/claude.mjs";
+import { OllamaEngine } from "./engines/ollama.mjs";
+import { GeminiEngine } from "./engines/gemini.mjs";
+import { OpenAICompatEngine } from "./engines/openai-compat.mjs";
 
-// Register the built-in engines. Adding a new backend (Phase 0.3: generic /
-// Ollama) is a single registerEngine() line + a new engine file.
+// Register the built-in engines. Adding a new backend is a single
+// registerEngine() line + a new engine file. OpenAI-compatible providers
+// (Groq, OpenRouter, …) share one engine, parameterized by baseUrl + key env.
 registerEngine("claude", (cfg) => new ClaudeAgentEngine(cfg));
+registerEngine("ollama", (cfg) => new OllamaEngine(cfg));
+registerEngine("gemini", (cfg) => new GeminiEngine(cfg));
+registerEngine("groq", (cfg) => new OpenAICompatEngine(cfg, { name: "groq", baseUrl: "https://api.groq.com/openai/v1", keyEnvs: ["GROQ_API_KEY"] }));
+registerEngine("openrouter", (cfg) => new OpenAICompatEngine(cfg, { name: "openrouter", baseUrl: "https://openrouter.ai/api/v1", keyEnvs: ["OPENROUTER_API_KEY"] }));
 
 // ── Per-session state: { engine, options } ───────────────────
 // options = neutral per-session config the transport passes to engine.run.
@@ -30,7 +38,14 @@ const sessions = new Map();
 // ── Emit JSON events to stdout ───────────────────────────────
 
 function emit(obj) {
-  process.stdout.write(JSON.stringify(obj) + "\n");
+  // A failed stdout write must NEVER crash the whole sidecar (and with it every
+  // session). Without this guard a single EPIPE bubbled up to uncaughtException
+  // and killed the process — turning every later message into "broken pipe".
+  try {
+    process.stdout.write(JSON.stringify(obj) + "\n");
+  } catch (err) {
+    process.stderr.write(`[SIDECAR] emit failed: ${err && err.message}\n`);
+  }
 }
 
 function emitError(sessionId, error) {
@@ -175,7 +190,25 @@ process.on("exit", (code) => {
   process.stderr.write(`[SIDECAR] process.exit called with code ${code}\n`);
 });
 
+// A broken stdout pipe (the Rust backend stopped reading, or is replacing us)
+// is delivered asynchronously as a stream 'error' event. Handle it here so it
+// never reaches uncaughtException: EPIPE means the parent's read end is gone —
+// exit CLEANLY so the backend can respawn a fresh sidecar instead of seeing a
+// crash. With this + the emit() guard, one bad write no longer kills the chat.
+process.stdout.on("error", (err) => {
+  if (err && (err.code === "EPIPE" || err.code === "ERR_STREAM_DESTROYED")) {
+    process.stderr.write("[SIDECAR] stdout pipe closed — exiting cleanly\n");
+    process.exit(0);
+  }
+  process.stderr.write(`[SIDECAR] stdout error: ${err && err.message}\n`);
+});
+
 process.on("uncaughtException", (err) => {
+  // Don't die noisily on a pipe error — let the clean-exit / respawn path win.
+  if (err && (err.code === "EPIPE" || err.code === "ERR_STREAM_DESTROYED")) {
+    process.stderr.write("[SIDECAR] uncaughtException (pipe) — exiting cleanly\n");
+    process.exit(0);
+  }
   process.stderr.write(`[SIDECAR] uncaughtException: ${err.stack}\n`);
   process.exit(1);
 });

@@ -38,6 +38,9 @@ export function ChatArea({ chat, services, onPreviewChart, onOpenEngineSettings 
   const { messages, streaming, sendMessage, stopStreaming, newSession, activeTool, activeThinking, getUsage, addSystemMessage, clearMessages, lastInputTokens, changeModel, activeFile } = chat;
   const { t } = useT();
   const scrollRef = useRef<HTMLDivElement>(null);
+  // True while the user is "stuck" at the bottom. Set to false as soon as they
+  // scroll up, so streaming doesn't yank the viewport down while they read.
+  const pinnedToBottom = useRef(true);
   const [zoom, setZoom] = useState(1);
   const [permissionMode, setPermissionMode] = useState<"auto" | "ask" | "plan">("auto");
   const [claudeMdExists, setClaudeMdExists] = useState(false);
@@ -54,17 +57,30 @@ export function ChatArea({ chat, services, onPreviewChart, onOpenEngineSettings 
       .catch(() => { /* ignore */ });
   }, []);
 
-  // Active engine for the tab-bar badge (model comes from chat.model, reactive)
+  // Active engine for the tab-bar badge (model comes from chat.model, reactive).
+  // Re-read on session change too: switching engine starts a NEW session, so the
+  // badge must refresh (otherwise it stays stuck on the mount-time value).
   useEffect(() => {
     getChatEngine().then(setEngine).catch(() => { /* default claude */ });
-  }, []);
+  }, [chat.sessionId]);
 
-  // Auto-scroll to bottom on new messages or active tool change
+  // Auto-scroll to bottom on new messages or active tool change — but ONLY when
+  // the user is already pinned to the bottom. If they scrolled up to read, we
+  // leave the viewport alone so reading and streaming stay independent.
   useEffect(() => {
-    if (scrollRef.current) {
+    if (scrollRef.current && pinnedToBottom.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages, activeTool, activeThinking]);
+
+  // Track whether the user is at (or very near) the bottom. A small threshold
+  // tolerates sub-pixel rounding and keeps "stick to bottom" feeling natural.
+  const handleScroll = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    pinnedToBottom.current = distanceFromBottom < 40;
+  };
 
   // Keyboard zoom: Ctrl+Plus / Ctrl+Minus / Ctrl+0
   useEffect(() => {
@@ -208,6 +224,8 @@ export function ChatArea({ chat, services, onPreviewChart, onOpenEngineSettings 
   // Wrap sendMessage to prepend plan instruction when in plan mode
   const handleSend = useCallback(
     (text: string, images?: any[]) => {
+      // Sending your own message always re-pins to the bottom.
+      pinnedToBottom.current = true;
       if (permissionMode === "plan") {
         sendMessage("Plan before implementing, show the plan and wait for approval.\n\n" + text, images);
         setPermissionMode("auto");
@@ -299,6 +317,7 @@ export function ChatArea({ chat, services, onPreviewChart, onOpenEngineSettings 
       {/* Chat messages area */}
       <div
         ref={scrollRef}
+        onScroll={handleScroll}
         className="flex-1 overflow-y-auto px-4 py-3 space-y-4 min-h-0"
         style={{ fontSize: `${14 * zoom}px` }}
       >

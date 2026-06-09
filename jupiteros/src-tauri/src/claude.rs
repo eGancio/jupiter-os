@@ -316,7 +316,7 @@ impl AgentSidecar {
         handle: AppHandle,
         sessions: Arc<Mutex<Vec<ChatSession>>>,
     ) {
-        let reader = BufReader::new(stdout);
+        let mut reader = BufReader::new(stdout);
         let log_path = config::get_base_dir().join(".claude-gui-debug.log");
 
         // Accumulate assistant response per session for persistence
@@ -327,25 +327,31 @@ impl AgentSidecar {
         let mut pending_tools: std::collections::HashMap<String, Vec<ToolCallInfo>> =
             std::collections::HashMap::new();
 
-        for line in reader.lines() {
-            let line = match line {
-                Ok(l) => l,
-                Err(_) => break,
-            };
+        // Read raw BYTES, not lines(): lines() yields Err on invalid UTF-8 and
+        // the old `Err => break` closed the read end, which made the sidecar's
+        // next stdout write fail with EPIPE — the very crash we're fixing. With
+        // read_until + lossy decode a stray byte can never tear down the pipe.
+        let mut buf: Vec<u8> = Vec::new();
+        loop {
+            buf.clear();
+            match reader.read_until(b'\n', &mut buf) {
+                Ok(0) => break, // EOF: sidecar closed stdout (it exited)
+                Ok(_) => {}
+                Err(_) => break, // genuine I/O error on the pipe
+            }
+            let line = String::from_utf8_lossy(&buf);
             let trimmed = line.trim();
             if trimmed.is_empty() {
                 continue;
             }
 
-            // Log to debug file
+            // Log to debug file (char-safe truncation — byte-slicing a multibyte
+            // char at 300 would panic and kill this thread, closing the pipe).
             if let Ok(mut log) =
                 std::fs::OpenOptions::new().create(true).append(true).open(&log_path)
             {
-                let _ = writeln!(
-                    log,
-                    "[SIDECAR-OUT] {}",
-                    &trimmed[..trimmed.len().min(300)]
-                );
+                let preview: String = trimmed.chars().take(300).collect();
+                let _ = writeln!(log, "[SIDECAR-OUT] {}", preview);
             }
 
             let json: serde_json::Value = match serde_json::from_str(trimmed) {
