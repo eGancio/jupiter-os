@@ -69,11 +69,17 @@ export default {
           green: "#4ade80",     // Moon Green
           red: "#f85149",       // Error / Danger
           purple: "#a78bfa",    // Cosmic Purple
+          // ── Redesign tokens (gradient frame / accents) ──
+          bright: "#3a3939",    // raised chips / input
+          primary: "#ffb596",   // active foreground accent
+          pink: "#ff3d8b",      // iridescent gradient stop
+          violet: "#8b5cf6",    // iridescent gradient stop
         },
       },
       fontFamily: {
-        display: ['"Space Grotesk"', "sans-serif"],
-        body: ['"Inter"', "sans-serif"],
+        sans: ['"Manrope"', "sans-serif"],
+        display: ['"Manrope"', "sans-serif"],
+        body: ['"Manrope"', "sans-serif"],
       },
     },
   },

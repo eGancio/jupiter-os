@@ -16,5 +16,8 @@ if [ ! -x "$BIN" ]; then
 fi
 
 echo "Avvio $BIN  (cwd=$(pwd))"
-# Workaround webkit per Fedora/Wayland (innocui altrove)
-exec env WEBKIT_DISABLE_DMABUF_RENDERER=1 WEBKIT_DISABLE_COMPOSITING_MODE=1 "$BIN"
+# Workaround webkit per Fedora/Wayland: disabilita solo il renderer DMABUF.
+# NB: NON disabilitiamo il compositing GPU (WEBKIT_DISABLE_COMPOSITING_MODE) —
+# servirebbe il rendering software e renderebbe pesanti gli effetti CSS (cornice
+# gradiente, aloni). Se mai ricomparisse la schermata bianca, riaggiungerlo.
+exec env WEBKIT_DISABLE_DMABUF_RENDERER=1 "$BIN"

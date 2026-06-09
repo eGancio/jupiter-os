@@ -5,7 +5,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { ChatMessage } from "../chat/ChatMessage";
 import { InputBar } from "../chat/InputBar";
 import { COMMANDS } from "../../lib/commands";
-import { getClaudeMdStatus, getChatEngine } from "../../lib/tauri";
+import { getClaudeMdStatus, getChatEngine, setChatPermissionMode, type ChatPermissionMode } from "../../lib/tauri";
 import { useT } from "../../i18n";
 import type { ServiceInfo } from "../../types";
 import type { useChat } from "../../hooks/useChat";
@@ -42,7 +42,7 @@ export function ChatArea({ chat, services, onPreviewChart, onOpenEngineSettings 
   // scroll up, so streaming doesn't yank the viewport down while they read.
   const pinnedToBottom = useRef(true);
   const [zoom, setZoom] = useState(1);
-  const [permissionMode, setPermissionMode] = useState<"auto" | "ask" | "plan">("auto");
+  const [permissionMode] = useState<ChatPermissionMode>("auto");
   const [claudeMdExists, setClaudeMdExists] = useState(false);
   const [claudeMdPath, setClaudeMdPath] = useState("");
   const [engine, setEngine] = useState("claude");
@@ -63,6 +63,13 @@ export function ChatArea({ chat, services, onPreviewChart, onOpenEngineSettings 
   useEffect(() => {
     getChatEngine().then(setEngine).catch(() => { /* default claude */ });
   }, [chat.sessionId]);
+
+  // Push the permission mode to the backend whenever it changes (Claude reads
+  // it per-turn; other engines ignore it). Keeps the SDK mode in sync with the
+  // toggle without threading it through every sendMessage call.
+  useEffect(() => {
+    setChatPermissionMode(permissionMode).catch(() => { /* ignore */ });
+  }, [permissionMode]);
 
   // Auto-scroll to bottom on new messages or active tool change — but ONLY when
   // the user is already pinned to the bottom. If they scrolled up to read, we
@@ -107,6 +114,25 @@ export function ChatArea({ chat, services, onPreviewChart, onOpenEngineSettings 
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [streaming, stopStreaming]);
+
+  // Ctrl + mouse wheel zoom — chat only. Never zooms the whole app.
+  useEffect(() => {
+    const handler = (e: WheelEvent) => {
+      if (!e.ctrlKey && !e.metaKey) return;
+      // Block WebKit's native whole-app zoom on Ctrl+wheel
+      e.preventDefault();
+      // Only adjust zoom when the wheel is over the chat messages area
+      const area = scrollRef.current;
+      if (!area || !(e.target instanceof Node) || !area.contains(e.target)) return;
+      if (e.deltaY < 0) {
+        setZoom((z) => Math.min(+(z + ZOOM_STEP).toFixed(1), ZOOM_MAX));
+      } else if (e.deltaY > 0) {
+        setZoom((z) => Math.max(+(z - ZOOM_STEP).toFixed(1), ZOOM_MIN));
+      }
+    };
+    window.addEventListener("wheel", handler, { passive: false });
+    return () => window.removeEventListener("wheel", handler);
+  }, []);
 
   const zoomIn = useCallback(() => setZoom((z) => Math.min(+(z + ZOOM_STEP).toFixed(1), ZOOM_MAX)), []);
   const zoomOut = useCallback(() => setZoom((z) => Math.max(+(z - ZOOM_STEP).toFixed(1), ZOOM_MIN)), []);
@@ -204,13 +230,9 @@ export function ChatArea({ chat, services, onPreviewChart, onOpenEngineSettings 
           break;
 
         case "/plan": {
-          if (permissionMode === "plan") {
-            setPermissionMode("auto");
-            addSystemMessage(t("cmd.plan.off"));
-          } else {
-            setPermissionMode("plan");
-            addSystemMessage(t("cmd.plan.on"));
-          }
+          // Plan mode needs the approval-popup UI (not built yet). For now the
+          // chat runs in a single real "Auto mode" (does everything).
+          addSystemMessage(t("cmd.plan.unavailable"));
           break;
         }
 
@@ -221,27 +243,19 @@ export function ChatArea({ chat, services, onPreviewChart, onOpenEngineSettings 
     [newSession, stopStreaming, getUsage, addSystemMessage, clearMessages, services, messages, sendMessage, permissionMode, changeModel, t]
   );
 
-  // Wrap sendMessage to prepend plan instruction when in plan mode
+  // Plan mode is now the real SDK permission mode (read-only planning enforced
+  // by the engine), so no prompt-prepend hack and no auto-reset is needed.
   const handleSend = useCallback(
     (text: string, images?: any[]) => {
       // Sending your own message always re-pins to the bottom.
       pinnedToBottom.current = true;
-      if (permissionMode === "plan") {
-        sendMessage("Plan before implementing, show the plan and wait for approval.\n\n" + text, images);
-        setPermissionMode("auto");
-      } else {
-        sendMessage(text, images);
-      }
+      sendMessage(text, images);
     },
-    [permissionMode, sendMessage]
+    [sendMessage]
   );
 
-  // Cycle permission mode (silent — no chat message)
-  const cyclePermissionMode = useCallback(() => {
-    setPermissionMode((prev) =>
-      prev === "auto" ? "ask" : prev === "ask" ? "plan" : "auto"
-    );
-  }, []);
+  // Single mode for now ("Auto mode" = do everything). No cycling until the
+  // plan / interactive modes get their approval-popup UI.
 
   // Show waiting indicator if streaming but no assistant message yet
   const showWaiting =
@@ -253,6 +267,10 @@ export function ChatArea({ chat, services, onPreviewChart, onOpenEngineSettings 
 
   return (
     <div className="flex-1 flex flex-col min-w-0 bg-jupiter-bg">
+      <div className="flex-1 min-h-0 p-6 flex flex-col overflow-hidden">
+        {/* Unified iridescent gradient frame */}
+        <div className="unified-gradient-container flex-1 min-h-0 flex flex-col">
+          <div className="bg-jupiter-elevated rounded-[23px] flex-1 flex flex-col overflow-hidden">
       {/* Tab bar */}
       <div className="h-9 border-b border-jupiter-orange/25 flex items-center px-2 gap-1 bg-jupiter-surface/50 flex-shrink-0">
         <div className="px-3 py-1 text-[11px] rounded bg-jupiter-elevated text-white flex items-center gap-1.5">
@@ -343,11 +361,14 @@ export function ChatArea({ chat, services, onPreviewChart, onOpenEngineSettings 
         streaming={streaming}
         zoom={zoom}
         permissionMode={permissionMode}
-        onPermissionModeChange={cyclePermissionMode}
+        showPermissionToggle={engine === "claude"}
         activeTool={activeTool}
         contextPercent={lastInputTokens > 0 ? Math.min(100, Math.round(lastInputTokens / 2000)) : 0}
         activeFile={activeFile}
       />
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

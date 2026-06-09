@@ -66,6 +66,7 @@ export const it: Record<string, string> = {
   "cmd.compact.done": "Contesto compattato — finestra di contesto azzerata.",
   "cmd.plan.off": "**Modalità piano disattivata.** Passato a Modifica automatica.",
   "cmd.plan.on": "**Modalità piano attivata.** Il prossimo messaggio includerà l'istruzione di pianificazione.",
+  "cmd.plan.unavailable": "La modalità piano arriverà con l'interfaccia di approvazione. Per ora la chat gira in **Auto mode** (fa tutto).",
   "cmd.unknown": "Comando sconosciuto: `{{name}}`",
 
   // ── slash command descriptions (lib/commands.ts) ──
@@ -77,9 +78,9 @@ export const it: Record<string, string> = {
   "cmd.plan.desc": "Attiva/disattiva la modalità piano (Claude propone prima di agire)",
 
   // ── input bar ──
-  "input.permission.auto": "Modifica automatica",
-  "input.permission.ask": "Chiedi prima di modificare",
+  "input.permission.auto": "Auto mode",
   "input.permission.plan": "Modalità piano",
+  "input.permission.bypass": "Sbloccato",
   "input.placeholder": "Scrivi un messaggio…",
   "input.placeholderPlan": "Modalità piano — descrivi cosa implementare…",
   "input.changeMode": "Clicca per cambiare modalità",

@@ -6,7 +6,7 @@ import type { PastedImage } from "../../types";
 import { getCompletions, type SlashCommand } from "../../lib/commands";
 import { useT } from "../../i18n";
 
-type PermissionMode = "auto" | "ask" | "plan";
+type PermissionMode = "auto" | "plan" | "bypass";
 
 interface Props {
   onSend: (text: string, images?: PastedImage[]) => void;
@@ -17,6 +17,7 @@ interface Props {
   zoom?: number;
   permissionMode?: PermissionMode;
   onPermissionModeChange?: () => void;
+  showPermissionToggle?: boolean;
   activeTool?: string | null;
   contextPercent?: number;
   activeFile?: string | null;
@@ -24,11 +25,11 @@ interface Props {
 
 const PERMISSION_LABEL_KEYS: Record<PermissionMode, string> = {
   auto: "input.permission.auto",
-  ask: "input.permission.ask",
   plan: "input.permission.plan",
+  bypass: "input.permission.bypass",
 };
 
-export function InputBar({ onSend, onStop, onCommand, disabled: _disabled, streaming, zoom = 1, permissionMode = "auto", onPermissionModeChange, activeTool, activeFile }: Props) {
+export function InputBar({ onSend, onStop, onCommand, disabled: _disabled, streaming, zoom = 1, permissionMode = "auto", showPermissionToggle = true, activeTool, activeFile }: Props) {
   const { t } = useT();
   const [text, setText] = useState("");
   const [images, setImages] = useState<PastedImage[]>([]);
@@ -262,19 +263,13 @@ export function InputBar({ onSend, onStop, onCommand, disabled: _disabled, strea
         <div className="flex items-center justify-between px-3 py-1.5 border-t border-white/5">
           {/* Left — status indicators */}
           <div className="flex items-center gap-4 text-[12px] min-w-0 overflow-hidden">
-            {/* Permission mode (clickable to cycle) */}
-            <button
-              onClick={onPermissionModeChange}
-              className={`flex items-center gap-1.5 whitespace-nowrap transition-colors ${
-                planMode
-                  ? "text-jupiter-blue hover:text-jupiter-blue"
-                  : "text-white/60 hover:text-white/80"
-              }`}
-              title={t("input.changeMode")}
-            >
-              <span className="text-[10px]">&#9654;&#9654;</span>
-              <span>{t(PERMISSION_LABEL_KEYS[permissionMode])}</span>
-            </button>
+            {/* Permission mode — single real "Auto mode", Claude only */}
+            {showPermissionToggle && (
+              <span className="flex items-center gap-1.5 whitespace-nowrap text-white/60">
+                <span className="text-[10px]">&#9654;&#9654;</span>
+                <span>{t(PERMISSION_LABEL_KEYS[permissionMode])}</span>
+              </span>
+            )}
 
             {/* Active tool + file context */}
             {(toolDisplayName || activeFile) && (
@@ -340,7 +335,7 @@ export function InputBar({ onSend, onStop, onCommand, disabled: _disabled, strea
               className={`w-7 h-7 flex items-center justify-center rounded-lg text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors ${
                 planMode
                   ? "bg-jupiter-blue hover:bg-jupiter-blue/80"
-                  : "bg-jupiter-orange hover:bg-jupiter-orange-light"
+                  : "bg-jupiter-orange hover:bg-jupiter-orange-light glow-orange"
               }`}
               title={t("input.send")}
             >

@@ -67,6 +67,12 @@ export function setChatModel(model: string): Promise<void> {
   return invoke("set_chat_model", { model });
 }
 
+export type ChatPermissionMode = "auto" | "plan" | "bypass";
+
+export function setChatPermissionMode(mode: ChatPermissionMode): Promise<void> {
+  return invoke("set_chat_permission_mode", { mode });
+}
+
 export function getChatEngine(): Promise<string> {
   return invoke("get_chat_engine");
 }

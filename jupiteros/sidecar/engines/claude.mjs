@@ -22,6 +22,15 @@ const ALLOWED_TOOLS = [
   "Grep", "Glob", "WebFetch", "WebSearch", "TodoWrite",
 ];
 
+// Single real mode for now: "Auto mode" = do everything, no prompts
+// (SDK 'bypassPermissions'). Plan / interactive modes are intentionally NOT
+// exposed yet — they require an approval-popup UI (Phase 2). Mapping every
+// value to bypass guarantees the chat never gets stuck waiting on a popup
+// that doesn't exist.
+function toSdkPermissionMode(_mode) {
+  return "bypassPermissions";
+}
+
 export class ClaudeAgentEngine {
   constructor(cfg = {}) {
     // Per-session SDK state (formerly the sessions Map entry fields).
@@ -35,13 +44,13 @@ export class ClaudeAgentEngine {
    * emits). Errors propagate to the transport; the transport decides done/error.
    */
   async *run(prompt, options) {
-    const { session_id, model, cwd, mcpConfigPath } = options;
+    const { session_id, model, cwd, mcpConfigPath, permissionMode } = options;
 
     const mcpServers = mcpConfigPath ? loadMcpServers(mcpConfigPath) : {};
 
     const queryOptions = {
       model,
-      permissionMode: "bypassPermissions",
+      permissionMode: toSdkPermissionMode(permissionMode),
       allowDangerouslySkipPermissions: true,
       cwd,
       mcpServers,

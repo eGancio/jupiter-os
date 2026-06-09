@@ -67,6 +67,7 @@ export const en: Record<string, string> = {
   "cmd.compact.done": "Context compacted — context window reset.",
   "cmd.plan.off": "**Plan mode deactivated.** Switched to Edit automatically.",
   "cmd.plan.on": "**Plan mode activated.** The next message will include the plan instruction.",
+  "cmd.plan.unavailable": "Plan mode will arrive with the approval UI. For now the chat runs in **Auto mode** (does everything).",
   "cmd.unknown": "Unknown command: `{{name}}`",
 
   // ── slash command descriptions (lib/commands.ts) ──
@@ -78,9 +79,9 @@ export const en: Record<string, string> = {
   "cmd.plan.desc": "Toggle plan mode (Claude proposes before acting)",
 
   // ── input bar ──
-  "input.permission.auto": "Edit automatically",
-  "input.permission.ask": "Ask before edits",
+  "input.permission.auto": "Auto mode",
   "input.permission.plan": "Plan mode",
+  "input.permission.bypass": "Unrestricted",
   "input.placeholder": "Type a message…",
   "input.placeholderPlan": "Plan mode — describe what to implement…",
   "input.changeMode": "Click to change mode",

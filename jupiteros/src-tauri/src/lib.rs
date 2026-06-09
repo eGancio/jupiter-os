@@ -55,6 +55,7 @@ pub fn run() {
             chat_commands::get_chat_messages,
             chat_commands::list_chat_sessions,
             chat_commands::set_chat_model,
+            chat_commands::set_chat_permission_mode,
             chat_commands::delete_chat_session,
             chat_commands::compact_chat_session,
             chat_commands::rename_chat_session,

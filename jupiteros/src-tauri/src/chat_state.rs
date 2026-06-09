@@ -12,6 +12,9 @@ pub struct ChatState {
     pub sessions: Arc<Mutex<Vec<ChatSession>>>,
     pub model: Arc<Mutex<String>>,
     pub engine: Arc<Mutex<String>>,
+    /// Permission mode for the chat ("auto" | "plan" | "bypass"). Claude only;
+    /// other engines ignore it. Default "auto".
+    pub permission_mode: Arc<Mutex<String>>,
     pub sidecar: Arc<Mutex<Option<AgentSidecar>>>,
     /// Kept so we can respawn the sidecar after a crash (broken pipe).
     pub app_handle: Arc<Mutex<Option<AppHandle>>>,
@@ -25,6 +28,7 @@ impl ChatState {
             sessions: Arc::new(Mutex::new(saved)),
             model: Arc::new(Mutex::new("sonnet".to_string())),
             engine: Arc::new(Mutex::new("claude".to_string())),
+            permission_mode: Arc::new(Mutex::new("auto".to_string())),
             sidecar: Arc::new(Mutex::new(None)),
             app_handle: Arc::new(Mutex::new(None)),
         }
@@ -64,6 +68,7 @@ impl ChatState {
     fn register_restored_sessions(&self) {
         let mcp_config = config::mcp_json_path();
         let cwd = config::get_base_dir();
+        let permission_mode = self.permission_mode.lock().map(|m| m.clone()).unwrap_or_else(|_| "auto".to_string());
         if let Ok(sessions) = self.sessions.lock() {
             for s in sessions.iter() {
                 let mut cmd = serde_json::json!({
@@ -73,6 +78,7 @@ impl ChatState {
                     "engine": s.engine,
                     "cwd": cwd.to_string_lossy().to_string(),
                     "mcp_config": mcp_config.to_string_lossy().to_string(),
+                    "permission_mode": permission_mode,
                 });
                 // If we have a saved SDK session ID, include it for resume
                 if let Some(ref sdk_id) = s.sdk_session_id {
@@ -182,6 +188,7 @@ impl ChatState {
         // Tell sidecar to create an SDK session
         let mcp_config = config::mcp_json_path();
         let cwd = config::get_base_dir();
+        let permission_mode = self.get_permission_mode();
         let _ = self.send_to_sidecar(serde_json::json!({
             "cmd": "create_session",
             "id": id,
@@ -189,6 +196,7 @@ impl ChatState {
             "engine": engine,
             "cwd": cwd.to_string_lossy(),
             "mcp_config": mcp_config.to_string_lossy(),
+            "permission_mode": permission_mode,
         }));
 
         id
@@ -208,5 +216,13 @@ impl ChatState {
 
     pub fn set_engine(&self, engine: String) {
         *self.engine.lock().unwrap() = engine;
+    }
+
+    pub fn get_permission_mode(&self) -> String {
+        self.permission_mode.lock().unwrap().clone()
+    }
+
+    pub fn set_permission_mode(&self, mode: String) {
+        *self.permission_mode.lock().unwrap() = mode;
     }
 }

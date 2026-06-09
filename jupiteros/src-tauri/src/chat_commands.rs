@@ -144,6 +144,22 @@ pub fn set_chat_model(model: String, state: State<'_, ChatState>) {
 }
 
 #[tauri::command]
+pub fn set_chat_permission_mode(mode: String, state: State<'_, ChatState>) {
+    state.set_permission_mode(mode.clone());
+
+    // Notify all active sessions in the sidecar (Claude reads it per-turn).
+    if let Ok(sessions) = state.sessions.lock() {
+        for s in sessions.iter() {
+            let _ = state.send_to_sidecar(serde_json::json!({
+                "cmd": "set_permission_mode",
+                "session_id": s.id,
+                "permission_mode": mode,
+            }));
+        }
+    }
+}
+
+#[tauri::command]
 pub fn delete_chat_session(
     session_id: String,
     state: State<'_, ChatState>,

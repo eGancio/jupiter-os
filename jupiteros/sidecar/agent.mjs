@@ -10,7 +10,8 @@
  * Engine yields normalized events that ARE the protocol events, so the Rust-side
  * JSONL contract is identical across engines.
  *
- * Commands (stdin):  create_session, send, stop, dispose, set_model, compact_session
+ * Commands (stdin):  create_session, send, stop, dispose, set_model,
+ *                    set_permission_mode, compact_session
  * Events (stdout):   ready, session_created, text_delta, thinking_*, tool_*,
  *                    result, system_init, done, error, session_compacted
  */
@@ -73,6 +74,8 @@ function handleCreateSession(cmd) {
       model: cfg.model,
       cwd: cfg.cwd,
       mcp_config: cmd.mcp_config || "",
+      // Permission mode (Claude only; other engines ignore it). Default "auto".
+      permission_mode: cmd.permission_mode || "auto",
     },
   });
   emit({ event: "session_created", session_id: cmd.id });
@@ -90,6 +93,7 @@ async function handleSend(cmd) {
     model: entry.options.model,
     cwd: entry.options.cwd,
     mcpConfigPath: entry.options.mcp_config,
+    permissionMode: entry.options.permission_mode,
     images: cmd.images,
   };
 
@@ -140,6 +144,15 @@ function handleSetModel(cmd) {
   }
 }
 
+function handleSetPermissionMode(cmd) {
+  // Update permission mode for all future runs in a session. Read per-turn by
+  // the Claude engine; other engines ignore it.
+  const entry = sessions.get(cmd.session_id);
+  if (entry) {
+    entry.options.permission_mode = cmd.permission_mode || "auto";
+  }
+}
+
 // ── Main stdin reader loop ───────────────────────────────────
 
 const rl = readline.createInterface({ input: process.stdin, terminal: false });
@@ -172,6 +185,9 @@ rl.on("line", async (line) => {
       break;
     case "set_model":
       handleSetModel(cmd);
+      break;
+    case "set_permission_mode":
+      handleSetPermissionMode(cmd);
       break;
     case "compact_session":
       handleCompactSession(cmd);
