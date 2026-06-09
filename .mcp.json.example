@@ -20,6 +20,18 @@
       "type": "sse",
       "url": "http://127.0.0.1:8500/sse"
     },
+    "metis": {
+      "type": "sse",
+      "url": "http://127.0.0.1:8600/sse"
+    },
+    "himalia": {
+      "type": "sse",
+      "url": "http://127.0.0.1:8700/sse"
+    },
+    "elara": {
+      "type": "sse",
+      "url": "http://127.0.0.1:8800/sse"
+    },
     "gtd": {
       "type": "http",
       "url": "https://YOUR_JUPITEROS_HOST/mcp-gtd/YOUR_TOKEN/"
@@ -89,6 +101,46 @@
         "CALLISTO_OUTPUT_DIR": "moon-callisto/output",
         "MCP_TRANSPORT": "sse",
         "MCP_PORT": "8500"
+      }
+    },
+    "metis": {
+      "command": "target/release/moon-metis.exe",
+      "args": [],
+      "cwd": "moon-metis-rs",
+      "env": {
+        "DATA_DIR": "moon-metis-rs/data",
+        "EMBEDDING_MODEL_DIR": "moon-io-rs/data/model",
+        "QDRANT_URL": "http://127.0.0.1:6334",
+        "METIS_COLLECTION": "metis_docs",
+        "METIS_LLM_BASE_URL": "",
+        "METIS_LLM_MODEL": "qwen2.5:7b",
+        "METIS_LLM_API_KEY": "",
+        "MCP_TRANSPORT": "sse",
+        "MCP_PORT": "8600"
+      }
+    },
+    "himalia": {
+      "command": "target/release/moon-himalia.exe",
+      "args": [],
+      "cwd": "moon-himalia-rs",
+      "env": {
+        "DATA_DIR": "moon-himalia-rs/data",
+        "TAVILY_API_KEY": "",
+        "MCP_TRANSPORT": "sse",
+        "MCP_PORT": "8700"
+      }
+    },
+    "elara": {
+      "command": "target/release/moon-elara.exe",
+      "args": [],
+      "cwd": "moon-elara-rs",
+      "env": {
+        "DATA_DIR": "moon-elara-rs/data",
+        "REDDIT_CLIENT_ID": "",
+        "REDDIT_CLIENT_SECRET": "",
+        "REDDIT_USER_AGENT": "jupiteros-elara/0.1",
+        "MCP_TRANSPORT": "sse",
+        "MCP_PORT": "8800"
       }
     }
   }

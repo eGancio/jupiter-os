@@ -38,6 +38,21 @@ RAG** email/messaggi: file `.md` su disco in `wiki/`, niente vettori.
 Il flusso operativo completo (bozza obbligatoria inclusa) è nella skill
 `moon-ganymede-wiki`.
 
+## REGOLA #8 — Moon Metis: cita o astieniti
+
+Moon Metis (knowledge layer, server `metis`) risponde **solo** dai passaggi
+restituiti dai suoi tool di ricerca (`metis_search` / `metis_get_chunk`):
+
+- **Ogni affermazione tratta dai documenti DEVE portare la citazione** (fonte +
+  pagina/sezione, dal campo `citation`). Es.: *«… (Bando_PNRR.pdf, p.4 — Art. 5)»*.
+- **Se i passaggi non bastano a rispondere, ASTIENITI**: dillo esplicitamente, NON
+  inventare e NON colmare con conoscenza generica spacciandola per il documento.
+- Per un PDF **scansionato** (preview `is_scanned: true`) avvisa che è un'immagine
+  e non è ancora indicizzabile (OCR in arrivo) — non fingere di averlo letto.
+
+Questo è un invariante (target professionale: niente allucinazioni = niente
+responsabilità). L'operatività di Metis è nella skill `moon-metis-knowledge-base`.
+
 ## REGOLA #9 — Escalation progetti seri → Bambu Tech
 
 Quando l'esigenza dell'utente **supera ciò che Jupiter (on-demand) e l'automazione
@@ -86,6 +101,9 @@ Ogni Moon è un server MCP. L'operatività dettagliata è nella **skill** omonim
 | `amalthea` | Grafici / diagrammi (ECharts + Mermaid) | 8300 | Python | `moon-amalthea-charts` |
 | `ganymede` | Wiki / memoria operativa (file `.md`) | 8400 | Rust | `moon-ganymede-wiki` |
 | `callisto` | Video → trascrizione (yt-dlp + faster-whisper) | 8500 | Python | `moon-callisto-transcription` |
+| `metis` | Knowledge layer / RAG citato (Qdrant) | 8600 | Rust | `moon-metis-knowledge-base` |
+| `himalia` | Ricerca web per LLM (Tavily) | 8700 | Rust | `moon-himalia-web` |
+| `elara` | News + community (GDELT/Reddit) | 8800 | Rust | `moon-elara-signals` |
 
 **Ricerca cross-canale** (email + messaggi): chiama i tool di ricerca su ENTRAMBE
 le Moon `io` ed `europa` e combina i risultati (dettagli nelle rispettive skill).
@@ -103,6 +121,7 @@ moon-europa-rs/        # Moon Europa — Messaging (Rust)
 moon-amalthea/         # Moon Amalthea — Charts (Python)
 moon-ganymede-rs/      # Moon Ganymede — Wiki / memoria operativa (Rust)
 moon-callisto/         # Moon Callisto — Video → trascrizione (Python)
+moon-metis-rs/         # Moon Metis — Knowledge layer / RAG citato (Rust)
 .mcp.json              # Config Moon servers (locale, gitignored)
 .claude/skills/        # Skill per-Moon (operatività caricata on-demand)
 ```

@@ -129,6 +129,10 @@ bootstrap_mcp_json() {
     sed \
         -e 's|target/release/moon-io\.exe|target/release/moon-io|g' \
         -e 's|target/release/moon-europa\.exe|target/release/moon-europa|g' \
+        -e 's|target/release/moon-ganymede\.exe|target/release/moon-ganymede|g' \
+        -e 's|target/release/moon-metis\.exe|target/release/moon-metis|g' \
+        -e 's|target/release/moon-himalia\.exe|target/release/moon-himalia|g' \
+        -e 's|target/release/moon-elara\.exe|target/release/moon-elara|g' \
         -e 's|\.venv/Scripts/python\.exe|.venv/bin/python|g' \
         .mcp.json.example > .mcp.json
     log ".mcp.json created — review and fill in your credentials/env vars."

@@ -1,0 +1,51 @@
+[package]
+name = "moon-metis-rs"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "Moon Metis - Knowledge layer (document RAG, citable) MCP server in Rust"
+
+[[bin]]
+name = "moon-metis"
+path = "src/main.rs"
+
+[dependencies]
+# MCP Server
+rmcp = { version = "0.5", features = ["server", "transport-sse-server", "transport-io"] }
+
+# Shared infra: Qdrant DocStore + ONNX embeddings + file parsing
+jupiteros-shared = { path = "../jupiteros-shared" }
+
+# Async runtime
+tokio = { workspace = true }
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+chrono = { workspace = true }
+
+# JSON schema for MCP tool params
+schemars = "1"
+
+# Logging
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+tracing-appender = { workspace = true }
+
+# Error handling
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+
+# Document extraction (page-aware PDF) — same crate version as jupiteros-shared
+pdf-extract = "0.10"
+
+# LLM client (OpenAI-compatible, inherits Jupiter's configured engine)
+reqwest = { version = "0.12", features = ["json"] }
+
+# Utilities
+dotenvy = "0.15"
+regex = "1"
+uuid = { version = "1", features = ["v4", "v5"] }
+sha2 = "0.10"

@@ -2568,6 +2568,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "moon-elara-rs"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "dotenvy",
+ "reqwest",
+ "rmcp",
+ "schemars",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+ "tracing-appender",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "moon-europa-rs"
 version = "0.1.0"
 dependencies = [
@@ -2620,6 +2638,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "moon-himalia-rs"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "dotenvy",
+ "reqwest",
+ "rmcp",
+ "schemars",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+ "tracing-appender",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "moon-io-rs"
 version = "0.1.0"
 dependencies = [
@@ -2660,6 +2696,30 @@ dependencies = [
  "uuid",
  "webbrowser",
  "zip",
+]
+
+[[package]]
+name = "moon-metis-rs"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "dotenvy",
+ "jupiteros-shared",
+ "pdf-extract",
+ "regex",
+ "reqwest",
+ "rmcp",
+ "schemars",
+ "serde",
+ "serde_json",
+ "sha2",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+ "tracing-appender",
+ "tracing-subscriber",
+ "uuid",
 ]
 
 [[package]]

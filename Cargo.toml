@@ -7,6 +7,9 @@ members = [
     "moon-europa-rs",
     "moon-io-rs",
     "moon-ganymede-rs",
+    "moon-metis-rs",
+    "moon-himalia-rs",
+    "moon-elara-rs",
 ]
 exclude = [
     "jupiteros/src-tauri",

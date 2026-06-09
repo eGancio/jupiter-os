@@ -32,6 +32,9 @@ moon-io/data/
 moon-europa/data/
 moon-io-rs/data/
 moon-europa-rs/data/
+moon-metis-rs/data/
+moon-himalia-rs/data/
+moon-elara-rs/data/
 
 # Telegram session
 *.session
@@ -100,3 +103,5 @@ LOGO+DOMAIN.png
 
 # Python egg-info
 *.egg-info/
+gemini-credentials.txt
+groq-credentials.txt
