@@ -239,8 +239,12 @@ impl Config {
                     .unwrap_or_else(|_| "465".into())
                     .parse()
                     .unwrap_or(465);
+                // Same default as the primary account: "INBOX,INBOX.Sent". This
+                // also matters because the daemon only auto-discovers ALL folders
+                // when folders == the default pair; a bare "INBOX" was treated as
+                // an explicit user choice and skipped Sent (sent mail unindexed).
                 let folders_str = std::env::var(format!("{prefix}_IMAP_FOLDERS"))
-                    .unwrap_or_else(|_| "INBOX".into());
+                    .unwrap_or_else(|_| "INBOX,INBOX.Sent".into());
                 let folders: Vec<String> = folders_str
                     .split(',')
                     .map(|s| s.trim().to_string())
