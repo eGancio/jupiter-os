@@ -599,17 +599,11 @@ impl MoonIoServer {
 
         let budget_per_email = ((25000 - limit * 150) / limit).max(500);
 
-        let fetch_limit = if account_filter.is_some() { limit * 4 } else { limit };
-        let mut emails = self
+        let emails = self
             .store
-            .read_messages_full(fetch_limit, contact_ref, budget_per_email)
+            .read_messages_full(limit, contact_ref, budget_per_email, account_filter)
             .await
             .map_err(|e| format!("Read emails: {e}"))?;
-
-        if let Some(acc) = account_filter {
-            emails.retain(|e| e.account.eq_ignore_ascii_case(acc));
-            emails.truncate(limit);
-        }
 
         if emails.is_empty() {
             return Ok("Nessuna email trovata.".to_string());

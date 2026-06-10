@@ -1108,29 +1108,73 @@ impl MessageStore {
     ///
     /// Similar to `list_messages` but returns `MessageData` with the full
     /// text field instead of a truncated preview. Used by `read_recent_emails`.
+    ///
+    /// Without contact filter: uses Qdrant `order_by` on the `date` payload
+    /// index (Datetime), like `list_messages` — the old single-page scroll
+    /// returned points in ID order, so "recent" was the newest among an
+    /// ARBITRARY sample (emails from years ago showed up as "le ultime").
+    ///
+    /// With contact filter: scrolls ALL points (client-side substring match),
+    /// sorts by date descending, truncates.
     pub async fn read_messages_full(
         &self,
         limit: usize,
         contact: Option<&str>,
         max_chars: usize,
+        account: Option<&str>,
     ) -> Result<Vec<MessageData>> {
-        // Fetch more than needed so we can filter/sort client-side
-        let fetch_limit = if contact.is_some() { 500 } else { limit * 3 };
         let contact_lower = contact.map(|c| c.to_lowercase());
 
+        // Build the shared filter conditions (namespace + account) once.
+        let mut base_conditions: Vec<Condition> = Vec::new();
+        if let Some(ns) = &self.namespace {
+            base_conditions.push(Condition::matches("_namespace", ns.clone()));
+        }
+        if let Some(c) = account_condition(account) {
+            base_conditions.push(c);
+        }
+
+        if contact_lower.is_none() {
+            // --- No contact filter: fast ordered fetch ---
+            let order = OrderBy {
+                key: "date".into(),
+                direction: Some(1), // Direction::Desc
+                start_from: None,
+            };
+            let mut scroll = ScrollPointsBuilder::new(&self.collection_name)
+                .limit((limit as u32).max(1))
+                .with_payload(true)
+                .order_by(order);
+            if !base_conditions.is_empty() {
+                scroll = scroll.filter(Filter::must(base_conditions));
+            }
+            let response = self
+                .client
+                .scroll(scroll)
+                .await
+                .map_err(|e| SharedError::Qdrant(format!("Scroll: {e}")))?;
+            return Ok(response
+                .result
+                .iter()
+                .map(|pt| {
+                    let mut m = Self::point_to_message(pt);
+                    m.text = m.text.chars().take(max_chars).collect();
+                    m
+                })
+                .collect());
+        }
+
+        // --- Contact filter path: scan ALL, filter client-side, sort manually ---
         let mut results: Vec<MessageData> = Vec::new();
         let mut scroll_offset: Option<PointId> = None;
 
         loop {
             let mut scroll = ScrollPointsBuilder::new(&self.collection_name)
-                .limit(fetch_limit.min(500) as u32)
+                .limit(500)
                 .with_payload(true);
 
-            if let Some(ns) = &self.namespace {
-                scroll = scroll.filter(Filter::must([Condition::matches(
-                    "_namespace",
-                    ns.clone(),
-                )]));
+            if !base_conditions.is_empty() {
+                scroll = scroll.filter(Filter::must(base_conditions.clone()));
             }
 
             if let Some(off) = scroll_offset {
@@ -1178,9 +1222,7 @@ impl MessageStore {
             }
 
             scroll_offset = response.next_page_offset;
-
-            // If no contact filter, one page is enough
-            if contact_lower.is_none() || scroll_offset.is_none() || page_empty {
+            if scroll_offset.is_none() || page_empty {
                 break;
             }
         }
