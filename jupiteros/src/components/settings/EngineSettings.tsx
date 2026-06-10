@@ -22,7 +22,7 @@ interface EngineDef {
 // is visible. The engine binds at session creation, so switching engine starts
 // a new chat (see handleSelectEngine). Ollama Phase A is chat-only (no Moons).
 const ENGINES: EngineDef[] = [
-  { id: "claude", name: "Claude (Anthropic)", models: ["sonnet", "haiku", "opus"], available: true },
+  { id: "claude", name: "Claude (Anthropic)", models: ["sonnet", "haiku", "opus", "claude-fable-5"], available: true },
   // qwen3 30B-A3B instruct (MoE, 3B attivi): il miglior locale su CPU — tool
   // choice affidabile a ~2 min/turno. La variante IBRIDA (qwen3:30b) è esclusa
   // di proposito: il thinking (~1.5k token/turno) la rende inusabile su CPU.

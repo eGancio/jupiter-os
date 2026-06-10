@@ -48,7 +48,7 @@ export const en: Record<string, string> = {
   "chat.running": "Running",
 
   // ── slash command system messages ──
-  "cmd.model.usage": "Usage: `/model haiku|sonnet|opus`",
+  "cmd.model.usage": "Usage: `/model haiku|sonnet|opus|fable-5`",
   "cmd.model.changed": "Model changed to **{{model}}**. Takes effect from the next message.",
   "cmd.model.error": "Model change error: {{error}}",
   "cmd.cost.title": "**Current session costs**",

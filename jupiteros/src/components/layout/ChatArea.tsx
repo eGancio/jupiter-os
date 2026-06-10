@@ -152,8 +152,10 @@ export function ChatArea({ chat, services, onPreviewChart, onOpenEngineSettings 
           break;
 
         case "/model": {
-          const m = args.trim().toLowerCase();
-          if (!m || !["haiku", "sonnet", "opus"].includes(m)) {
+          let m = args.trim().toLowerCase();
+          // scorciatoie per fable-5 (l'SDK vuole l'id pieno)
+          if (m === "fable" || m === "fable-5") m = "claude-fable-5";
+          if (!m || !["haiku", "sonnet", "opus", "claude-fable-5"].includes(m)) {
             addSystemMessage(t("cmd.model.usage"));
           } else {
             changeModel(m).then(() => {
