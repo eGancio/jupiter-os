@@ -30,7 +30,8 @@
 import * as fs from "fs";
 import * as path from "path";
 import { fileURLToPath } from "url";
-import { loadMcpServers, relevantToolNames } from "./engine.mjs";
+import { loadMcpServers, selectToolsForMessage, sanitizeToolArgs, truncateForContext, trimHistoryInPlace, waitForMcpServers } from "./engine.mjs";
+import { matchIoFastPath, isEmptyIoResult, probeConfirmsContact } from "./fastpath-io.mjs";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
@@ -38,12 +39,25 @@ import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/
 const DEFAULT_BASE_URL = "http://127.0.0.1:11434";
 const MAX_TOOL_ITERS = 8;
 
+// Ollama di default carica il modello con num_ctx 4096 ANCHE se il modello regge
+// 32k: schemi tool (~2k) + un risultato email (~6k token non troncato) sforavano
+// e Ollama tronca SILENZIOSAMENTE dall'inizio → via system prompt e schemi → il
+// modello si incanta. 8192 copre il budget qui sotto; non di più perché su CPU
+// ogni token di prompt eval costa (la vera ottimizzazione è mandare MENO token).
+const NUM_CTX = 8192;
+const MAX_TOOL_RESULT_CHARS = 4000;  // ~1k token a risultato (7B locale, CPU)
+const HISTORY_TOKEN_BUDGET = 3500;   // stima chars/4 sull'intera history
+
 // Substrings (lowercased) that mark a tool as state-mutating / outward-acting.
 // Calibrated against the real Moon tools: Io's send_email, reply_email,
 // delete_email*, *_calendar_event, set_email_signature, save_attachment,
-// blacklist_add/remove/sweep, reset_index, repair_*, index_message/emails;
-// Metis ingest; Ganymede *_commit_*. Read tools (list_/get_/read_/search_/
-// index_status/extract_*) are NOT matched. Defense-in-depth with the prompt.
+// blacklist_add/remove/sweep, reset_index, repair_*; Metis ingest;
+// Ganymede *_commit_*. Read tools (list_/get_/read_/search_/index_status/
+// extract_*) are NOT matched. Defense-in-depth with the prompt.
+// NOTE: index_emails / index_message are ALLOWED — they only refresh a LOCAL
+// search index (no outward action, no data loss). The expensive full rebuild is
+// neutralized in sanitizeToolArgs (full_reindex forced false); the destructive
+// reset_index stays blocked via the "reset" pattern below.
 const UNSAFE_TOOL_PATTERNS = [
   "send", "reply", "forward",
   "delete", "remove", "create", "update", "write", "upload", "move",
@@ -53,7 +67,6 @@ const UNSAFE_TOOL_PATTERNS = [
   // GTD (and similar) state mutations
   "edit", "close", "transition", "shift", "log_effort",
   "blacklist_add", "blacklist_remove", "blacklist_sweep",
-  "index_message", "index_emails",
 ];
 
 /** True if a tool name looks state-mutating and must be hidden from Ollama. */
@@ -119,6 +132,9 @@ export class OllamaEngine {
     // MCP cache: { clients[], tools[] (ollama fmt), index: Map<name,{client,realName,server}>,
     //             excluded, servers, connected:Set, warned:Set }
     this.mcp = null;
+    // 7B local model → keep the tool menu small (token budget doubles as a
+    // quality guard: too many schemas confuse a small model).
+    this.maxToolTokens = Number.isFinite(cfg.maxToolTokens) ? cfg.maxToolTokens : 4000;
     this.toolSeq = 0;
     this.systemSeeded = false;
   }
@@ -136,12 +152,33 @@ export class OllamaEngine {
       this.systemSeeded = true;
     }
     this.messages.push({ role: "user", content: String(prompt ?? "") });
+    trimHistoryInPlace(this.messages, HISTORY_TOKEN_BUDGET);
 
     this.aborted = false;
-    // Route: only the relevant Moon's tools for this message (token economy +
-    // fewer random tool calls). null → no relevant Moon → plain chat.
-    const allowed = relevantToolNames(prompt, mcp.index);
-    const tools = allowed ? mcp.tools.filter((t) => allowed.has(t.function.name)) : [];
+
+    // Fast-path deterministico Moon Io (solo engine locale): le richieste email
+    // frequenti vanno DIRETTE al tool MCP, senza modello — i locali piccoli
+    // sbagliano la SCELTA del tool, non l'esecuzione. Nessun match con
+    // confidenza alta → si prosegue col modello come sempre (fail-open).
+    const fp = matchIoFastPath(String(prompt ?? ""));
+    if (fp) {
+      if (mcp.index.has(fp.tool)) {
+        // In modalità sonda (contatto minuscolo plausibile) può restituire
+        // false = "zero risultati, non era un contatto" → si prosegue col modello.
+        const handled = yield* this.#runFastPath(session_id, fp);
+        if (handled) return;
+      } else {
+        // Moon io giù o tool rinominato → fallthrough benigno, ma loggalo.
+        process.stderr.write(`[SIDECAR] fastpath: tool ${fp.tool} non in index — fallthrough al modello\n`);
+      }
+    }
+
+    // Budget-aware reducer: expose all tools when they fit the (small) budget,
+    // narrow to the relevant Moon(s) under pressure, never zero. See engine.mjs.
+    const tools = selectToolsForMessage(prompt, mcp.tools, mcp.index, {
+      getName: (t) => t.function.name,
+      maxToolTokens: this.maxToolTokens,
+    });
     // qwen2.5 (and most local models) only emit tool_calls reliably with
     // stream:false. So: real token-streaming for pure chat, single-shot
     // (non-streamed) calls when tools are in play. The final answer of a tool
@@ -192,7 +229,8 @@ export class OllamaEngine {
           resultText = `[errore] tool non disponibile: "${name}". Usa solo i tool elencati.`;
         } else {
           try {
-            const res = await entry.client.callTool({ name: entry.realName, arguments: args });
+            const safeArgs = sanitizeToolArgs(name, args, entry.schema);
+            const res = await entry.client.callTool({ name: entry.realName, arguments: safeArgs });
             resultText = flattenToolResult(res);
             if (res?.isError) resultText = `[errore tool] ${resultText}`;
           } catch (e) {
@@ -200,7 +238,9 @@ export class OllamaEngine {
           }
         }
         yield { event: "tool_result", session_id, tool_id, result: resultText };
-        this.messages.push({ role: "tool", content: resultText });
+        // In contesto va la versione troncata (la UI vede il testo intero): un
+        // risultato non troncato sfora num_ctx e Ollama taglia il prompt in testa.
+        this.messages.push({ role: "tool", content: truncateForContext(resultText, MAX_TOOL_RESULT_CHARS) });
       }
 
       if (this.aborted) throw abortError();
@@ -220,12 +260,77 @@ export class OllamaEngine {
     };
   }
 
+  // Turno fast-path: un tool MCP già deciso dal matcher, zero chiamate al
+  // modello. Emette gli stessi eventi del loop tool normale (tool_start/
+  // tool_input_delta/tool_result per il chip in timeline) MA il testo visibile
+  // in chat arriva solo via text_delta → header + risultato formattato.
+  // Errore tool → messaggio d'errore e fine turno, NIENTE fallback al modello
+  // (se il Moon è giù il modello non può rimediare e brucia 30s di CPU).
+  async *#runFastPath(session_id, fp) {
+    const t0 = Date.now();
+    const entry = this.mcp.index.get(fp.tool);
+
+    let resultText;
+    let failed = false;
+    const callTool = async () => {
+      try {
+        const safeArgs = sanitizeToolArgs(fp.tool, fp.args, entry.schema);
+        const res = await entry.client.callTool({ name: entry.realName, arguments: safeArgs });
+        resultText = flattenToolResult(res);
+        if (res?.isError) failed = true;
+      } catch (e) {
+        resultText = e?.message || String(e);
+        failed = true;
+      }
+    };
+
+    const tool_id = `t${++this.toolSeq}_${fp.tool}`;
+    if (fp.probe) {
+      // Sonda (contatto minuscolo plausibile, es. "email di assoholding"):
+      // chiama PRIMA in silenzio e decide dai dati. Zero risultati o errore →
+      // non era un contatto → nessun evento emesso, il turno va al modello.
+      await callTool();
+      if (this.aborted) throw abortError();
+      if (failed || isEmptyIoResult(resultText) || !probeConfirmsContact(resultText, fp.args.contact)) {
+        process.stderr.write(`[SIDECAR] fastpath: sonda ${fp.tool}(${fp.args.contact}) non confermata — fallthrough al modello\n`);
+        return false;
+      }
+      process.stderr.write(`[SIDECAR] fastpath(sonda): ${fp.tool} ${JSON.stringify(fp.args)}\n`);
+      yield { event: "tool_start", session_id, tool_name: fp.tool, tool_id };
+      yield { event: "tool_input_delta", session_id, tool_id, partial_json: JSON.stringify(fp.args) };
+    } else {
+      process.stderr.write(`[SIDECAR] fastpath: ${fp.tool} ${JSON.stringify(fp.args)}\n`);
+      yield { event: "tool_start", session_id, tool_name: fp.tool, tool_id };
+      yield { event: "tool_input_delta", session_id, tool_id, partial_json: JSON.stringify(fp.args) };
+      await callTool();
+      if (this.aborted) throw abortError();
+    }
+
+    yield { event: "tool_result", session_id, tool_id, result: failed ? `[errore tool] ${resultText}` : resultText };
+    // Output tabellare → code fence, o il markdown della chat collassa le righe.
+    const text = failed
+      ? `Non sono riuscito a interrogare la posta: ${resultText}`
+      : `${fp.header}\n\n\`\`\`\n${resultText}\n\`\`\``;
+    yield { event: "text_delta", session_id, text };
+    // History: UN solo messaggio assistant (troncato) — niente role:"tool"
+    // orfano (rompe i template qwen). Così i follow-up ("riassumile") vanno al
+    // modello CON l'elenco in contesto.
+    this.messages.push({ role: "assistant", content: truncateForContext(text, MAX_TOOL_RESULT_CHARS) });
+
+    yield {
+      event: "result", session_id, subtype: "success", total_cost_usd: 0,
+      usage: { input_tokens: 0, output_tokens: 0, cache_read_tokens: 0 }, // veritiero: zero token
+      num_turns: 1, duration_ms: Date.now() - t0,
+    };
+    return true;
+  }
+
   // One model call. `useStream`=true → NDJSON token streaming (pure chat);
   // false → a single non-streamed JSON (needed for reliable tool_calls).
   // Returns {text, toolCalls, usage}.
   async *#chatOnce(session_id, model, tools, useStream) {
     this.controller = new AbortController();
-    const body = { model, messages: this.messages, stream: useStream };
+    const body = { model, messages: this.messages, stream: useStream, options: { num_ctx: NUM_CTX } };
     if (tools && tools.length) body.tools = tools;
 
     let response;
@@ -333,6 +438,9 @@ export class OllamaEngine {
       if (mcpConfigPath) {
         try { servers = loadMcpServers(mcpConfigPath); } catch { servers = {}; }
       }
+      // Primo turno: aspetta (max 5s) i Moon che stanno ancora bootando, così
+      // il primo messaggio dopo l'avvio dell'app non resta senza tool.
+      await waitForMcpServers(servers);
       this.mcp = { clients: [], tools: [], index: new Map(), excluded: 0, servers, connected: new Set(), warned: new Set() };
     }
     const m = this.mcp;
@@ -366,7 +474,7 @@ export class OllamaEngine {
         for (const t of serverTools) {
           if (isUnsafeTool(t.name)) { m.excluded++; continue; }
           if (m.index.has(t.name)) continue; // first server wins on a name clash
-          m.index.set(t.name, { client, realName: t.name, server: serverName });
+          m.index.set(t.name, { client, realName: t.name, server: serverName, schema: t.inputSchema });
           m.tools.push({
             type: "function",
             function: {

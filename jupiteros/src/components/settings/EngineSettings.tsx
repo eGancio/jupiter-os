@@ -23,7 +23,10 @@ interface EngineDef {
 // a new chat (see handleSelectEngine). Ollama Phase A is chat-only (no Moons).
 const ENGINES: EngineDef[] = [
   { id: "claude", name: "Claude (Anthropic)", models: ["sonnet", "haiku", "opus"], available: true },
-  { id: "ollama", name: "Ollama (local)", models: ["qwen2.5:7b"], available: true },
+  // qwen3 30B-A3B instruct (MoE, 3B attivi): il miglior locale su CPU — tool
+  // choice affidabile a ~2 min/turno. La variante IBRIDA (qwen3:30b) è esclusa
+  // di proposito: il thinking (~1.5k token/turno) la rende inusabile su CPU.
+  { id: "ollama", name: "Ollama (local)", models: ["qwen3:30b-a3b-instruct-2507-q4_K_M", "qwen2.5:7b", "qwen2.5:3b"], available: true },
   { id: "gemini", name: "Gemini (Google)", models: ["gemini-2.5-flash", "gemini-flash-latest", "gemini-2.5-pro"], available: true },
   { id: "groq", name: "Groq (free, fast)", models: ["llama-3.3-70b-versatile", "openai/gpt-oss-120b", "llama-3.1-8b-instant"], available: true },
 ];
