@@ -93,15 +93,15 @@ export function MetisIngestPanel() {
       <div className="text-[10px] font-semibold uppercase tracking-wider text-jupiter-dim mb-1">
         Natura
       </div>
-      <div className="grid grid-cols-2 gap-1 mb-2">
+      <div className="grid grid-cols-2 gap-1 bg-jupiter-elevated rounded-lg p-1 mb-2">
         {NATURES.map((n) => (
           <button
             key={n}
             onClick={() => setNature(n)}
-            className={`px-2 py-1 text-[10px] rounded border transition-colors ${
+            className={`px-2 py-1 text-[10px] rounded-md transition-colors ${
               nature === n
-                ? "bg-jupiter-orange/20 text-jupiter-orange border-jupiter-orange/40"
-                : "text-jupiter-dim border-jupiter-orange/15 hover:border-jupiter-orange/30"
+                ? "bg-jupiter-orange text-white"
+                : "text-jupiter-dim hover:text-white"
             }`}
           >
             {n}
@@ -123,15 +123,17 @@ export function MetisIngestPanel() {
         <button
           onClick={pickFiles}
           disabled={loading}
-          className="flex-1 px-2.5 py-1.5 text-[11px] rounded border bg-jupiter-orange/15 text-jupiter-orange border-jupiter-orange/30 hover:bg-jupiter-orange/25 disabled:opacity-40 transition-colors"
+          className="flex-1 flex items-center justify-center gap-1.5 px-2.5 py-1.5 text-[11px] font-bold uppercase tracking-wider rounded-lg bg-jupiter-orange text-white hover:opacity-90 disabled:opacity-40 transition-all"
         >
+          <span className="material-symbols-outlined text-[14px]">upload_file</span>
           Seleziona file…
         </button>
         <button
           onClick={pickFolder}
           disabled={loading}
-          className="flex-1 px-2.5 py-1.5 text-[11px] rounded border bg-jupiter-elevated text-jupiter-dim border-jupiter-orange/20 hover:text-white hover:border-jupiter-orange/40 disabled:opacity-40 transition-colors"
+          className="flex-1 flex items-center justify-center gap-1.5 px-2.5 py-1.5 text-[11px] rounded-lg bg-jupiter-elevated text-jupiter-muted hover:text-white disabled:opacity-40 transition-colors"
         >
+          <span className="material-symbols-outlined text-[14px]">folder_open</span>
           Seleziona cartella…
         </button>
       </div>
@@ -142,7 +144,7 @@ export function MetisIngestPanel() {
       </p>
 
       {error && (
-        <div className="text-[11px] text-jupiter-red bg-jupiter-red/10 border border-jupiter-red/30 rounded p-2 mb-2 whitespace-pre-wrap">
+        <div className="text-[11px] text-jupiter-red bg-jupiter-red/10 border border-jupiter-red/30 rounded-lg p-2 mb-2 whitespace-pre-wrap">
           {error}
         </div>
       )}
@@ -168,12 +170,13 @@ export function MetisIngestPanel() {
         </div>
         <button
           onClick={loadDocs}
-          className="text-[10px] text-jupiter-dim hover:text-white transition-colors"
+          className="flex items-center gap-1 text-[10px] text-jupiter-dim hover:text-white transition-colors"
         >
-          ⟳ aggiorna
+          <span className="material-symbols-outlined text-[12px]">refresh</span>
+          aggiorna
         </button>
       </div>
-      <div className="flex-1 overflow-y-auto bg-jupiter-bg rounded border border-jupiter-orange/25 p-2 min-h-0">
+      <div className="flex-1 overflow-y-auto custom-scrollbar bg-jupiter-bg rounded-xl p-2 min-h-0">
         {docs === null ? (
           <div className="text-[11px] text-jupiter-dim">Caricamento…</div>
         ) : docs.length === 0 ? (
@@ -183,7 +186,7 @@ export function MetisIngestPanel() {
             {docs.map((d) => (
               <div
                 key={d.doc_id}
-                className="flex items-center gap-2 text-[10px] px-2 py-1 rounded bg-jupiter-elevated"
+                className="flex items-center gap-2 text-[10px] px-2 py-1 rounded-lg bg-jupiter-elevated"
               >
                 <button
                   onClick={() => metisOpenFile(d.source_path).catch((e) => setError(String(e)))}

@@ -2,7 +2,7 @@
 // Copyright (C) 2026 Edoardo Mancinelli
 
 import { useEffect, useState } from "react";
-import { getMoonInfo, getMoonColor } from "../../lib/moonInfo";
+import { getMoonInfo, getMoonColor, getMoonIcon } from "../../lib/moonInfo";
 import { useT } from "../../i18n";
 
 interface Props {
@@ -37,15 +37,20 @@ export function MoonInfoModal({ moonName, running, onClose }: Props) {
       onClick={onClose}
     >
       <div
-        className="bg-jupiter-bg border border-jupiter-orange/20 rounded-lg overflow-hidden flex flex-col shadow-2xl"
+        className="bg-jupiter-bg border border-jupiter-border rounded-xl overflow-hidden flex flex-col card-shadow"
         style={{ width: size.w, height: size.h }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="px-4 py-3 border-b border-jupiter-orange/15 flex items-center justify-between flex-shrink-0">
+        <div className="px-4 py-3 border-b border-jupiter-border flex items-center justify-between flex-shrink-0">
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-base" style={{ color: getMoonColor(moonName) }}>&#9789;</span>
+              <span
+                className="material-symbols-outlined text-[18px]"
+                style={{ color: getMoonColor(moonName) }}
+              >
+                {getMoonIcon(moonName)}
+              </span>
               <h2 className="text-sm font-bold text-jupiter-text font-display">
                 {info?.displayName ?? moonName}
               </h2>
@@ -68,22 +73,22 @@ export function MoonInfoModal({ moonName, running, onClose }: Props) {
             <button
               onClick={() => setSizeIdx((i) => Math.max(0, i - 1))}
               disabled={sizeIdx === 0}
-              className="w-6 h-6 flex items-center justify-center rounded text-jupiter-orange hover:bg-jupiter-orange/15 disabled:opacity-30 disabled:cursor-default transition-colors text-sm font-bold"
+              className="w-6 h-6 flex items-center justify-center rounded-lg text-jupiter-orange hover:bg-jupiter-orange/15 disabled:opacity-30 disabled:cursor-default transition-colors text-sm font-bold"
             >
               &#x2212;
             </button>
             <button
               onClick={() => setSizeIdx((i) => Math.min(SIZES.length - 1, i + 1))}
               disabled={sizeIdx === SIZES.length - 1}
-              className="w-6 h-6 flex items-center justify-center rounded text-jupiter-orange hover:bg-jupiter-orange/15 disabled:opacity-30 disabled:cursor-default transition-colors text-sm font-bold"
+              className="w-6 h-6 flex items-center justify-center rounded-lg text-jupiter-orange hover:bg-jupiter-orange/15 disabled:opacity-30 disabled:cursor-default transition-colors text-sm font-bold"
             >
               +
             </button>
             <button
               onClick={onClose}
-              className="w-6 h-6 flex items-center justify-center rounded text-jupiter-dim hover:text-jupiter-muted hover:bg-jupiter-orange/10 transition-colors text-sm ml-1"
+              className="w-6 h-6 flex items-center justify-center rounded-lg text-jupiter-dim hover:text-white hover:bg-jupiter-elevated transition-colors ml-1"
             >
-              &#x2715;
+              <span className="material-symbols-outlined text-[16px]">close</span>
             </button>
           </div>
         </div>
@@ -105,7 +110,7 @@ export function MoonInfoModal({ moonName, running, onClose }: Props) {
                 <span className="text-white">{info.location}</span>
               </div>
 
-              <div className="border-t border-jupiter-orange/10 pt-3">
+              <div className="border-t border-jupiter-border pt-3">
                 <h3 className="text-[10px] font-semibold uppercase tracking-wider text-jupiter-dim mb-2">
                   {t("moonInfo.tools", { count: info.tools.length })}
                 </h3>
@@ -113,7 +118,7 @@ export function MoonInfoModal({ moonName, running, onClose }: Props) {
                   {info.tools.map((tool) => (
                     <div
                       key={tool.name}
-                      className="flex items-baseline gap-2 py-1 px-2 rounded bg-jupiter-surface/60"
+                      className="flex items-baseline gap-2 py-1 px-2 rounded-lg bg-jupiter-elevated/60"
                     >
                       <code className="text-[11px] font-mono whitespace-nowrap flex-shrink-0" style={{ color: getMoonColor(moonName) + "cc" }}>
                         {tool.name}

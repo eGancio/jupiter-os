@@ -36,11 +36,11 @@ const TABS: { id: Tab; label: string }[] = [
 ];
 
 const inputCls =
-  "w-full px-2 py-1 text-[11px] rounded bg-jupiter-elevated border border-jupiter-orange/30 text-white focus:outline-none focus:border-jupiter-orange placeholder:text-jupiter-dim/60";
+  "w-full px-2.5 py-1.5 text-[11px] rounded-lg bg-jupiter-bg border border-jupiter-border text-white focus:outline-none focus:border-jupiter-orange placeholder:text-jupiter-dim/60";
 const primaryBtn =
-  "flex-1 px-2 py-1 text-[10px] rounded bg-jupiter-green/15 text-jupiter-green border border-jupiter-green/30 hover:bg-jupiter-green/25 disabled:opacity-40 transition-colors";
+  "flex-1 px-2 py-1 text-[10px] font-bold uppercase tracking-wider rounded-lg bg-jupiter-orange text-white hover:opacity-90 disabled:opacity-40 transition-all";
 const ghostBtn =
-  "px-2 py-1 text-[10px] rounded text-jupiter-dim hover:text-white hover:bg-jupiter-elevated transition-colors";
+  "px-2 py-1 text-[10px] rounded-lg text-jupiter-dim hover:text-white hover:bg-jupiter-elevated transition-colors";
 
 export function EuropaCredentialsPanel({ serviceName }: Props) {
   const { t } = useT();
@@ -310,10 +310,11 @@ export function EuropaCredentialsPanel({ serviceName }: Props) {
     );
 
   return (
-    <div className="mb-3 border border-jupiter-orange/25 rounded p-2.5 bg-jupiter-bg/40">
-      <div className="text-[10px] text-jupiter-dim mb-2 font-semibold uppercase tracking-wider">
+    <div className="mb-3 rounded-xl p-3 bg-jupiter-elevated/40">
+      <div className="flex items-center gap-1.5 text-[10px] text-jupiter-dim mb-2 font-bold uppercase tracking-wider">
+        <span className="material-symbols-outlined text-[14px]">forum</span>
         {t("europa.title")}
-        <span className="ml-1 normal-case text-jupiter-dim/70">{t("creds.keyring")}</span>
+        <span className="normal-case font-normal text-jupiter-dim/70">{t("creds.keyring")}</span>
       </div>
 
       {error && <div className="text-[11px] text-jupiter-red mb-2 break-words">{error}</div>}
@@ -326,7 +327,7 @@ export function EuropaCredentialsPanel({ serviceName }: Props) {
           {channels.map((c) => (
             <div
               key={c.channel}
-              className="rounded border border-jupiter-orange/15 bg-jupiter-elevated/40 p-2"
+              className="rounded-xl bg-jupiter-bg/60 p-2.5"
             >
               <div className="flex items-center justify-between mb-1">
                 <span className="font-mono text-white text-[12px]">
@@ -348,7 +349,7 @@ export function EuropaCredentialsPanel({ serviceName }: Props) {
       )}
 
       {/* Add / configure section */}
-      <div className="mt-3 pt-2.5 border-t border-jupiter-orange/15">
+      <div className="mt-3">
         {!adding ? (
           <button
             onClick={() => {
@@ -357,14 +358,15 @@ export function EuropaCredentialsPanel({ serviceName }: Props) {
               setTab("telegram");
               setTgStep(tgConfigured ? "phone" : "api");
             }}
-            className="w-full px-2 py-1.5 text-[11px] rounded border border-dashed border-jupiter-orange/30 text-jupiter-orange hover:bg-jupiter-orange/10 transition-colors"
+            className="w-full flex items-center justify-center gap-1.5 px-2 py-1.5 text-[11px] rounded-lg bg-jupiter-elevated text-jupiter-orange hover:bg-jupiter-orange hover:text-white transition-colors"
           >
+            <span className="material-symbols-outlined text-[14px]">add_circle</span>
             {t("europa.configure")}
           </button>
         ) : (
           <div className="space-y-2">
-            {/* Channel selector */}
-            <div className="grid grid-cols-2 gap-1 text-[10px]">
+            {/* Channel selector — segmented grid */}
+            <div className="grid grid-cols-2 gap-1 bg-jupiter-elevated rounded-lg p-1 text-[10px]">
               {TABS.map((t) => (
                 <button
                   key={t.id}
@@ -374,10 +376,10 @@ export function EuropaCredentialsPanel({ serviceName }: Props) {
                     setError(null);
                     if (t.id === "telegram") setTgStep(tgConfigured ? "phone" : "api");
                   }}
-                  className={`px-2 py-1 rounded border transition-colors ${
+                  className={`px-2 py-1 rounded-md transition-colors ${
                     tab === t.id
-                      ? "bg-jupiter-orange/20 text-jupiter-orange border-jupiter-orange/40"
-                      : "text-jupiter-dim border-jupiter-orange/15 hover:border-jupiter-orange/30"
+                      ? "bg-jupiter-orange text-white"
+                      : "text-jupiter-dim hover:text-white"
                   }`}
                 >
                   {t.label}

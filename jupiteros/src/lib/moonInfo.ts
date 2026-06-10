@@ -135,10 +135,32 @@ const MOON_COLORS: Record<string, string> = {
   elara: "#ec4899",
 };
 
+/** Material Symbols moon-phase glyph per moon (matches the approved mockup). */
+const MOON_ICONS: Record<string, string> = {
+  io: "brightness_2",
+  europa: "brightness_4",
+  amalthea: "brightness_high",
+  ganymede: "brightness_5",
+  callisto: "brightness_6",
+  metis: "brightness_7",
+  himalia: "brightness_3",
+  elara: "brightness_1",
+};
+
 export function getMoonInfo(moonName: string): MoonInfo | null {
   return MOON_INFO[moonName.toLowerCase()] ?? null;
 }
 
 export function getMoonColor(moonName: string): string {
   return MOON_COLORS[moonName.toLowerCase()] ?? "#f97316";
+}
+
+/** Moon-phase Material Symbols icon name; falls back to a generic moon. */
+export function getMoonIcon(moonName: string): string {
+  return MOON_ICONS[moonName.toLowerCase()] ?? "nightlight";
+}
+
+/** Capitalized display label for the sidebar (e.g. "io" → "Io"). */
+export function getMoonLabel(moonName: string): string {
+  return moonName.charAt(0).toUpperCase() + moonName.slice(1);
 }

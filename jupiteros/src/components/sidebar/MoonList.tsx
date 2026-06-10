@@ -2,7 +2,7 @@
 // Copyright (C) 2026 Edoardo Mancinelli
 
 import type { ServiceInfo } from "../../types";
-import { getMoonColor, getMoonInfo } from "../../lib/moonInfo";
+import { getMoonInfo, getMoonIcon, getMoonLabel } from "../../lib/moonInfo";
 import { useT } from "../../i18n";
 
 interface Props {
@@ -12,111 +12,163 @@ interface Props {
   onInfoClick: (name: string) => void;
   onAddMoon: () => void;
   onRemoveMoon: (name: string) => void;
+  collapsed?: boolean;
 }
 
-export function MoonList({ services, selected, onSelect, onInfoClick, onAddMoon, onRemoveMoon }: Props) {
+function MoonRow({
+  svc,
+  selected,
+  onSelect,
+  onInfoClick,
+  onRemoveMoon,
+  removable,
+  collapsed,
+}: {
+  svc: ServiceInfo;
+  selected: boolean;
+  onSelect: (name: string) => void;
+  onInfoClick: (name: string) => void;
+  onRemoveMoon: (name: string) => void;
+  removable: boolean;
+  collapsed: boolean;
+}) {
+  const { t } = useT();
+
+  // Collapsed: an icon-only rail entry with a small status dot. The full label
+  // is exposed via the native tooltip so hovering still tells you which Moon.
+  if (collapsed) {
+    return (
+      <button
+        onClick={() => onSelect(svc.name)}
+        title={getMoonLabel(svc.name)}
+        className={`group relative w-full flex items-center justify-center py-2 rounded-lg transition-colors ${
+          selected
+            ? "bg-jupiter-orange/10 text-jupiter-primary"
+            : "text-jupiter-muted hover:bg-jupiter-elevated"
+        }`}
+      >
+        <span className="material-symbols-outlined text-[20px]">{getMoonIcon(svc.name)}</span>
+        <span
+          className={`absolute top-1 right-1 w-1.5 h-1.5 rounded-full ${
+            svc.running ? "bg-jupiter-green shadow-[0_0_6px_#3fb950]" : "bg-jupiter-pink"
+          }`}
+        />
+      </button>
+    );
+  }
+
+  return (
+    <button
+      onClick={() => onSelect(svc.name)}
+      className={`group w-full text-left flex items-center gap-3 px-4 py-2 rounded-lg transition-colors ${
+        selected
+          ? "bg-jupiter-orange/10 text-jupiter-primary font-bold border-r-2 border-jupiter-orange"
+          : "text-jupiter-muted hover:bg-jupiter-elevated"
+      }`}
+    >
+      <span className="material-symbols-outlined text-[20px] flex-shrink-0">
+        {getMoonIcon(svc.name)}
+      </span>
+      <span className="flex-1 truncate whitespace-nowrap text-[13px]">{getMoonLabel(svc.name)}</span>
+      <span className="ml-auto flex items-center gap-2 flex-shrink-0">
+        {removable && (
+          <span
+            onClick={(e) => {
+              e.stopPropagation();
+              onRemoveMoon(svc.name);
+            }}
+            className="opacity-0 group-hover:opacity-70 hover:!opacity-100 text-jupiter-red text-xs cursor-pointer transition-opacity"
+            title={t("moonlist.remove")}
+          >
+            ×
+          </span>
+        )}
+        <span
+          onClick={(e) => {
+            e.stopPropagation();
+            onInfoClick(svc.name);
+          }}
+          className="material-symbols-outlined text-[16px] opacity-50 hover:opacity-100 cursor-pointer transition-opacity"
+          title={t("moonlist.info")}
+        >
+          info
+        </span>
+        <span
+          className={`w-2 h-2 rounded-full flex-shrink-0 ${
+            svc.running ? "bg-jupiter-green shadow-[0_0_8px_#3fb950]" : "bg-jupiter-pink"
+          }`}
+        />
+      </span>
+    </button>
+  );
+}
+
+function SectionHeader({ label, onAdd }: { label: string; onAdd?: () => void }) {
+  return (
+    <div className="px-4 mb-2 flex justify-between items-center">
+      <span className="text-[12px] font-bold text-jupiter-muted opacity-50 uppercase tracking-widest whitespace-nowrap">
+        {label}
+      </span>
+      {onAdd && (
+        <span
+          onClick={onAdd}
+          className="material-symbols-outlined text-[18px] opacity-50 hover:opacity-100 cursor-pointer"
+        >
+          add
+        </span>
+      )}
+    </div>
+  );
+}
+
+export function MoonList({
+  services,
+  selected,
+  onSelect,
+  onInfoClick,
+  onAddMoon,
+  onRemoveMoon,
+  collapsed = false,
+}: Props) {
   const { t } = useT();
   const servers = services.filter((s) => s.kind === "McpServer");
   const daemons = services.filter((s) => s.kind === "Daemon");
 
   return (
     <>
-      {(servers.length > 0 || true) && (
-        <div className="mb-3">
-          <div className="flex items-center px-3 mb-1">
-            <h3 className="text-[10px] font-semibold uppercase tracking-wider text-jupiter-dim flex-1">
-              {t("moonlist.moons")}
-            </h3>
-            <button
-              onClick={onAddMoon}
-              className="text-jupiter-dim hover:text-jupiter-orange text-[14px] leading-none transition-colors"
-              title={t("moonlist.addLocal")}
-            >
-              +
-            </button>
-          </div>
-          <div className="px-2">
-            {servers.map((svc) => {
-              const isOfficial = getMoonInfo(svc.name) !== null;
-              return (
-                <button
-                  key={svc.name}
-                  onClick={() => onSelect(svc.name)}
-                  className={`group w-full text-left px-3 py-1.5 rounded text-sm flex items-center gap-2 transition-colors ${
-                    selected === svc.name
-                      ? "bg-jupiter-elevated text-white"
-                      : "text-white hover:bg-jupiter-elevated"
-                  }`}
-                >
-                  <span
-                    className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                      svc.running ? "bg-jupiter-green" : "bg-jupiter-red"
-                    }`}
-                  />
-                  <span className="truncate flex-1">{svc.name}</span>
-                  {!isOfficial && (
-                    <span
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onRemoveMoon(svc.name);
-                      }}
-                      className="opacity-0 group-hover:opacity-70 hover:!opacity-100 text-jupiter-red text-xs cursor-pointer transition-opacity"
-                      title={t("moonlist.remove")}
-                    >
-                      ×
-                    </span>
-                  )}
-                  <span
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onInfoClick(svc.name);
-                    }}
-                    className="text-xs cursor-pointer transition-opacity opacity-70 hover:opacity-100"
-                    style={{ color: getMoonColor(svc.name) }}
-                    title={t("moonlist.info")}
-                  >
-                    &#9432;
-                  </span>
-                </button>
-              );
-            })}
-          </div>
+      <div className="mb-6">
+        {!collapsed && <SectionHeader label={t("moonlist.moons")} onAdd={onAddMoon} />}
+        <div className={`${collapsed ? "px-1.5" : "px-2"} space-y-1`}>
+          {servers.map((svc) => (
+            <MoonRow
+              key={svc.name}
+              svc={svc}
+              selected={selected === svc.name}
+              onSelect={onSelect}
+              onInfoClick={onInfoClick}
+              onRemoveMoon={onRemoveMoon}
+              removable={getMoonInfo(svc.name) === null}
+              collapsed={collapsed}
+            />
+          ))}
         </div>
-      )}
+      </div>
+
       {daemons.length > 0 && (
-        <div className="mb-3">
-          <h3 className="text-[10px] font-semibold uppercase tracking-wider text-jupiter-dim px-3 mb-1">
-            {t("moonlist.daemons")}
-          </h3>
-          <div className="px-2">
+        <div className="mb-6">
+          {!collapsed && <SectionHeader label={t("moonlist.daemons")} />}
+          <div className={`${collapsed ? "px-1.5" : "px-2"} space-y-1`}>
             {daemons.map((svc) => (
-              <button
+              <MoonRow
                 key={svc.name}
-                onClick={() => onSelect(svc.name)}
-                className={`w-full text-left px-3 py-1.5 rounded text-sm flex items-center gap-2 transition-colors ${
-                  selected === svc.name
-                    ? "bg-jupiter-elevated text-white"
-                    : "text-white hover:bg-jupiter-elevated"
-                }`}
-              >
-                <span
-                  className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                    svc.running ? "bg-jupiter-green" : "bg-jupiter-red"
-                  }`}
-                />
-                {svc.name}
-                <span
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onInfoClick(svc.name);
-                  }}
-                  className="ml-auto text-xs cursor-pointer transition-opacity opacity-70 hover:opacity-100"
-                  style={{ color: getMoonColor(svc.name) }}
-                  title={t("moonlist.info")}
-                >
-                  &#9432;
-                </span>
-              </button>
+                svc={svc}
+                selected={selected === svc.name}
+                onSelect={onSelect}
+                onInfoClick={onInfoClick}
+                onRemoveMoon={onRemoveMoon}
+                removable={false}
+                collapsed={collapsed}
+              />
             ))}
           </div>
         </div>

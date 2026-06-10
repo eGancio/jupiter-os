@@ -31,50 +31,49 @@ export function ThinkingBlock({ thinking, streaming }: Props) {
     }
   }, [thinking, streaming]);
 
+  // Minimal: a quiet dim row (no box) + the text as an indented margin note
+  // with a thin violet rule — reasoning is context, not content.
   return (
     <div className="mb-2">
       <button
         onClick={() => setExpanded((v) => !v)}
-        className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-jupiter-surface/60 border border-jupiter-blue/20 hover:border-jupiter-blue/40 transition-colors w-full text-left group"
+        className="flex items-center gap-1.5 py-1 w-full text-left text-jupiter-dim hover:text-jupiter-muted transition-colors group"
       >
-        {/* Icon: animated dots while streaming, brain when idle */}
-        <span className="flex-shrink-0">
-          {streaming ? (
-            <span className="flex gap-0.5">
-              <span className="w-1 h-1 rounded-full bg-jupiter-blue animate-bounce" style={{ animationDelay: "0ms" }} />
-              <span className="w-1 h-1 rounded-full bg-jupiter-blue animate-bounce" style={{ animationDelay: "100ms" }} />
-              <span className="w-1 h-1 rounded-full bg-jupiter-blue animate-bounce" style={{ animationDelay: "200ms" }} />
-            </span>
-          ) : (
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-jupiter-blue">
-              <path d="M12 2a8 8 0 0 1 8 8c0 3-1.5 5-3.5 6.5L16 22H8l-.5-5.5C5.5 15 4 13 4 10a8 8 0 0 1 8-8z" />
-              <path d="M9 22h6" />
-            </svg>
-          )}
-        </span>
+        {/* Icon: animated dots while streaming, neurology glyph when idle */}
+        {streaming ? (
+          <span className="flex gap-0.5 flex-shrink-0">
+            <span className="w-1 h-1 rounded-full bg-jupiter-violet animate-bounce" style={{ animationDelay: "0ms" }} />
+            <span className="w-1 h-1 rounded-full bg-jupiter-violet animate-bounce" style={{ animationDelay: "100ms" }} />
+            <span className="w-1 h-1 rounded-full bg-jupiter-violet animate-bounce" style={{ animationDelay: "200ms" }} />
+          </span>
+        ) : (
+          <span className="material-symbols-outlined text-[14px] text-jupiter-violet/70 flex-shrink-0">
+            neurology
+          </span>
+        )}
 
-        <span className="text-[0.85em] font-medium text-jupiter-blue">
+        <span className="text-[0.78em] font-semibold uppercase tracking-wider">
           {streaming ? t("thinking.thinking") : t("thinking.reasoning")}
         </span>
 
         {!streaming && charCount > 0 && (
-          <span className="text-[0.8em] text-jupiter-dim ml-1">{charLabel}</span>
+          <span className="text-[0.72em] text-jupiter-dim/60">{charLabel}</span>
         )}
 
         {/* Chevron — hidden while streaming (panel is locked open) */}
         {!streaming && (
-          <span className="ml-auto text-jupiter-dim text-[0.8em] flex-shrink-0 group-hover:text-jupiter-blue transition-colors">
-            {expanded ? "▾" : "▸"}
+          <span className="material-symbols-outlined text-[14px] flex-shrink-0 group-hover:text-jupiter-violet transition-colors">
+            {expanded ? "expand_less" : "expand_more"}
           </span>
         )}
       </button>
 
-      {/* Content panel: full thinking text, scrollable. Auto-scrolls while
+      {/* Content: indented margin note, scrollable. Auto-scrolls while
           streaming, free-scroll once expanded after completion. */}
       {open && thinking && (
-        <div className="mt-1 rounded-md bg-jupiter-surface/40 border border-jupiter-blue/15 overflow-hidden">
-          <div ref={scrollRef} className="px-3 py-2 max-h-[320px] overflow-y-auto">
-            <pre className="text-[0.85em] text-jupiter-muted leading-relaxed whitespace-pre-wrap font-sans m-0">
+        <div className="mt-1 ml-1.5 border-l-2 border-jupiter-violet/25 pl-3">
+          <div ref={scrollRef} className="max-h-[320px] overflow-y-auto custom-scrollbar">
+            <pre className="text-[0.82em] text-jupiter-dim leading-relaxed whitespace-pre-wrap font-sans m-0">
               {thinking}
             </pre>
           </div>

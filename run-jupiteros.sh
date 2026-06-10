@@ -16,8 +16,13 @@ if [ ! -x "$BIN" ]; then
 fi
 
 echo "Avvio $BIN  (cwd=$(pwd))"
-# Workaround webkit per Fedora/Wayland: disabilita solo il renderer DMABUF.
-# NB: NON disabilitiamo il compositing GPU (WEBKIT_DISABLE_COMPOSITING_MODE) —
-# servirebbe il rendering software e renderebbe pesanti gli effetti CSS (cornice
-# gradiente, aloni). Se mai ricomparisse la schermata bianca, riaggiungerlo.
-exec env WEBKIT_DISABLE_DMABUF_RENDERER=1 "$BIN"
+# Rendering: di default usiamo il percorso ACCELERATO di WebKitGTK (DMABUF).
+# Su Intel/Mesa (UHD 630, driver Iris) è il percorso giusto: disabilitarlo
+# scarica il rendering sulla CPU e la GUI diventa pesante.
+# Il vecchio workaround anti schermata-bianca (nato per bug NVIDIA) resta
+# disponibile opt-in:  JUPITEROS_SAFE_GFX=1 ./run-jupiteros.sh
+if [ "${JUPITEROS_SAFE_GFX:-0}" = "1" ]; then
+  echo "(SAFE_GFX: renderer DMABUF disabilitato — modalità compatibilità)"
+  exec env WEBKIT_DISABLE_DMABUF_RENDERER=1 "$BIN"
+fi
+exec "$BIN"

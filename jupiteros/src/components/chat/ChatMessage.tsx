@@ -34,7 +34,7 @@ const markdownComponents = {
         PreTag="div"
         customStyle={{
           margin: "0.5rem 0",
-          borderRadius: "0.375rem",
+          borderRadius: "0.75rem",
           fontSize: "0.85em",
           background: "#0a0a10",
         }}
@@ -62,7 +62,7 @@ export function ChatMessage({ message, onPreviewChart }: Props) {
   if (isSystem) {
     return (
       <div className="flex justify-center">
-        <div className="max-w-[90%] rounded-lg px-4 py-2.5 leading-relaxed bg-jupiter-elevated/50 border border-jupiter-dim/20 text-jupiter-muted text-[0.85em]">
+        <div className="max-w-[90%] rounded-xl px-4 py-2.5 leading-relaxed bg-jupiter-elevated/50 text-jupiter-muted text-[0.85em] card-shadow">
           <div className="prose prose-invert max-w-none prose-sm">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
           </div>
@@ -116,13 +116,16 @@ export function ChatMessage({ message, onPreviewChart }: Props) {
 
   const useSequential = !isUser && !!message.parts && message.parts.length > 0;
 
+  // User → right-aligned bubble with a warm gradient tint and soft shadow.
+  // Assistant → gradient orb avatar + soft elevated card, no borders.
   return (
-    <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
+    <div className={`flex gap-3 ${isUser ? "justify-end" : "justify-start"}`}>
+      {!isUser && <div className="assistant-orb flex-shrink-0 mt-1" />}
       <div
-        className={`max-w-[85%] rounded-lg px-4 py-2.5 leading-relaxed ${
+        className={`max-w-[85%] leading-relaxed ${
           isUser
-            ? "bg-jupiter-blue/15 text-white border border-jupiter-blue/20"
-            : "bg-transparent text-white"
+            ? "rounded-2xl rounded-br-md px-4 py-2.5 text-white bg-gradient-to-br from-jupiter-orange/25 via-jupiter-orange/15 to-jupiter-pink/10 shadow-[0_4px_18px_rgba(0,0,0,0.35)]"
+            : "flex-1 min-w-0 rounded-2xl rounded-tl-md px-4 py-3 text-white bg-jupiter-elevated/40 shadow-[0_4px_18px_rgba(0,0,0,0.3)]"
         }`}
       >
         {useSequential ? (
@@ -169,7 +172,7 @@ export function ChatMessage({ message, onPreviewChart }: Props) {
 
         {/* Streaming cursor */}
         {message.streaming && (
-          <span className="inline-block w-2 h-4 bg-jupiter-blue animate-pulse ml-0.5" />
+          <span className="inline-block w-2 h-4 bg-jupiter-orange animate-pulse ml-0.5 rounded-sm" />
         )}
       </div>
     </div>

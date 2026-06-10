@@ -378,24 +378,27 @@ function WaitingIndicator({ activeTool, activeThinking }: { activeTool: string |
   const moon = activeTool ? toolToMoon(activeTool) : null;
   const toolName = activeTool ? toolDisplayName(activeTool) : null;
 
+  // Thinking → violet dots (same language as ThinkingBlock); tool/waiting → orange.
+  const dotCls = activeThinking ? "bg-jupiter-violet" : "bg-jupiter-orange";
   return (
-    <div className="flex justify-start">
-      <div className="bg-transparent text-white rounded-lg px-4 py-2.5">
+    <div className="flex gap-3 justify-start">
+      <div className="assistant-orb flex-shrink-0 mt-1" />
+      <div className="bg-transparent text-white rounded-lg py-2">
         <div className="flex items-center gap-2.5">
           <div className="flex gap-1">
-            <span className={`w-1.5 h-1.5 rounded-full ${activeThinking ? "bg-jupiter-blue" : "bg-jupiter-blue"} animate-bounce`} style={{ animationDelay: "0ms" }} />
-            <span className={`w-1.5 h-1.5 rounded-full ${activeThinking ? "bg-jupiter-blue" : "bg-jupiter-blue"} animate-bounce`} style={{ animationDelay: "150ms" }} />
-            <span className={`w-1.5 h-1.5 rounded-full ${activeThinking ? "bg-jupiter-blue" : "bg-jupiter-blue"} animate-bounce`} style={{ animationDelay: "300ms" }} />
+            <span className={`w-1.5 h-1.5 rounded-full ${dotCls} animate-bounce`} style={{ animationDelay: "0ms" }} />
+            <span className={`w-1.5 h-1.5 rounded-full ${dotCls} animate-bounce`} style={{ animationDelay: "150ms" }} />
+            <span className={`w-1.5 h-1.5 rounded-full ${dotCls} animate-bounce`} style={{ animationDelay: "300ms" }} />
           </div>
           {activeTool ? (
             <span className="text-[0.85em] text-jupiter-muted">
-              {t("chat.using")} <span className="font-mono text-jupiter-amber">{toolName}</span>
+              {t("chat.using")} <span className="font-mono text-jupiter-orange">{toolName}</span>
               {moon && (
-                <> {t("chat.on")} <span className="text-jupiter-blue">{moon}</span></>
+                <> {t("chat.on")} <span className="text-jupiter-primary">{moon}</span></>
               )}
             </span>
           ) : activeThinking ? (
-            <span className="text-[0.85em] text-jupiter-blue">{t("chat.thinking")}</span>
+            <span className="text-[0.85em] text-jupiter-violet">{t("chat.thinking")}</span>
           ) : (
             <span className="text-[0.85em] text-jupiter-muted">{t("chat.waiting")}</span>
           )}

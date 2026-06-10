@@ -330,6 +330,17 @@ export function useChat() {
 
         const msgs = data.messages;
         const last = msgs[msgs.length - 1];
+        // Dedupe: engines may re-announce the same tool_use (streaming delta +
+        // complete message). A second entry would never get a result and show
+        // up as a phantom ✗ next to the real ✓.
+        if (
+          event.payload.tool_id &&
+          last &&
+          last.role === "assistant" &&
+          last.toolCalls.some((tc) => tc.id === event.payload.tool_id)
+        ) {
+          return;
+        }
         const tc: ToolCallInfo = {
           name: event.payload.tool_name,
           id: event.payload.tool_id,

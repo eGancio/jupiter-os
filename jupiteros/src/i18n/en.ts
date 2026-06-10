@@ -12,6 +12,7 @@ export const en: Record<string, string> = {
   "common.confirm": "Confirm",
 
   // ── sidebar bottom controls ──
+  "sidebar.settings": "Settings",
   "sidebar.startAll": "Start All",
   "sidebar.stopAll": "Stop All",
   "sidebar.startWithSystem": "Start with system",

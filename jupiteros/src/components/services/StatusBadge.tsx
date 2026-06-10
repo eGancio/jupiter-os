@@ -5,14 +5,18 @@ import { useT } from "../../i18n";
 
 export function StatusBadge({ running }: { running: boolean }) {
   const { t } = useT();
+  // Minimal: just a glowing dot + label, no box.
   return (
     <span
-      className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wide ${
-        running
-          ? "bg-jupiter-green/15 text-jupiter-green border border-jupiter-green/30"
-          : "bg-jupiter-red/15 text-jupiter-red border border-jupiter-red/30"
+      className={`inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide ${
+        running ? "text-jupiter-green" : "text-jupiter-red"
       }`}
     >
+      <span
+        className={`w-1.5 h-1.5 rounded-full ${
+          running ? "bg-jupiter-green shadow-[0_0_6px_#3fb950]" : "bg-jupiter-red"
+        }`}
+      />
       {running ? t("status.running") : t("status.stopped")}
     </span>
   );

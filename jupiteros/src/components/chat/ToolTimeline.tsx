@@ -138,9 +138,16 @@ export function ToolTimeline({ toolCalls, onPreviewChart }: Props) {
             <span className={`tool-badge ${serverBadgeClass(g.server)}`}>{g.server}</span>
             <span className="tool-name">{g.bareName}</span>
             {count > 1 && <span className="tool-count">×{count}</span>}
-            {g.status === "ok" && <span className="tool-ok">✓</span>}
-            {g.status === "err" && <span className="tool-err">✗</span>}
-            {g.status === "pending" && <span className="tool-pending">…</span>}
+            {g.status === "ok" && (
+              <span className="tool-ok">
+                <span className="material-symbols-outlined text-[13px]">check</span>
+              </span>
+            )}
+            {g.status === "err" && (
+              <span className="tool-err">
+                <span className="material-symbols-outlined text-[13px]">close</span>
+              </span>
+            )}
             {pendingCall?.startedAt && (
               <PendingElapsed startedAt={pendingCall.startedAt} />
             )}
@@ -148,10 +155,10 @@ export function ToolTimeline({ toolCalls, onPreviewChart }: Props) {
               <button
                 type="button"
                 onClick={() => onPreviewChart(chartPath)}
-                className="tool-chart-btn"
+                className="tool-chart-btn flex items-center text-jupiter-muted hover:text-jupiter-orange transition-colors"
                 title={t("tool.openChart")}
               >
-                📊
+                <span className="material-symbols-outlined text-[14px]">monitoring</span>
               </button>
             )}
           </li>

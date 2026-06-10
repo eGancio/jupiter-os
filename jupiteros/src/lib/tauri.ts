@@ -346,3 +346,36 @@ export function teamsPollDeviceCode(): Promise<string> {
 export function europaChannelRemove(channel: string): Promise<void> {
   return invoke("europa_channel_remove", { channel });
 }
+
+// ── Moon Thebe: brand kit ─────────────────────────────────────────────────────
+
+export interface BrandKit {
+  name: string;
+  primary: string;
+  accent: string;
+  vat: string;
+  address: string;
+  contacts: string;
+  confidentiality: string;
+  hasLogo: boolean;
+}
+
+export interface BrandKitInput {
+  name: string;
+  primary: string;
+  accent: string;
+  vat: string;
+  address: string;
+  contacts: string;
+  confidentiality: string;
+  /** New logo as a data URL ("data:image/png;base64,..."); omit to keep the current one. */
+  logoDataUrl?: string | null;
+}
+
+export function getBrandKit(brand = "emotion"): Promise<BrandKit> {
+  return invoke("get_brand_kit", { brand });
+}
+
+export function setBrandKit(brand: string, kit: BrandKitInput): Promise<void> {
+  return invoke("set_brand_kit", { brand, kit });
+}

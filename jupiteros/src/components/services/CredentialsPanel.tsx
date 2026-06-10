@@ -140,13 +140,14 @@ export function CredentialsPanel({ serviceName }: Props) {
 
   // Shared input class
   const inputCls =
-    "w-full px-2 py-1 text-[11px] rounded bg-jupiter-elevated border border-jupiter-orange/30 text-white focus:outline-none focus:border-jupiter-orange placeholder:text-jupiter-dim/60";
+    "w-full px-2.5 py-1.5 text-[11px] rounded-lg bg-jupiter-bg border border-jupiter-border text-white focus:outline-none focus:border-jupiter-orange placeholder:text-jupiter-dim/60";
 
   return (
-    <div className="mb-3 border border-jupiter-orange/25 rounded p-2.5 bg-jupiter-bg/40">
-      <div className="text-[10px] text-jupiter-dim mb-2 font-semibold uppercase tracking-wider">
+    <div className="mb-3 rounded-xl p-3 bg-jupiter-elevated/40">
+      <div className="flex items-center gap-1.5 text-[10px] text-jupiter-dim mb-2 font-bold uppercase tracking-wider">
+        <span className="material-symbols-outlined text-[14px]">key</span>
         {t("creds.title")}
-        <span className="ml-1 normal-case text-jupiter-dim/70">{t("creds.keyring")}</span>
+        <span className="normal-case font-normal text-jupiter-dim/70">{t("creds.keyring")}</span>
       </div>
 
       {error && (
@@ -164,7 +165,7 @@ export function CredentialsPanel({ serviceName }: Props) {
           {entries.map((e) => (
             <div
               key={e.account}
-              className="rounded border border-jupiter-orange/15 bg-jupiter-elevated/40 p-2"
+              className="rounded-xl bg-jupiter-bg/60 p-2.5"
             >
               {/* Account header: name + status */}
               <div className="flex items-center justify-between mb-1">
@@ -208,7 +209,7 @@ export function CredentialsPanel({ serviceName }: Props) {
                     <button
                       onClick={() => handleSavePassword(e.account)}
                       disabled={busy || !draftPassword.trim()}
-                      className="flex-1 px-2 py-1 text-[10px] rounded bg-jupiter-green/15 text-jupiter-green border border-jupiter-green/30 hover:bg-jupiter-green/25 disabled:opacity-40 transition-colors"
+                      className="flex-1 px-2 py-1 text-[10px] font-bold uppercase tracking-wider rounded-lg bg-jupiter-orange text-white hover:opacity-90 disabled:opacity-40 transition-all"
                     >
                       {t("common.save")}
                     </button>
@@ -217,7 +218,7 @@ export function CredentialsPanel({ serviceName }: Props) {
                         setEditing(null);
                         setDraftPassword("");
                       }}
-                      className="px-2 py-1 text-[10px] rounded text-jupiter-dim hover:text-white hover:bg-jupiter-elevated transition-colors"
+                      className="px-2 py-1 text-[10px] rounded-lg text-jupiter-dim hover:text-white hover:bg-jupiter-elevated transition-colors"
                     >
                       {t("common.cancel")}
                     </button>
@@ -231,7 +232,7 @@ export function CredentialsPanel({ serviceName }: Props) {
                   <button
                     onClick={() => handleRemove(e.account)}
                     disabled={busy}
-                    className="px-2 py-1 text-[10px] rounded text-jupiter-red hover:bg-jupiter-red/15 transition-colors"
+                    className="px-2 py-1 text-[10px] rounded-lg text-jupiter-red hover:bg-jupiter-red/15 transition-colors"
                   >
                     {t("common.delete")}
                   </button>
@@ -244,14 +245,14 @@ export function CredentialsPanel({ serviceName }: Props) {
                       setDraftPassword("");
                       setError(null);
                     }}
-                    className="flex-1 px-2 py-1 text-[10px] rounded bg-jupiter-orange/15 text-jupiter-orange border border-jupiter-orange/30 hover:bg-jupiter-orange/25 transition-colors"
+                    className="flex-1 px-2 py-1 text-[10px] rounded-lg bg-jupiter-elevated text-jupiter-muted hover:text-white transition-colors"
                   >
                     {e.has_password ? t("creds.updatePassword") : t("creds.setPassword")}
                   </button>
                   <button
                     onClick={() => handleRemove(e.account)}
                     disabled={busy}
-                    className="px-2 py-1 text-[10px] rounded text-jupiter-red hover:bg-jupiter-red/15 transition-colors"
+                    className="px-2 py-1 text-[10px] rounded-lg text-jupiter-red hover:bg-jupiter-red/15 transition-colors"
                   >
                     {t("common.delete")}
                   </button>
@@ -263,12 +264,13 @@ export function CredentialsPanel({ serviceName }: Props) {
       )}
 
       {/* Add account section */}
-      <div className="mt-3 pt-2.5 border-t border-jupiter-orange/15">
+      <div className="mt-3">
         {!adding ? (
           <button
             onClick={() => setAdding(true)}
-            className="w-full px-2 py-1.5 text-[11px] rounded border border-dashed border-jupiter-orange/30 text-jupiter-orange hover:bg-jupiter-orange/10 transition-colors"
+            className="w-full flex items-center justify-center gap-1.5 px-2 py-1.5 text-[11px] rounded-lg bg-jupiter-elevated text-jupiter-orange hover:bg-jupiter-orange hover:text-white transition-colors"
           >
+            <span className="material-symbols-outlined text-[14px]">add_circle</span>
             {t("creds.addAccount")}
           </button>
         ) : (
@@ -277,24 +279,24 @@ export function CredentialsPanel({ serviceName }: Props) {
               {t("creds.addNew")}
             </div>
 
-            {/* Preset selector — solo 2 opzioni */}
-            <div className="grid grid-cols-2 gap-1 text-[10px]">
+            {/* Preset selector — segmented control */}
+            <div className="flex gap-1 bg-jupiter-elevated rounded-lg p-1 text-[10px]">
               <button
                 onClick={() => setAddPreset("gmail-oauth")}
-                className={`px-2 py-1 rounded border transition-colors ${
+                className={`flex-1 py-1 rounded-md transition-colors ${
                   addPreset === "gmail-oauth"
-                    ? "bg-jupiter-orange/20 text-jupiter-orange border-jupiter-orange/40"
-                    : "text-jupiter-dim border-jupiter-orange/15 hover:border-jupiter-orange/30"
+                    ? "bg-jupiter-orange text-white"
+                    : "text-jupiter-dim hover:text-white"
                 }`}
               >
                 Gmail (OAuth)
               </button>
               <button
                 onClick={() => setAddPreset("custom")}
-                className={`px-2 py-1 rounded border transition-colors ${
+                className={`flex-1 py-1 rounded-md transition-colors ${
                   addPreset === "custom"
-                    ? "bg-jupiter-orange/20 text-jupiter-orange border-jupiter-orange/40"
-                    : "text-jupiter-dim border-jupiter-orange/15 hover:border-jupiter-orange/30"
+                    ? "bg-jupiter-orange text-white"
+                    : "text-jupiter-dim hover:text-white"
                 }`}
               >
                 {t("creds.customImap")}
@@ -336,14 +338,14 @@ export function CredentialsPanel({ serviceName }: Props) {
                   <button
                     onClick={handleOAuthConnect}
                     disabled={oauthBusy || !addEmail.trim()}
-                    className="flex-1 px-2 py-1 text-[10px] rounded bg-jupiter-green/15 text-jupiter-green border border-jupiter-green/30 hover:bg-jupiter-green/25 disabled:opacity-40 transition-colors"
+                    className="flex-1 px-2 py-1 text-[10px] font-bold uppercase tracking-wider rounded-lg bg-jupiter-orange text-white hover:opacity-90 disabled:opacity-40 transition-all"
                   >
                     {oauthBusy ? t("creds.openingBrowser") : t("creds.connectGoogle")}
                   </button>
                   <button
                     onClick={resetAddForm}
                     disabled={oauthBusy}
-                    className="px-2 py-1 text-[10px] rounded text-jupiter-dim hover:text-white hover:bg-jupiter-elevated transition-colors"
+                    className="px-2 py-1 text-[10px] rounded-lg text-jupiter-dim hover:text-white hover:bg-jupiter-elevated transition-colors"
                   >
                     {t("common.cancel")}
                   </button>
@@ -416,13 +418,13 @@ export function CredentialsPanel({ serviceName }: Props) {
                       !addPassword ||
                       !addAccountName.trim()
                     }
-                    className="flex-1 px-2 py-1 text-[10px] rounded bg-jupiter-green/15 text-jupiter-green border border-jupiter-green/30 hover:bg-jupiter-green/25 disabled:opacity-40 transition-colors"
+                    className="flex-1 px-2 py-1 text-[10px] font-bold uppercase tracking-wider rounded-lg bg-jupiter-orange text-white hover:opacity-90 disabled:opacity-40 transition-all"
                   >
                     {t("creds.addBtn")}
                   </button>
                   <button
                     onClick={resetAddForm}
-                    className="px-2 py-1 text-[10px] rounded text-jupiter-dim hover:text-white hover:bg-jupiter-elevated transition-colors"
+                    className="px-2 py-1 text-[10px] rounded-lg text-jupiter-dim hover:text-white hover:bg-jupiter-elevated transition-colors"
                   >
                     {t("common.cancel")}
                   </button>

@@ -39,20 +39,22 @@ export function EmailsPanel() {
     <div className="flex flex-col min-h-0 flex-1">
       {/* Header */}
       <div className="flex items-center justify-between mb-2 flex-shrink-0">
-        <span className="text-[11px] font-semibold uppercase tracking-wider text-jupiter-dim">
+        <span className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-jupiter-dim">
+          <span className="material-symbols-outlined text-[14px]">mail</span>
           Inbox{emails.length > 0 && <span className="text-jupiter-muted"> ({emails.length})</span>}
         </span>
         <button
           onClick={load}
           disabled={loading}
-          className="px-2 py-0.5 text-[10px] rounded border border-jupiter-orange/20 text-jupiter-dim hover:text-white hover:border-jupiter-orange/40 disabled:opacity-40 transition-colors"
+          className="flex items-center gap-1 px-2 py-1 text-[10px] rounded-lg bg-jupiter-elevated text-jupiter-dim hover:text-white disabled:opacity-40 transition-colors"
         >
-          {loading ? "…" : "↻ refresh"}
+          <span className={`material-symbols-outlined text-[12px] ${loading ? "animate-spin" : ""}`}>refresh</span>
+          refresh
         </button>
       </div>
 
       {/* Body */}
-      <div className="flex-1 overflow-y-auto bg-jupiter-bg rounded border border-jupiter-orange/25 p-2 min-h-0">
+      <div className="flex-1 overflow-y-auto custom-scrollbar bg-jupiter-bg rounded-xl p-2 min-h-0">
         {error ? (
           <div className="text-[11px] text-jupiter-red break-words p-1 leading-relaxed">{error}</div>
         ) : loading && emails.length === 0 ? (
@@ -69,7 +71,7 @@ export function EmailsPanel() {
               return (
                 <div
                   key={key}
-                  className="rounded border border-jupiter-orange/15 bg-jupiter-elevated/40 overflow-hidden"
+                  className="rounded-lg bg-jupiter-elevated/60 overflow-hidden"
                 >
                   <button
                     onClick={() => setExpanded(open ? null : key)}
@@ -92,7 +94,7 @@ export function EmailsPanel() {
                     )}
                   </button>
                   {open && (
-                    <div className="px-2 py-2 border-t border-jupiter-orange/10 bg-jupiter-bg/60">
+                    <div className="px-2 py-2 border-t border-jupiter-border/50 bg-jupiter-bg/60">
                       <div className="text-[10px] text-jupiter-dim mb-1.5 space-y-0.5">
                         <div className="break-words"><span className="text-jupiter-dim/60">Da:</span> {e.sender}</div>
                         <div className="break-words"><span className="text-jupiter-dim/60">A:</span> {e.recipient}</div>

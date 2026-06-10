@@ -14,7 +14,7 @@ export function LogViewer({ lines, scrollRef }: Props) {
   return (
     <div
       ref={scrollRef}
-      className="flex-1 overflow-y-auto bg-jupiter-bg rounded border border-jupiter-orange/25 p-2 font-mono text-[11px] leading-5 min-h-0"
+      className="flex-1 overflow-y-auto custom-scrollbar bg-jupiter-bg rounded-xl p-2.5 font-mono text-[11px] leading-5 min-h-0"
     >
       {lines.length === 0 ? (
         <p className="text-jupiter-dim italic">{t("log.empty")}</p>

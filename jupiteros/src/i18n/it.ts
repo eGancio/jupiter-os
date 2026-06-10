@@ -11,6 +11,7 @@ export const it: Record<string, string> = {
   "common.confirm": "Conferma",
 
   // ── sidebar bottom controls ──
+  "sidebar.settings": "Impostazioni",
   "sidebar.startAll": "Avvia tutto",
   "sidebar.stopAll": "Ferma tutto",
   "sidebar.startWithSystem": "Avvia col sistema",

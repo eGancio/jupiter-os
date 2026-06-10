@@ -3,6 +3,7 @@
 
 import { useEffect, useState } from "react";
 import type { ServiceInfo } from "../../types";
+import { getMoonLabel } from "../../lib/moonInfo";
 import { startService, stopService, restartService } from "../../lib/tauri";
 import { useLogs } from "../../hooks/useLogs";
 import { LogViewer } from "./LogViewer";
@@ -11,6 +12,7 @@ import { CredentialsPanel } from "./CredentialsPanel";
 import { EuropaCredentialsPanel } from "./EuropaCredentialsPanel";
 import { EmailsPanel } from "./EmailsPanel";
 import { MetisIngestPanel } from "./MetisIngestPanel";
+import { BrandKitPanel } from "./BrandKitPanel";
 import { useT } from "../../i18n";
 
 interface Props {
@@ -65,38 +67,38 @@ export function ServiceDetail({ service, onRefresh }: Props) {
     <div className="flex flex-col h-full p-3 min-h-0">
       {/* Header */}
       <div className="flex items-center gap-2 mb-2">
-        <h2 className="text-sm font-bold text-white">{service.name}</h2>
-        <span className="text-[10px] text-jupiter-dim">({kindLabel})</span>
+        <h2 className="text-sm font-extrabold text-jupiter-text">{getMoonLabel(service.name)}</h2>
+        <span className="text-[10px] text-jupiter-dim uppercase tracking-wider px-1.5 py-0.5 rounded-md bg-jupiter-elevated">
+          {kindLabel}
+        </span>
       </div>
 
-      {/* Command info */}
-      <div className="text-[11px] space-y-0.5 mb-2 text-jupiter-dim">
-        <div>
-          <span className="text-jupiter-dim">cmd:</span>{" "}
-          <code className="text-white">{service.command.split(/[/\\]/).pop()}</code>
+      {/* Command info — plain dim line, no box */}
+      <div className="text-[11px] space-y-0.5 mb-3 text-jupiter-dim font-mono">
+        <div className="truncate" title={service.command}>
+          <span className="text-jupiter-dim/60">cmd</span>{" "}
+          <span className="text-jupiter-muted">{service.command.split(/[/\\]/).pop()}</span>
         </div>
         {service.args.length > 0 && (
-          <div>
-            <span className="text-jupiter-dim">args:</span>{" "}
-            <code className="text-white">{service.args.join(" ")}</code>
+          <div className="truncate" title={service.args.join(" ")}>
+            <span className="text-jupiter-dim/60">args</span>{" "}
+            <span className="text-jupiter-muted">{service.args.join(" ")}</span>
           </div>
         )}
       </div>
 
-      <hr className="border-jupiter-orange/25 mb-2" />
-
-      {/* Tabs — moons with a dedicated panel (Io → Email, Metis → Ingest) */}
+      {/* Tabs — segmented control (Io → Email, Metis → Ingest) */}
       {secondTab && (
-        <div className="grid grid-cols-2 gap-1 text-[10px] mb-2 flex-shrink-0">
+        <div className="flex gap-1 bg-jupiter-elevated rounded-lg p-1 text-[10px] mb-3 flex-shrink-0">
           {([["details", "Service Detail"], secondTab] as [Tab, string][]).map(
             ([id, label]) => (
               <button
                 key={id}
                 onClick={() => setTab(id)}
-                className={`px-2 py-1 rounded border transition-colors ${
+                className={`flex-1 py-1.5 rounded-md font-semibold uppercase tracking-wider transition-colors ${
                   tab === id
-                    ? "bg-jupiter-orange/20 text-jupiter-orange border-jupiter-orange/40"
-                    : "text-jupiter-dim border-jupiter-orange/15 hover:border-jupiter-orange/30"
+                    ? "bg-jupiter-orange text-white"
+                    : "text-jupiter-dim hover:text-white"
                 }`}
               >
                 {label}
@@ -112,31 +114,36 @@ export function ServiceDetail({ service, onRefresh }: Props) {
         <MetisIngestPanel />
       ) : (
         <>
-          {/* Controls */}
-          <div className="flex items-center gap-1.5 mb-2 flex-wrap">
+          {/* Controls — flat, no colored boxes; the status dot carries the color */}
+          <div className="flex items-center gap-1.5 mb-3 flex-wrap">
             {service.virtual ? (
-              <span className="px-2.5 py-1 text-[11px] rounded bg-jupiter-elevated text-jupiter-dim border border-jupiter-orange/25">
+              <span className="px-2.5 py-1.5 text-[11px] rounded-lg bg-jupiter-elevated text-jupiter-dim">
                 {t("service.stdio")}
               </span>
             ) : !service.running ? (
               <button
                 onClick={handleStart}
-                className="px-2.5 py-1 text-[11px] rounded bg-jupiter-green/15 text-jupiter-green border border-jupiter-green/30 hover:bg-jupiter-green/25 transition-colors"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider rounded-lg bg-jupiter-orange text-white hover:opacity-90 glow-orange active:scale-95 transition-all"
               >
+                <span className="material-symbols-outlined text-[14px] fill">play_arrow</span>
                 {t("service.start")}
               </button>
             ) : (
               <>
                 <button
                   onClick={handleStop}
-                  className="px-2.5 py-1 text-[11px] rounded bg-jupiter-red/15 text-jupiter-red border border-jupiter-red/30 hover:bg-jupiter-red/25 transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] rounded-lg bg-jupiter-elevated text-jupiter-muted hover:text-jupiter-red transition-colors"
                 >
+                  <span className="material-symbols-outlined text-[14px] fill text-jupiter-red">
+                    stop
+                  </span>
                   {t("service.stop")}
                 </button>
                 <button
                   onClick={handleRestart}
-                  className="px-2.5 py-1 text-[11px] rounded bg-jupiter-amber/15 text-jupiter-amber border border-jupiter-amber/30 hover:bg-jupiter-amber/25 transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] rounded-lg bg-jupiter-elevated text-jupiter-muted hover:text-white transition-colors"
                 >
+                  <span className="material-symbols-outlined text-[14px]">restart_alt</span>
                   {t("service.restart")}
                 </button>
               </>
@@ -146,9 +153,10 @@ export function ServiceDetail({ service, onRefresh }: Props) {
             {!service.virtual && (
               <button
                 onClick={clearLogs}
-                className="px-2 py-1 text-[10px] rounded text-jupiter-dim hover:text-white hover:bg-jupiter-elevated transition-colors"
+                title={t("service.clear")}
+                className="flex items-center px-1.5 py-1.5 rounded-lg text-jupiter-dim hover:text-white hover:bg-jupiter-elevated transition-colors"
               >
-                {t("service.clear")}
+                <span className="material-symbols-outlined text-[15px]">delete_sweep</span>
               </button>
             )}
           </div>
@@ -159,8 +167,12 @@ export function ServiceDetail({ service, onRefresh }: Props) {
           {/* Messaging channels setup (only for the messaging server "europa") */}
           <EuropaCredentialsPanel serviceName={service.name} />
 
+          {/* Brand kit setup (only for the report renderer "thebe") */}
+          <BrandKitPanel serviceName={service.name} />
+
           {/* Logs */}
-          <div className="text-[10px] text-jupiter-dim mb-1 font-semibold uppercase tracking-wider">
+          <div className="flex items-center gap-1.5 text-[10px] text-jupiter-dim mb-1.5 font-bold uppercase tracking-wider">
+            <span className="material-symbols-outlined text-[14px]">terminal</span>
             {t("service.logs")}
           </div>
           <LogViewer lines={lines} scrollRef={scrollRef} />

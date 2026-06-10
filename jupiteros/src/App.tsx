@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Edoardo Mancinelli
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { Sidebar } from "./components/layout/Sidebar";
 import { ChatArea } from "./components/layout/ChatArea";
 import { ServicePanel } from "./components/layout/ServicePanel";
 import { ChartPanel } from "./components/layout/ChartPanel";
+import { SuggestionsPanel } from "./components/layout/SuggestionsPanel";
 import { useServices } from "./hooks/useServices";
 import { useChat } from "./hooks/useChat";
 import { useChartPanel } from "./hooks/useChartPanel";
@@ -20,10 +22,18 @@ function App() {
   const [selectedMoon, setSelectedMoon] = useState<string | null>(null);
   const [infoMoonName, setInfoMoonName] = useState<string | null>(null);
   const [showAddMoon, setShowAddMoon] = useState(false);
+  const [leftCollapsed, setLeftCollapsed] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(true);
   const [showEngineSettings, setShowEngineSettings] = useState(false);
   const { services, refresh } = useServices();
   const chat = useChat();
   const chartPanel = useChartPanel();
+
+  // Webview zoom — 1.0 keeps the design's type scale readable on standard-DPI
+  // screens (the fork's 0.85 made the 10-12px UI text too small).
+  useEffect(() => {
+    getCurrentWebview().setZoom(1.0).catch(() => { /* zoom is non-critical */ });
+  }, []);
 
   // Suggest the next free port after the highest known Moon port
   const suggestedPort = (() => {
@@ -67,6 +77,8 @@ function App() {
         onNewSession={chat.newSession}
         onDeleteSession={chat.deleteSession}
         onRenameSession={chat.renameSession}
+        collapsed={leftCollapsed}
+        onToggleCollapse={() => setLeftCollapsed((v) => !v)}
       />
       <ChatArea
         chat={chat}
@@ -89,6 +101,12 @@ function App() {
           service={selectedService}
           onRefresh={refresh}
           onClose={() => setSelectedMoon(null)}
+        />
+      )}
+      {!showChartPanel && !showServicePanel && showSuggestions && (
+        <SuggestionsPanel
+          onClose={() => setShowSuggestions(false)}
+          onUsePrompt={(text) => chat.sendMessage(text)}
         />
       )}
       {infoMoonName && (
