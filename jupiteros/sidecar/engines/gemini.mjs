@@ -19,7 +19,7 @@
  * improve its models. Not for sensitive client data.
  */
 
-import { loadMcpServers, relevantToolNames } from "./engine.mjs";
+import { loadMcpServers, selectToolsForMessage, sanitizeToolArgs } from "./engine.mjs";
 import { isUnsafeTool } from "./ollama.mjs";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
@@ -82,6 +82,8 @@ export class GeminiEngine {
     this.apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || cfg.apiKey || "";
     // MCP cache: { decls[], index: Map<name,{client,realName}>, clients[], excluded, servers, connected, warned }
     this.mcp = null;
+    // Capable cloud model with a generous free tier → effectively expose all tools.
+    this.maxToolTokens = Number.isFinite(cfg.maxToolTokens) ? cfg.maxToolTokens : 20000;
     this.toolSeq = 0;
   }
 
@@ -101,10 +103,12 @@ export class GeminiEngine {
     this.contents.push({ role: "user", parts: [{ text: String(prompt ?? "") }] });
     this.aborted = false;
 
-    // Route: only the relevant Moon's tools for this message (token economy +
-    // fewer random tool calls). null → no relevant Moon → chat with no tools.
-    const allowed = relevantToolNames(prompt, mcp.index);
-    const decls = allowed ? mcp.decls.filter((d) => allowed.has(d.name)) : [];
+    // Budget-aware reducer: expose all tools when they fit the budget, narrow to
+    // the relevant Moon(s) under pressure, never zero. See engine.mjs.
+    const decls = selectToolsForMessage(prompt, mcp.decls, mcp.index, {
+      getName: (d) => d.name,
+      maxToolTokens: this.maxToolTokens,
+    });
     const tools = decls.length ? [{ functionDeclarations: decls }] : undefined;
     process.stderr.write(`[SIDECAR] gemini: ${decls.length}/${mcp.decls.length} tool esposti per questo messaggio\n`);
     const usage = { input_tokens: 0, output_tokens: 0 };
@@ -147,7 +151,8 @@ export class GeminiEngine {
           resultText = `[errore] tool non disponibile: "${name}".`;
         } else {
           try {
-            const res = await entry.client.callTool({ name: entry.realName, arguments: args });
+            const safeArgs = sanitizeToolArgs(name, args, entry.schema);
+            const res = await entry.client.callTool({ name: entry.realName, arguments: safeArgs });
             resultText = flattenToolResult(res);
             if (res?.isError) resultText = `[errore tool] ${resultText}`;
           } catch (e) {
@@ -291,7 +296,7 @@ export class GeminiEngine {
         for (const t of (listed?.tools || [])) {
           if (isUnsafeTool(t.name)) { m.excluded++; continue; }
           if (m.index.has(t.name)) continue;
-          m.index.set(t.name, { client, realName: t.name, server: serverName });
+          m.index.set(t.name, { client, realName: t.name, server: serverName, schema: t.inputSchema });
           m.decls.push({ name: t.name, description: t.description || "", parameters: sanitizeSchema(t.inputSchema) });
         }
         process.stderr.write(`[SIDECAR] gemini MCP: ${serverName} connesso (${(listed?.tools || []).length} tool)\n`);

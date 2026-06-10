@@ -14,7 +14,7 @@
  */
 
 import { query } from "@anthropic-ai/claude-agent-sdk";
-import { loadMcpServers } from "./engine.mjs";
+import { loadMcpServers, waitForMcpServers } from "./engine.mjs";
 
 const ALLOWED_TOOLS = [
   "mcp__*",
@@ -37,6 +37,11 @@ export class ClaudeAgentEngine {
     this.sdkSessionId = null;
     this.queryInstance = null;
     this.aborted = false;
+    this.mcpWaitDone = false;
+    // tool_use ids already announced via stream_event/content_block_start.
+    // The complete "assistant" message repeats the same blocks: without this
+    // the UI would get a duplicate tool_start that never receives a result.
+    this.seenToolIds = new Set();
   }
 
   /**
@@ -47,6 +52,14 @@ export class ClaudeAgentEngine {
     const { session_id, model, cwd, mcpConfigPath, permissionMode } = options;
 
     const mcpServers = mcpConfigPath ? loadMcpServers(mcpConfigPath) : {};
+
+    // Primo turno della sessione: aspetta (max 5s) che i Moon finiscano di
+    // bootare — l'SDK connette gli MCP all'avvio della query e non riprova nel
+    // turno; senza l'attesa il primo messaggio dopo l'avvio resta senza tool.
+    if (!this.mcpWaitDone) {
+      this.mcpWaitDone = true;
+      await waitForMcpServers(mcpServers);
+    }
 
     const queryOptions = {
       model,
@@ -127,6 +140,7 @@ export class ClaudeAgentEngine {
         if (ev.type === "content_block_start") {
           const block = ev.content_block;
           if (block && block.type === "tool_use") {
+            if (block.id) this.seenToolIds.add(block.id);
             yield {
               event: "tool_start",
               session_id: sessionId,
@@ -200,9 +214,13 @@ export class ClaudeAgentEngine {
       case "assistant": {
         // SDKAssistantMessage — complete assistant message.
         // Text already streamed via stream_event; extract tool_use blocks.
+        // Skip blocks already announced by content_block_start (streaming on):
+        // re-emitting them creates a phantom duplicate that never resolves.
         const content = msg.message?.content || [];
         for (const block of content) {
           if (block.type === "tool_use") {
+            if (block.id && this.seenToolIds.has(block.id)) continue;
+            if (block.id) this.seenToolIds.add(block.id);
             yield {
               event: "tool_start",
               session_id: sessionId,

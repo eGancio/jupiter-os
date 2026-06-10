@@ -22,13 +22,19 @@
  * ollama/gemini/openai-compat engines — extract a shared helper into engine.mjs.
  */
 
-import { loadMcpServers, relevantToolNames } from "./engine.mjs";
+import { loadMcpServers, selectToolsForMessage, relaxSchemaForValidation, sanitizeToolArgs, truncateForContext, trimHistoryInPlace, waitForMcpServers } from "./engine.mjs";
 import { isUnsafeTool } from "./ollama.mjs";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 
 const MAX_TOOL_ITERS = 8;
+// Groq free ≈ 12k tokens/MINUTE: ogni token in history/risultati conta. Tronchiamo
+// i risultati dei tool prima di rimetterli in contesto (la UI riceve comunque il
+// testo INTERO) e teniamo la history sotto un budget, o la seconda chiamata 429a.
+const MAX_TOOL_RESULT_CHARS = 6000;   // ~1.5k token a risultato
+const HISTORY_TOKEN_BUDGET = 6000;    // stima chars/4 sull'intera history
+const MAX_RATE_LIMIT_RETRIES = 2;
 
 const SYSTEM_PROMPT = [
   "Sei l'assistente di JupiterOS.",
@@ -40,6 +46,16 @@ function abortError() {
   const e = new Error("Interrotto");
   e.name = "AbortError";
   return e;
+}
+
+// Quanto aspettare su un 429: header retry-after, poi il "try again in 7.66s"
+// nel body di Groq, poi 15s di fallback.
+function parseRetryAfterSeconds(detail, response) {
+  const h = Number(response?.headers?.get?.("retry-after"));
+  if (Number.isFinite(h) && h > 0) return h;
+  const m = /try again in ([0-9.]+)s/i.exec(detail || "");
+  if (m) return Number(m[1]);
+  return 15;
 }
 
 function flattenToolResult(res) {
@@ -63,6 +79,7 @@ export class OpenAICompatEngine {
     this.apiKey = envs.map((e) => process.env[e]).find(Boolean) || cfg.apiKey || "";
     this.keyHint = envs[0];
     this.mcp = null;
+    this.maxToolTokens = Number.isFinite(provider.maxToolTokens) ? provider.maxToolTokens : 6000;
     this.toolSeq = 0;
     this.systemSeeded = false;
   }
@@ -79,17 +96,21 @@ export class OpenAICompatEngine {
       this.systemSeeded = true;
     }
     this.messages.push({ role: "user", content: String(prompt ?? "") });
+    this.#trimHistory();
     this.aborted = false;
 
     // Route: expose only the tools of the Moon(s) this message is about, so we
     // don't blow the provider's token-per-minute limit (Groq free ≈ 12k TPM) or
     // trigger random tool calls. null → no relevant Moon → chat with no tools.
-    const allowed = relevantToolNames(prompt, mcp.index);
-    const selected = allowed ? mcp.tools.filter((t) => allowed.has(t.function.name)) : [];
+    const selected = selectToolsForMessage(prompt, mcp.tools, mcp.index, {
+      getName: (t) => t.function.name,
+      maxToolTokens: this.maxToolTokens,
+    });
     const tools = selected.length ? selected : undefined;
     process.stderr.write(`[SIDECAR] ${this.name}: ${selected.length}/${mcp.tools.length} tool esposti per questo messaggio\n`);
     const usage = { input_tokens: 0, output_tokens: 0 };
     let iters = 0;
+    let rlRetries = 0;
 
     while (true) {
       iters++;
@@ -120,6 +141,17 @@ export class OpenAICompatEngine {
           throw new Error(`${this.name}: modello "${model}" non trovato (404).${detail ? ` [${detail.slice(0, 200)}]` : ""}`);
         }
         if (response.status === 429) {
+          // TPM/RPM del free tier: aspetta quanto chiede il provider e riprova,
+          // invece di buttare via il turno (i tool sono già stati eseguiti).
+          if (rlRetries < MAX_RATE_LIMIT_RETRIES) {
+            rlRetries++;
+            const wait = Math.min(Math.ceil(parseRetryAfterSeconds(detail, response)) + 1, 45);
+            process.stderr.write(`[SIDECAR] ${this.name}: 429, retry ${rlRetries}/${MAX_RATE_LIMIT_RETRIES} tra ${wait}s\n`);
+            yield { event: "text_delta", session_id, text: `\n*(limite ${this.name} raggiunto — riprovo tra ${wait}s…)*\n` };
+            await this.#sleepInterruptible(wait * 1000);
+            iters--; // il retry non consuma un'iterazione tool
+            continue;
+          }
           throw new Error(`${this.name}: limite di frequenza raggiunto (429). Riprova tra un po'.${detail ? ` [${detail.slice(0, 200)}]` : ""}`);
         }
         throw new Error(`${this.name} ha risposto ${response.status} ${response.statusText}${detail ? `: ${detail.slice(0, 200)}` : ""}`);
@@ -168,7 +200,8 @@ export class OpenAICompatEngine {
           resultText = `[errore] tool non disponibile: "${name}".`;
         } else {
           try {
-            const res = await entry.client.callTool({ name: entry.realName, arguments: args });
+            const safeArgs = sanitizeToolArgs(name, args, entry.schema);
+            const res = await entry.client.callTool({ name: entry.realName, arguments: safeArgs });
             resultText = flattenToolResult(res);
             if (res?.isError) resultText = `[errore tool] ${resultText}`;
           } catch (e) {
@@ -176,7 +209,9 @@ export class OpenAICompatEngine {
           }
         }
         yield { event: "tool_result", session_id, tool_id, result: resultText };
-        this.messages.push({ role: "tool", tool_call_id: tc.id, content: resultText });
+        // In contesto va la versione troncata: un'email intera può costare da sola
+        // più della metà del TPM del free tier.
+        this.messages.push({ role: "tool", tool_call_id: tc.id, content: truncateForContext(resultText, MAX_TOOL_RESULT_CHARS) });
       }
 
       if (iters >= MAX_TOOL_ITERS) {
@@ -194,10 +229,28 @@ export class OpenAICompatEngine {
     };
   }
 
+  #trimHistory() {
+    trimHistoryInPlace(this.messages, HISTORY_TOKEN_BUDGET);
+  }
+
+  // Sleep a passi brevi così interrupt() (che setta solo this.aborted quando non
+  // c'è una fetch in volo) resta reattivo anche durante l'attesa del retry.
+  async #sleepInterruptible(ms) {
+    const step = 250;
+    for (let waited = 0; waited < ms; waited += step) {
+      if (this.aborted) throw abortError();
+      await new Promise((r) => setTimeout(r, step));
+    }
+    if (this.aborted) throw abortError();
+  }
+
   async #ensureMcp(mcpConfigPath) {
     if (!this.mcp) {
       let servers = {};
       if (mcpConfigPath) { try { servers = loadMcpServers(mcpConfigPath); } catch { servers = {}; } }
+      // Primo turno: aspetta (max 5s) i Moon che stanno ancora bootando, così
+      // il primo messaggio dopo l'avvio dell'app non resta senza tool.
+      await waitForMcpServers(servers);
       this.mcp = { tools: [], index: new Map(), clients: [], excluded: 0, servers, connected: new Set(), warned: new Set() };
     }
     const m = this.mcp;
@@ -221,8 +274,8 @@ export class OpenAICompatEngine {
         for (const t of (listed?.tools || [])) {
           if (isUnsafeTool(t.name)) { m.excluded++; continue; }
           if (m.index.has(t.name)) continue;
-          m.index.set(t.name, { client, realName: t.name, server: serverName });
-          m.tools.push({ type: "function", function: { name: t.name, description: t.description || "", parameters: t.inputSchema || { type: "object", properties: {} } } });
+          m.index.set(t.name, { client, realName: t.name, server: serverName, schema: t.inputSchema });
+          m.tools.push({ type: "function", function: { name: t.name, description: t.description || "", parameters: relaxSchemaForValidation(t.inputSchema || { type: "object", properties: {} }) } });
         }
         process.stderr.write(`[SIDECAR] ${this.name} MCP: ${serverName} connesso (${(listed?.tools || []).length} tool)\n`);
       } catch (e) {

@@ -27,10 +27,17 @@ import { OpenAICompatEngine } from "./engines/openai-compat.mjs";
 // registerEngine() line + a new engine file. OpenAI-compatible providers
 // (Groq, OpenRouter, …) share one engine, parameterized by baseUrl + key env.
 registerEngine("claude", (cfg) => new ClaudeAgentEngine(cfg));
-registerEngine("ollama", (cfg) => new OllamaEngine(cfg));
-registerEngine("gemini", (cfg) => new GeminiEngine(cfg));
-registerEngine("groq", (cfg) => new OpenAICompatEngine(cfg, { name: "groq", baseUrl: "https://api.groq.com/openai/v1", keyEnvs: ["GROQ_API_KEY"] }));
-registerEngine("openrouter", (cfg) => new OpenAICompatEngine(cfg, { name: "openrouter", baseUrl: "https://openrouter.ai/api/v1", keyEnvs: ["OPENROUTER_API_KEY"] }));
+// ollama: maxToolTokens 2000 (non 4000) — modello locale su CPU: la prompt eval
+// costa secondi per migliaio di token, e num_ctx è 8192; metà del vecchio budget
+// se ne andava in schemi prima ancora di domanda e risultati.
+registerEngine("ollama", (cfg) => new OllamaEngine({ ...cfg, maxToolTokens: 2000 }));
+registerEngine("gemini", (cfg) => new GeminiEngine({ ...cfg, maxToolTokens: 20000 }));
+// groq: maxToolTokens 3000 (non 6000) — con più Moon attivi (io+gtd = 24 tool ≈ 6k
+// token di schemi) il menu intero saturava da solo metà del TPM free (12k/min) a
+// OGNI iterazione → 429 dopo i tool. Sotto budget il router per keyword restringe
+// ai tool del Moon pertinente.
+registerEngine("groq", (cfg) => new OpenAICompatEngine(cfg, { name: "groq", baseUrl: "https://api.groq.com/openai/v1", keyEnvs: ["GROQ_API_KEY"], maxToolTokens: 3000 }));
+registerEngine("openrouter", (cfg) => new OpenAICompatEngine(cfg, { name: "openrouter", baseUrl: "https://openrouter.ai/api/v1", keyEnvs: ["OPENROUTER_API_KEY"], maxToolTokens: 20000 }));
 
 // ── Per-session state: { engine, options } ───────────────────
 // options = neutral per-session config the transport passes to engine.run.

@@ -20,7 +20,7 @@ const model = process.argv[3] || "llama-3.3-70b-versatile";
 if (!process.env.GROQ_API_KEY) { console.error("GROQ_API_KEY non trovata (credentials.env o env)."); process.exit(1); }
 
 const { OpenAICompatEngine } = await import("./engines/openai-compat.mjs");
-const eng = new OpenAICompatEngine({}, { name: "groq", baseUrl: "https://api.groq.com/openai/v1", keyEnvs: ["GROQ_API_KEY"] });
+const eng = new OpenAICompatEngine({}, { name: "groq", baseUrl: "https://api.groq.com/openai/v1", keyEnvs: ["GROQ_API_KEY"], maxToolTokens: 3000 });
 console.log(`provider: groq | modello: ${model}\n— — —`);
 try {
   for await (const ev of eng.run(prompt, { session_id: "cli", model, cwd: releaseDir, mcpConfigPath: path.join(releaseDir, ".mcp.json") })) {
