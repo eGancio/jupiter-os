@@ -228,6 +228,26 @@ export const it: Record<string, string> = {
   "europa.footerAfter": ". Dopo il setup il server ",
   "europa.footerEnd": " viene riavviato automaticamente.",
 
+  // ── Metis ingest panel (MetisIngestPanel.tsx) ──
+  "metis.nature": "Natura",
+  "metis.nature.generico": "generico",
+  "metis.nature.norma": "norma",
+  "metis.nature.bando": "bando",
+  "metis.nature.preventivo": "preventivo",
+  "metis.includeSubfolders": "Includi sottocartelle",
+  "metis.pickFiles": "Seleziona file…",
+  "metis.pickFolder": "Seleziona cartella…",
+  "metis.dialogFilterName": "Documenti",
+  "metis.indexing": "Indicizzazione in corso…",
+  "metis.lastIngest": "Ultimo ingest:",
+  "metis.indexedDocs": "Documenti indicizzati",
+  "metis.refresh": "aggiorna",
+  "metis.loading": "Caricamento…",
+  "metis.empty": "Nessun documento nella knowledge base.",
+  "metis.openFile": "Apri: {{path}}",
+  "metis.revealFile": "Mostra nel file manager",
+  "metis.removeDoc": "Rimuovi dalla knowledge base",
+
   // ── Moon metadata (lib/moonInfo.ts) ──
   "moon.io.category": "Email e Calendario",
   "moon.io.desc": "Gestisce tutte le operazioni email via IMAP/SMTP/CalDAV, incluso il supporto multi-account (Aruba, Gmail OAuth), ricerca semantica con Qdrant + embedding ONNX, eventi del calendario ed estrazione testo dagli allegati.",
