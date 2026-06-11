@@ -158,10 +158,15 @@ export function flushSessionMessages(
     role: m.role,
     content: m.content,
     thinking: m.thinking ?? "",
+    // `children` is a rendering index of refs into the same array — never
+    // serialized (it would duplicate entries); nesting is rebuilt on load
+    // from parent_tool_id.
     tool_calls: m.toolCalls.map((t) => ({
       name: t.name,
+      id: t.id ?? "",
       input: t.input,
       result: t.result ?? null,
+      parent_tool_id: t.parentToolUseId ?? null,
     })),
     timestamp: m.timestamp,
     streaming: m.streaming ?? false,

@@ -42,6 +42,11 @@ export class ClaudeAgentEngine {
     // The complete "assistant" message repeats the same blocks: without this
     // the UI would get a duplicate tool_start that never receives a result.
     this.seenToolIds = new Set();
+    // Open tool_use blocks keyed by `${parent_tool_use_id}:${block index}` →
+    // tool_id. input_json_delta events only carry the block index; with
+    // parallel subagents "append to the last tool" would hit the wrong tool,
+    // so we resolve the real tool_id here.
+    this.openToolBlocks = new Map();
   }
 
   /**
@@ -131,6 +136,11 @@ export class ClaudeAgentEngine {
   // ── SDK message → normalized event translation (was handleStreamMessage) ──
 
   *#translate(msg, sessionId) {
+    // Subagent messages (Task/Agent tool) carry the parent tool_use id on the
+    // SDK wrapper. Propagated as `parent_tool_id` on tool events so the UI can
+    // nest subagent activity under its Agent row.
+    const parentId = msg.parent_tool_use_id || "";
+
     switch (msg.type) {
       case "stream_event": {
         // SDKPartialAssistantMessage — real-time streaming deltas
@@ -141,18 +151,24 @@ export class ClaudeAgentEngine {
           const block = ev.content_block;
           if (block && block.type === "tool_use") {
             if (block.id) this.seenToolIds.add(block.id);
+            this.openToolBlocks.set(`${parentId}:${ev.index}`, block.id || "");
             yield {
               event: "tool_start",
               session_id: sessionId,
               tool_name: block.name || "",
               tool_id: block.id || "",
+              parent_tool_id: parentId,
             };
           } else if (block && block.type === "thinking") {
+            // Subagent thinking must not toggle the main chat's thinking UI.
+            if (parentId) break;
             yield {
               event: "thinking_start",
               session_id: sessionId,
             };
           }
+        } else if (ev.type === "content_block_stop") {
+          this.openToolBlocks.delete(`${parentId}:${ev.index}`);
         } else if (ev.type === "message_start" && ev.message?.usage) {
           // Anthropic API message_start contains input token usage
           const u = ev.message.usage;
@@ -188,6 +204,8 @@ export class ClaudeAgentEngine {
         } else if (ev.type === "content_block_delta") {
           const delta = ev.delta;
           if (delta && delta.type === "text_delta") {
+            // Subagent text must never leak into the main assistant reply.
+            if (parentId) break;
             yield {
               event: "text_delta",
               session_id: sessionId,
@@ -197,10 +215,12 @@ export class ClaudeAgentEngine {
             yield {
               event: "tool_input_delta",
               session_id: sessionId,
-              tool_id: "",
+              tool_id: this.openToolBlocks.get(`${parentId}:${ev.index}`) || "",
               partial_json: delta.partial_json || "",
+              parent_tool_id: parentId,
             };
           } else if (delta && delta.type === "thinking_delta") {
+            if (parentId) break;
             yield {
               event: "thinking_delta",
               session_id: sessionId,
@@ -226,6 +246,7 @@ export class ClaudeAgentEngine {
               session_id: sessionId,
               tool_name: block.name || "",
               tool_id: block.id || "",
+              parent_tool_id: parentId,
             };
             if (block.input) {
               yield {
@@ -233,6 +254,7 @@ export class ClaudeAgentEngine {
                 session_id: sessionId,
                 tool_id: block.id || "",
                 partial_json: JSON.stringify(block.input),
+                parent_tool_id: parentId,
               };
             }
           }
@@ -259,6 +281,7 @@ export class ClaudeAgentEngine {
               session_id: sessionId,
               tool_id: block.tool_use_id || "",
               result: resultText,
+              parent_tool_id: parentId,
             };
           }
         }

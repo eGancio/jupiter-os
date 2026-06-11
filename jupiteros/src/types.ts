@@ -52,6 +52,11 @@ export interface ToolCallInfo {
   result?: string;
   /** Timestamp (ms) when this tool call started */
   startedAt?: number;
+  /** tool_use id of the parent Agent/Task call when this is a subagent tool */
+  parentToolUseId?: string;
+  /** Subagent tool calls nested under this call (refs into the same
+   * msg.toolCalls array — rendering index only, never serialized). */
+  children?: ToolCallInfo[];
 }
 
 /** A single ordered chunk of an assistant turn, in arrival order.
@@ -88,7 +93,13 @@ export interface ChatMsgBackend {
   role: string;
   content: string;
   thinking?: string;
-  tool_calls: { name: string; input: string; result: string | null }[];
+  tool_calls: {
+    name: string;
+    id?: string;
+    input: string;
+    result: string | null;
+    parent_tool_id?: string | null;
+  }[];
   timestamp: number;
   /** True when this row was persisted mid-stream (sidecar crashed). On load,
    * any pending tool calls inside it are normalized to an error result. */
@@ -111,18 +122,21 @@ export interface ToolStartEvent {
   session_id: string;
   tool_name: string;
   tool_id: string;
+  parent_tool_id?: string | null;
 }
 
 export interface ToolInputDeltaEvent {
   session_id: string;
   tool_id: string;
   partial_json: string;
+  parent_tool_id?: string | null;
 }
 
 export interface ToolResultEvent {
   session_id: string;
   tool_id: string;
   result: string;
+  parent_tool_id?: string | null;
 }
 
 export interface ChatDoneEvent {

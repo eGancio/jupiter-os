@@ -17,9 +17,13 @@
  *   { event:"text_delta",       session_id, text }
  *   { event:"thinking_start",   session_id }
  *   { event:"thinking_delta",   session_id, thinking }
- *   { event:"tool_start",       session_id, tool_name, tool_id }
- *   { event:"tool_input_delta", session_id, tool_id, partial_json }
- *   { event:"tool_result",      session_id, tool_id, result }
+ *   { event:"tool_start",       session_id, tool_name, tool_id, parent_tool_id? }
+ *   { event:"tool_input_delta", session_id, tool_id, partial_json, parent_tool_id? }
+ *   { event:"tool_result",      session_id, tool_id, result, parent_tool_id? }
+ *
+ * `parent_tool_id` (optional, "" = none) is the tool_use id of the parent
+ * Agent/Task call when the event comes from a subagent; engines without
+ * subagents simply omit it and everything renders flat.
  *   { event:"result",           session_id, subtype, total_cost_usd,
  *                               usage:{input_tokens,output_tokens,cache_read_tokens},
  *                               num_turns, duration_ms }

@@ -37,10 +37,13 @@ function callStatus(tc: ToolCallInfo): Status {
   return "ok";
 }
 
-/** Group consecutive identical, completed tool calls — never merge a pending one. */
+/** Group consecutive identical, completed tool calls — never merge a pending
+ * one, nor a call with nested subagent activity (its row must stay single). */
 function groupCalls(toolCalls: ToolCallInfo[]): ToolGroup[] {
   const groups: ToolGroup[] = [];
   for (const tc of toolCalls) {
+    // Subagent tools render nested under their parent, never in the main flow.
+    if (tc.parentToolUseId) continue;
     const { server, bareName } = parseToolName(tc.name);
     const st = callStatus(tc);
     const prev = groups[groups.length - 1];
@@ -49,7 +52,9 @@ function groupCalls(toolCalls: ToolCallInfo[]): ToolGroup[] {
       prev.server === server &&
       prev.bareName === bareName &&
       prev.status === st &&
-      st !== "pending";
+      st !== "pending" &&
+      !tc.children?.length &&
+      !prev.calls.some((c) => c.children?.length);
     if (canMerge) {
       prev!.calls.push(tc);
     } else {
@@ -57,6 +62,48 @@ function groupCalls(toolCalls: ToolCallInfo[]): ToolGroup[] {
     }
   }
   return groups;
+}
+
+/** Pull a human-meaningful string field out of a (possibly still-streaming)
+ * tool input JSON. Full parse first, then a regex that tolerates a truncated
+ * accumulation so labels appear live while the input is still being typed. */
+function extractInputField(input: string, keys: string[]): string | null {
+  try {
+    const obj = JSON.parse(input);
+    for (const k of keys) {
+      if (typeof obj[k] === "string" && obj[k]) return obj[k];
+    }
+  } catch {
+    for (const k of keys) {
+      const m = input.match(new RegExp(`"${k}"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*)`));
+      if (m && m[1]) {
+        try {
+          return JSON.parse(`"${m[1]}"`);
+        } catch {
+          return m[1];
+        }
+      }
+    }
+  }
+  return null;
+}
+
+/** Friendly one-line label for a tool call: the search query, the site being
+ * read (hostname+path for URLs), or the task description for Agent calls. */
+function friendlyLabel(tc: ToolCallInfo): string | null {
+  const raw = extractInputField(tc.input, ["query", "url", "description", "prompt"]);
+  if (!raw) return null;
+  let label = raw;
+  if (/^https?:\/\//i.test(raw)) {
+    try {
+      const u = new URL(raw);
+      label = u.hostname.replace(/^www\./, "") + (u.pathname !== "/" ? u.pathname : "");
+    } catch {
+      /* keep raw */
+    }
+  }
+  label = label.replace(/\s+/g, " ").trim();
+  return label.length > 60 ? `${label.slice(0, 57)}…` : label;
 }
 
 /** Pick a tailwind text colour for the server badge. */
@@ -132,34 +179,56 @@ export function ToolTimeline({ toolCalls, onPreviewChart }: Props) {
           return null;
         })();
         const pendingCall = g.status === "pending" ? g.calls[g.calls.length - 1] : null;
+        // A group holding nested subagent activity is never merged → single call.
+        const children = g.calls.length === 1 ? g.calls[0].children : undefined;
+        const desc = children?.length ? friendlyLabel(g.calls[0]) : null;
         return (
-          <li key={idx} className="tool-timeline-item">
-            <span className="tool-timeline-dot" data-status={g.status} />
-            <span className={`tool-badge ${serverBadgeClass(g.server)}`}>{g.server}</span>
-            <span className="tool-name">{g.bareName}</span>
-            {count > 1 && <span className="tool-count">×{count}</span>}
-            {g.status === "ok" && (
-              <span className="tool-ok">
-                <span className="material-symbols-outlined text-[13px]">check</span>
-              </span>
-            )}
-            {g.status === "err" && (
-              <span className="tool-err">
-                <span className="material-symbols-outlined text-[13px]">close</span>
-              </span>
-            )}
-            {pendingCall?.startedAt && (
-              <PendingElapsed startedAt={pendingCall.startedAt} />
-            )}
-            {chartPath && onPreviewChart && (
-              <button
-                type="button"
-                onClick={() => onPreviewChart(chartPath)}
-                className="tool-chart-btn flex items-center text-jupiter-muted hover:text-jupiter-orange transition-colors"
-                title={t("tool.openChart")}
-              >
-                <span className="material-symbols-outlined text-[14px]">monitoring</span>
-              </button>
+          <li key={idx} className="tool-timeline-group">
+            <span className="tool-timeline-item">
+              <span className="tool-timeline-dot" data-status={g.status} />
+              <span className={`tool-badge ${serverBadgeClass(g.server)}`}>{g.server}</span>
+              <span className="tool-name">{g.bareName}</span>
+              {desc && <span className="tool-desc">{desc}</span>}
+              {count > 1 && <span className="tool-count">×{count}</span>}
+              {g.status === "ok" && (
+                <span className="tool-ok">
+                  <span className="material-symbols-outlined text-[13px]">check</span>
+                </span>
+              )}
+              {g.status === "err" && (
+                <span className="tool-err">
+                  <span className="material-symbols-outlined text-[13px]">close</span>
+                </span>
+              )}
+              {pendingCall?.startedAt && (
+                <PendingElapsed startedAt={pendingCall.startedAt} />
+              )}
+              {chartPath && onPreviewChart && (
+                <button
+                  type="button"
+                  onClick={() => onPreviewChart(chartPath)}
+                  className="tool-chart-btn flex items-center text-jupiter-muted hover:text-jupiter-orange transition-colors"
+                  title={t("tool.openChart")}
+                >
+                  <span className="material-symbols-outlined text-[14px]">monitoring</span>
+                </button>
+              )}
+            </span>
+            {children && children.length > 0 && (
+              <ul className="tool-timeline-nested">
+                {children.map((c, ci) => {
+                  const st = callStatus(c);
+                  const label = friendlyLabel(c);
+                  const { bareName } = parseToolName(c.name);
+                  return (
+                    <li key={c.id || ci} className="tool-timeline-subitem">
+                      <span className="tool-timeline-dot" data-status={st} />
+                      <span className="tool-subname">{bareName}</span>
+                      {label && <span className="tool-sublabel">{label}</span>}
+                    </li>
+                  );
+                })}
+              </ul>
             )}
           </li>
         );

@@ -60,6 +60,42 @@ function pushToolPart(msg: ChatMessage, tc: ToolCallInfo) {
   (msg.parts ||= []).push({ kind: "tool", tool: tc });
 }
 
+// Rebuild a ChatMessage from a persisted backend row, restoring the
+// parent/children nesting of subagent tool calls. Old sessions on disk have
+// no id/parent_tool_id fields and reload flat, exactly as before.
+function backendMsgToChatMessage(m: any): ChatMessage {
+  // Messages flushed mid-stream (sidecar crashed) have streaming=true and
+  // pending tool calls (result null). Mark those tools as interrupted so the
+  // timeline doesn't show a forever-spinner.
+  const interrupted = m.streaming === true;
+  const toolCalls: ToolCallInfo[] = (m.tool_calls || []).map((tc: any) => ({
+    name: tc.name,
+    id: tc.id || tc.name, // old sessions lack ids — fallback to name
+    input: tc.input || "",
+    result:
+      interrupted && (tc.result === null || tc.result === undefined)
+        ? "[ERROR] Sessione interrotta"
+        : tc.result,
+    parentToolUseId: tc.parent_tool_id || undefined,
+  }));
+  const byId = new Map(toolCalls.filter((tc) => tc.id).map((tc) => [tc.id!, tc]));
+  for (const tc of toolCalls) {
+    if (!tc.parentToolUseId) continue;
+    const parent = byId.get(tc.parentToolUseId);
+    if (parent && parent !== tc) (parent.children ||= []).push(tc);
+    else tc.parentToolUseId = undefined; // orphan → render flat
+  }
+  return {
+    id: m.id || nextMsgId(),
+    role: m.role as "user" | "assistant" | "system",
+    content: m.content,
+    thinking: m.thinking || undefined,
+    toolCalls,
+    timestamp: (m.timestamp || 0) * 1000,
+    // streaming flag intentionally omitted — treat as completed.
+  };
+}
+
 /** Messages + metadata stored per session */
 interface SessionData {
   messages: ChatMessage[];
@@ -155,29 +191,7 @@ export function useChat() {
           const msgs = await getChatMessages(lastSession.id);
           if (msgs.length > 0) {
             const data = getSessionData(lastSession.id);
-            data.messages = msgs.map((m: any) => {
-              // Messages flushed mid-stream (sidecar crashed) have streaming=true
-              // and pending tool calls (result null). Mark those tools as
-              // interrupted so the timeline doesn't show a forever-spinner.
-              const interrupted = m.streaming === true;
-              return {
-                id: m.id || nextMsgId(),
-                role: m.role as "user" | "assistant" | "system",
-                content: m.content,
-                thinking: m.thinking || undefined,
-                toolCalls: (m.tool_calls || []).map((tc: any) => ({
-                  name: tc.name,
-                  id: tc.name, // use name as fallback id
-                  input: tc.input || "",
-                  result:
-                    interrupted && (tc.result === null || tc.result === undefined)
-                      ? "[ERROR] Sessione interrotta"
-                      : tc.result,
-                })),
-                timestamp: (m.timestamp || 0) * 1000,
-                // streaming flag intentionally omitted — treat as completed.
-              };
-            });
+            data.messages = msgs.map(backendMsgToChatMessage);
             syncMessages(lastSession.id);
           }
         } catch {
@@ -349,7 +363,22 @@ export function useChat() {
           startedAt: Date.now(),
         };
         if (last && last.role === "assistant") {
-          pushToolPart(last, tc);
+          // Subagent tool: nest under its parent Agent call. The child lives
+          // in toolCalls (flat — persistence, [Stopped]/result matching) AND
+          // as a ref in parent.children (nested rendering). No part is pushed
+          // so it never shows in the main flow. Parent not found (e.g. resume
+          // mid-run) → degrade to a flat top-level tool.
+          const parentId = event.payload.parent_tool_id || "";
+          const parent = parentId
+            ? last.toolCalls.find((p) => p.id === parentId)
+            : undefined;
+          if (parent) {
+            tc.parentToolUseId = parentId;
+            last.toolCalls.push(tc);
+            (parent.children ||= []).push(tc);
+          } else {
+            pushToolPart(last, tc);
+          }
         } else {
           msgs.push({
             id: nextMsgId(),
@@ -376,7 +405,12 @@ export function useChat() {
         const msgs = data.messages;
         const last = msgs[msgs.length - 1];
         if (last && last.role === "assistant" && last.toolCalls.length > 0) {
-          const lastTc = last.toolCalls[last.toolCalls.length - 1];
+          // Match by id when available (parallel subagents interleave deltas);
+          // fallback to the last tool for engines without ids on deltas.
+          const tid = event.payload.tool_id;
+          const lastTc =
+            (tid ? last.toolCalls.find((tc) => tc.id === tid) : undefined) ||
+            last.toolCalls[last.toolCalls.length - 1];
           lastTc.input += event.payload.partial_json;
 
           // Extract file path from accumulated tool input
@@ -445,8 +479,8 @@ export function useChat() {
         if (last && last.role === "assistant" && last.streaming) {
           last.streaming = false;
           // Tools that never got a tool_result (SDK ended turn without one)
-          // would otherwise pulse "pending" forever until the 2-min watchdog
-          // fires. Mark them as failed so the timeline reflects the truth.
+          // would otherwise pulse "pending" forever. Mark them as failed so
+          // the timeline reflects the truth.
           for (const tc of last.toolCalls) {
             if (tc.result === undefined || tc.result === null) {
               tc.result = "[ERROR] Nessuna risposta dal tool";
@@ -544,48 +578,6 @@ export function useChat() {
     };
   }, [refreshSessionList, doSend]);
 
-  // ── Tool timeout watchdog ──────────────────────────────────
-  // Every 5s, check if any running tool has exceeded the timeout.
-  // If so, mark it as timed out and auto-trigger stop.
-  const TOOL_TIMEOUT_MS = 120_000; // 2 minutes
-  const streamingRef = useRef(false);
-  streamingRef.current = streaming;
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (!streamingRef.current || !activeRef.current) return;
-      const data = sessionDataRef.current.get(activeRef.current);
-      if (!data) return;
-
-      const now = Date.now();
-      let timedOut = false;
-
-      for (const msg of data.messages) {
-        for (const tc of msg.toolCalls) {
-          if (tc.result === undefined && tc.startedAt && now - tc.startedAt > TOOL_TIMEOUT_MS) {
-            tc.result = "[TIMEOUT] Tool did not respond within 2 minutes. The MCP server may be unresponsive.";
-            timedOut = true;
-          }
-        }
-      }
-
-      if (timedOut) {
-        // Auto-stop the hanging session
-        if (activeRef.current) {
-          stopChatCmd(activeRef.current).catch(() => {});
-        }
-        setStreaming(false);
-        setActiveTool(null);
-        setActiveFile(null);
-        setActiveThinking(false);
-        setError("Tool call timed out — MCP server may be unresponsive");
-        syncMessages(activeRef.current!);
-      }
-    }, 5000);
-
-    return () => clearInterval(interval);
-  }, []);
-
   // ── Actions ────────────────────────────────────────────────
 
   const sendMessage = useCallback(
@@ -674,25 +666,7 @@ export function useChat() {
           const { getChatMessages } = await import("../lib/tauri");
           const msgs = await getChatMessages(targetId);
           if (msgs.length > 0) {
-            data.messages = msgs.map((m: any) => {
-              const interrupted = m.streaming === true;
-              return {
-                id: m.id || nextMsgId(),
-                role: m.role as "user" | "assistant" | "system",
-                content: m.content,
-                thinking: m.thinking || undefined,
-                toolCalls: (m.tool_calls || []).map((tc: any) => ({
-                  name: tc.name,
-                  id: tc.name,
-                  input: tc.input || "",
-                  result:
-                    interrupted && (tc.result === null || tc.result === undefined)
-                      ? "[ERROR] Sessione interrotta"
-                      : tc.result,
-                })),
-                timestamp: (m.timestamp || 0) * 1000,
-              };
-            });
+            data.messages = msgs.map(backendMsgToChatMessage);
           }
         } catch {
           // ignore

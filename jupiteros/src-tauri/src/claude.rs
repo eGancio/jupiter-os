@@ -25,6 +25,9 @@ pub struct ToolStartPayload {
     pub session_id: String,
     pub tool_name: String,
     pub tool_id: String,
+    /// tool_use id of the parent Agent/Task call when this tool belongs to a
+    /// subagent (None for top-level tools and non-Claude engines).
+    pub parent_tool_id: Option<String>,
 }
 
 #[derive(Clone, Serialize)]
@@ -32,6 +35,7 @@ pub struct ToolInputDeltaPayload {
     pub session_id: String,
     pub tool_id: String,
     pub partial_json: String,
+    pub parent_tool_id: Option<String>,
 }
 
 #[derive(Clone, Serialize)]
@@ -39,6 +43,7 @@ pub struct ToolResultPayload {
     pub session_id: String,
     pub tool_id: String,
     pub result: String,
+    pub parent_tool_id: Option<String>,
 }
 
 #[derive(Clone, Serialize)]
@@ -72,8 +77,12 @@ pub struct UsagePayload {
 #[derive(Clone, Serialize, Deserialize)]
 pub struct ToolCallInfo {
     pub name: String,
+    #[serde(default)]
+    pub id: String,
     pub input: String,
     pub result: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub parent_tool_id: Option<String>,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -411,11 +420,18 @@ impl AgentSidecar {
                     let tool_name =
                         json.get("tool_name").and_then(|v| v.as_str()).unwrap_or("");
                     let tool_id = json.get("tool_id").and_then(|v| v.as_str()).unwrap_or("");
+                    let parent_tool_id = json
+                        .get("parent_tool_id")
+                        .and_then(|v| v.as_str())
+                        .filter(|s| !s.is_empty())
+                        .map(String::from);
                     // Track tool call for persistence
                     pending_tools.entry(sid.clone()).or_default().push(ToolCallInfo {
                         name: tool_name.to_string(),
+                        id: tool_id.to_string(),
                         input: String::new(),
                         result: None,
+                        parent_tool_id: parent_tool_id.clone(),
                     });
                     let _ = handle.emit(
                         "claude-tool-start",
@@ -423,6 +439,7 @@ impl AgentSidecar {
                             session_id: sid,
                             tool_name: tool_name.to_string(),
                             tool_id: tool_id.to_string(),
+                            parent_tool_id,
                         },
                     );
                 }
@@ -430,10 +447,22 @@ impl AgentSidecar {
                     let tool_id = json.get("tool_id").and_then(|v| v.as_str()).unwrap_or("");
                     let partial =
                         json.get("partial_json").and_then(|v| v.as_str()).unwrap_or("");
-                    // Accumulate tool input for persistence
+                    let parent_tool_id = json
+                        .get("parent_tool_id")
+                        .and_then(|v| v.as_str())
+                        .filter(|s| !s.is_empty())
+                        .map(String::from);
+                    // Accumulate tool input for persistence: match by id first
+                    // (parallel subagents interleave deltas), fallback to the
+                    // last tool for engines that don't set tool_id on deltas.
                     if let Some(tools) = pending_tools.get_mut(&sid) {
-                        if let Some(last) = tools.last_mut() {
-                            last.input.push_str(partial);
+                        let target = if tool_id.is_empty() {
+                            tools.last_mut()
+                        } else {
+                            tools.iter_mut().rev().find(|tc| tc.id == tool_id)
+                        };
+                        if let Some(tc) = target {
+                            tc.input.push_str(partial);
                         }
                     }
                     let _ = handle.emit(
@@ -442,17 +471,32 @@ impl AgentSidecar {
                             session_id: sid,
                             tool_id: tool_id.to_string(),
                             partial_json: partial.to_string(),
+                            parent_tool_id,
                         },
                     );
                 }
                 "tool_result" => {
                     let tool_id = json.get("tool_id").and_then(|v| v.as_str()).unwrap_or("");
                     let result = json.get("result").and_then(|v| v.as_str()).unwrap_or("");
-                    // Store tool result for persistence
+                    let parent_tool_id = json
+                        .get("parent_tool_id")
+                        .and_then(|v| v.as_str())
+                        .filter(|s| !s.is_empty())
+                        .map(String::from);
+                    // Store tool result for persistence: match by id first —
+                    // with parallel subagents "last without result" would pin
+                    // the result on the wrong call.
                     if let Some(tools) = pending_tools.get_mut(&sid) {
-                        // Find matching tool (by id or last without result)
-                        if let Some(tc) = tools.iter_mut().rev().find(|tc| tc.result.is_none()) {
-                            tc.result = Some(result.to_string());
+                        let idx = if tool_id.is_empty() {
+                            tools.iter().rposition(|tc| tc.result.is_none())
+                        } else {
+                            tools
+                                .iter()
+                                .rposition(|tc| tc.id == tool_id)
+                                .or_else(|| tools.iter().rposition(|tc| tc.result.is_none()))
+                        };
+                        if let Some(i) = idx {
+                            tools[i].result = Some(result.to_string());
                         }
                     }
                     let _ = handle.emit(
@@ -461,6 +505,7 @@ impl AgentSidecar {
                             session_id: sid.clone(),
                             tool_id: tool_id.to_string(),
                             result: result.to_string(),
+                            parent_tool_id,
                         },
                     );
                 }
