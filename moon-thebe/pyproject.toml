@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=75.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "moon-thebe"
+version = "0.1.0"
+description = "Moon Thebe — Branded report renderer for JupiterOS (Markdown + brand kit → PDF)"
+license = "AGPL-3.0-or-later"
+authors = [{ name = "Edoardo Mancinelli", email = "e.mancinelli@brunelleschi.ai" }]
+requires-python = ">=3.10"
+dependencies = [
+    "mcp[cli]>=1.2.0",
+    "jinja2>=3.1.0",
+    "markdown>=3.6",
+    "weasyprint>=62.0",
+    "python-dotenv>=1.0.0",
+]
+
+[project.urls]
+Repository = "https://github.com/eGancio/jupiter-os"
+
+[project.scripts]
+moon-thebe = "moon_thebe.server:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+moon_thebe = ["templates/*.html", "brands/**/*"]

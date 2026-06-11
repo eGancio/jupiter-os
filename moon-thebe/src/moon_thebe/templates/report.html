@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<title>{{ title }}</title>
+<style>
+  /* ── Page + letterhead (running header/footer, page numbers) ── */
+  @page {
+    size: A4;
+    margin: 26mm 18mm 22mm 18mm;
+    @top-right { content: element(runHeader); }
+    @bottom-left { content: element(runFootL); }
+    @bottom-center { content: element(runFootC); }
+    @bottom-right {
+      content: "Pag. " counter(page) " / " counter(pages);
+      font-size: 8pt;
+      color: {{ brand.colors.muted }};
+    }
+  }
+
+  .run-header {
+    position: running(runHeader);
+    font-size: 8.5pt;
+    color: {{ brand.colors.muted }};
+    border-bottom: 1.5pt solid {{ brand.colors.primary }};
+    padding-bottom: 2pt;
+  }
+  .run-foot-l { position: running(runFootL); font-size: 8pt; color: {{ brand.colors.muted }}; }
+  .run-foot-c { position: running(runFootC); font-size: 8pt; color: {{ brand.colors.muted }}; text-align: center; }
+
+  html {
+    font-family: {{ brand.font.family }};
+    font-size: 10.5pt;
+    line-height: 1.5;
+    color: {{ brand.colors.text }};
+  }
+  body { margin: 0; }
+
+  /* ── Cover / title block (first page, in content flow) ── */
+  .cover {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    border-bottom: 2.5pt solid {{ brand.colors.primary }};
+    padding-bottom: 14px;
+    margin-bottom: 22px;
+  }
+  .cover .logo { height: 46px; width: auto; }
+  .cover .cover-meta { flex: 1; }
+  .cover h1 {
+    margin: 0;
+    font-size: 21pt;
+    font-weight: 700;
+    color: {{ brand.colors.primary }};
+    line-height: 1.15;
+  }
+  .cover .subtitle { margin: 4px 0 0; font-size: 11pt; color: {{ brand.colors.muted }}; }
+  .cover .date { margin: 6px 0 0; font-size: 9pt; color: {{ brand.colors.muted }}; }
+  .cover .brand-name {
+    font-size: 10pt; font-weight: 600; color: {{ brand.colors.text }};
+    text-align: right; white-space: nowrap;
+  }
+  .cover .brand-name .tagline { display: block; font-weight: 400; font-size: 8pt; color: {{ brand.colors.muted }}; }
+
+  /* ── Document body (rendered Markdown) ── */
+  .content h1, .content h2, .content h3, .content h4 {
+    color: {{ brand.colors.primary }};
+    line-height: 1.25;
+    margin: 1.1em 0 0.4em;
+  }
+  .content h1 { font-size: 16pt; }
+  .content h2 { font-size: 13pt; border-bottom: 1pt solid {{ brand.colors.rule }}; padding-bottom: 3px; }
+  .content h3 { font-size: 11.5pt; }
+  .content p { margin: 0.45em 0; }
+  .content ul, .content ol { margin: 0.4em 0; padding-left: 1.3em; }
+  .content li { margin: 0.15em 0; }
+  .content a { color: {{ brand.colors.accent }}; text-decoration: none; }
+  .content strong { color: {{ brand.colors.text }}; }
+  .content blockquote {
+    margin: 0.6em 0; padding: 2px 12px;
+    border-left: 3pt solid {{ brand.colors.accent }};
+    color: {{ brand.colors.muted }}; font-style: italic;
+  }
+  .content code {
+    font-family: "DejaVu Sans Mono", monospace; font-size: 9pt;
+    background: #f3f4f6; padding: 1px 4px; border-radius: 3px;
+  }
+  .content pre {
+    background: #f3f4f6; padding: 10px 12px; border-radius: 5px;
+    font-size: 9pt; overflow-x: auto;
+  }
+  .content pre code { background: none; padding: 0; }
+  .content table { border-collapse: collapse; width: 100%; margin: 0.7em 0; font-size: 9.5pt; }
+  .content th {
+    background: {{ brand.colors.primary }}; color: #fff;
+    text-align: left; padding: 5px 8px; font-weight: 600;
+  }
+  .content td { padding: 4px 8px; border-bottom: 0.75pt solid {{ brand.colors.rule }}; }
+  .content img { max-width: 100%; }
+  .content hr { border: none; border-top: 1pt solid {{ brand.colors.rule }}; margin: 1.2em 0; }
+</style>
+</head>
+<body>
+  <!-- Running letterhead (every page) -->
+  <div class="run-header">
+    {{ brand.footer.company or brand.name }}{% if brand.footer.contacts %} · {{ brand.footer.contacts }}{% endif %}
+  </div>
+  {% if brand.footer.confidentiality %}<div class="run-foot-l">{{ brand.footer.confidentiality }}</div>{% endif %}
+  <div class="run-foot-c">
+    {{ brand.footer.company or brand.name }}{% if brand.footer.vat %} · P.IVA {{ brand.footer.vat }}{% endif %}{% if brand.footer.address %} · {{ brand.footer.address }}{% endif %}
+  </div>
+
+  <!-- Cover / title block (first page) -->
+  <header class="cover">
+    {% if brand._logo_uri %}<img class="logo" src="{{ brand._logo_uri }}" alt="logo">{% endif %}
+    <div class="cover-meta">
+      <h1>{{ title }}</h1>
+      {% if subtitle %}<p class="subtitle">{{ subtitle }}</p>{% endif %}
+      <p class="date">{{ date_str }}</p>
+    </div>
+    <div class="brand-name">
+      {{ brand.name }}
+      {% if brand.tagline %}<span class="tagline">{{ brand.tagline }}</span>{% endif %}
+      {% if brand.footer.contacts %}<span class="tagline">{{ brand.footer.contacts }}</span>{% endif %}
+    </div>
+  </header>
+
+  <main class="content">
+    {{ body|safe }}
+  </main>
+</body>
+</html>

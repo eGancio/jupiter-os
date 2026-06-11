@@ -13,6 +13,7 @@ mod europa_credentials;
 mod metis;
 mod services;
 mod state;
+mod thebe;
 
 use serde::Serialize;
 use chat_state::ChatState;
@@ -68,6 +69,8 @@ pub fn run() {
             metis::metis_delete_document,
             metis::metis_open_file,
             metis::metis_reveal_file,
+            thebe::get_brand_kit,
+            thebe::set_brand_kit,
             chat_commands::get_claude_md_status,
             chat_commands::read_chart_file,
             chat_commands::flush_session_messages,

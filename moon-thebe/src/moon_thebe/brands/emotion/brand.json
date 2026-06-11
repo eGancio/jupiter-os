@@ -1,0 +1,23 @@
+{
+  "name": "EMotion S.r.l.",
+  "tagline": "",
+  "logo": "logo.png",
+  "colors": {
+    "primary": "#1a1a1a",
+    "accent": "#2d7bbf",
+    "text": "#1a1a1a",
+    "muted": "#6b7280",
+    "rule": "#e5e7eb"
+  },
+  "font": {
+    "family": "Helvetica, Arial, sans-serif"
+  },
+  "footer": {
+    "company": "EMotion S.r.l.",
+    "vat": "P.IVA __________",
+    "address": "Via __________, ____ Città (PR)",
+    "contacts": "tel __________ · info@__________ · www.__________",
+    "confidentiality": "Documento riservato e confidenziale."
+  },
+  "_TODO": "Compila: colori brand (primary/accent in HEX), dati fiscali (vat/address/contacts), e metti il logo come logo.png in questa cartella. Il render funziona anche senza, con i placeholder."
+}
