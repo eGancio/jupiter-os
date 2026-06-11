@@ -14,7 +14,7 @@
     "build": "tsc && vite build",
     "typecheck": "tsc --noEmit",
     "preview": "vite preview",
-    "tauri": "tauri"
+    "tauri": "NO_STRIP=true tauri"
   },
   "dependencies": {
     "@tailwindcss/typography": "^0.5.19",
