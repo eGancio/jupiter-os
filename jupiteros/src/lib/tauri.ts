@@ -67,6 +67,11 @@ export function setChatModel(model: string): Promise<void> {
   return invoke("set_chat_model", { model });
 }
 
+/** Change the model of ONE session (per-tab); also becomes the default for new sessions. */
+export function setChatSessionModel(sessionId: string, model: string): Promise<void> {
+  return invoke("set_chat_session_model", { sessionId, model });
+}
+
 export type ChatPermissionMode = "auto" | "plan" | "bypass";
 
 export function setChatPermissionMode(mode: ChatPermissionMode): Promise<void> {

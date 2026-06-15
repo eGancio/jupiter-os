@@ -4,11 +4,13 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { ChatMessage } from "../chat/ChatMessage";
 import { InputBar } from "../chat/InputBar";
+import { ChatTabs } from "../chat/ChatTabs";
+import { getMoonLabel } from "../../lib/moonInfo";
 import { COMMANDS } from "../../lib/commands";
-import { getClaudeMdStatus, getChatEngine, setChatPermissionMode, type ChatPermissionMode } from "../../lib/tauri";
+import { getClaudeMdStatus, setChatPermissionMode, type ChatPermissionMode } from "../../lib/tauri";
 import { useT } from "../../i18n";
 import type { ServiceInfo } from "../../types";
-import type { useChat } from "../../hooks/useChat";
+import { MAX_TABS, type useChat } from "../../hooks/useChat";
 
 const ZOOM_MIN = 0.7;
 const ZOOM_MAX = 1.5;
@@ -45,7 +47,10 @@ export function ChatArea({ chat, services, onPreviewChart, onOpenEngineSettings 
   const [permissionMode] = useState<ChatPermissionMode>("auto");
   const [claudeMdExists, setClaudeMdExists] = useState(false);
   const [claudeMdPath, setClaudeMdPath] = useState("");
-  const [engine, setEngine] = useState("claude");
+
+  // Engine badge: derived from the active tab's session (single source of truth)
+  const activeEngine =
+    chat.sessions.find((s) => s.id === chat.sessionId)?.engine ?? "claude";
 
   // Check CLAUDE.md status on mount
   useEffect(() => {
@@ -57,11 +62,13 @@ export function ChatArea({ chat, services, onPreviewChart, onOpenEngineSettings 
       .catch(() => { /* ignore */ });
   }, []);
 
-  // Active engine for the tab-bar badge (model comes from chat.model, reactive).
-  // Re-read on session change too: switching engine starts a NEW session, so the
-  // badge must refresh (otherwise it stays stuck on the mount-time value).
+  // Per-tab scroll: when switching tab, land pinned to the bottom of the
+  // target conversation (reading position is not preserved across tabs).
   useEffect(() => {
-    getChatEngine().then(setEngine).catch(() => { /* default claude */ });
+    pinnedToBottom.current = true;
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
   }, [chat.sessionId]);
 
   // Push the permission mode to the backend whenever it changes (Claude reads
@@ -274,18 +281,17 @@ export function ChatArea({ chat, services, onPreviewChart, onOpenEngineSettings 
         <div className="unified-gradient-container flex-1 min-h-0 flex flex-col">
           <div className="bg-jupiter-elevated rounded-[23px] flex-1 flex flex-col overflow-hidden">
       {/* Tab bar */}
-      <div className="h-9 border-b border-jupiter-orange/25 flex items-center px-2 gap-1 bg-jupiter-surface/50 flex-shrink-0">
-        <div className="px-3 py-1 text-[11px] rounded bg-jupiter-elevated text-white flex items-center gap-1.5">
-          <span className={`w-1.5 h-1.5 rounded-full ${streaming ? "bg-jupiter-green animate-pulse" : "bg-jupiter-dim"}`} />
-          {t("chat.tab")}
-        </div>
-        <button
-          onClick={newSession}
-          className="px-2 py-1 text-[11px] text-jupiter-dim hover:text-jupiter-blue hover:bg-jupiter-elevated rounded transition-colors"
-          title={t("chat.newChat")}
-        >
-          +
-        </button>
+      <div className="h-11 border-b border-jupiter-orange/25 flex items-center px-2 gap-1.5 bg-jupiter-surface/50 flex-shrink-0">
+        <ChatTabs
+          tabs={chat.tabs}
+          activeId={chat.sessionId}
+          sessions={chat.sessions}
+          tabStatus={chat.tabStatus}
+          onSelect={chat.switchSession}
+          onClose={chat.closeTab}
+          onNew={newSession}
+          maxTabs={MAX_TABS}
+        />
 
         {/* CLAUDE.md indicator */}
         {claudeMdExists && (
@@ -298,14 +304,14 @@ export function ChatArea({ chat, services, onPreviewChart, onOpenEngineSettings 
           </div>
         )}
 
-        {/* Engine & model settings */}
+        {/* Engine & model settings (engine of the ACTIVE tab's session) */}
         <button
           onClick={onOpenEngineSettings}
           className="ml-auto px-2 py-0.5 text-[10px] rounded bg-jupiter-blue/10 text-jupiter-blue border border-jupiter-blue/25 hover:bg-jupiter-blue/20 flex items-center gap-1 transition-colors font-mono"
           title="Engine & model"
         >
           <span className="text-[11px]">&#9881;</span>
-          {engine} · {chat.model}
+          {activeEngine} · {chat.model}
         </button>
 
         {/* Zoom controls */}
@@ -363,7 +369,7 @@ export function ChatArea({ chat, services, onPreviewChart, onOpenEngineSettings 
         streaming={streaming}
         zoom={zoom}
         permissionMode={permissionMode}
-        showPermissionToggle={engine === "claude"}
+        showPermissionToggle={activeEngine === "claude"}
         activeTool={activeTool}
         contextPercent={lastInputTokens > 0 ? Math.min(100, Math.round(lastInputTokens / 2000)) : 0}
         activeFile={activeFile}
@@ -377,7 +383,8 @@ export function ChatArea({ chat, services, onPreviewChart, onOpenEngineSettings 
 
 function WaitingIndicator({ activeTool, activeThinking }: { activeTool: string | null; activeThinking: boolean }) {
   const { t } = useT();
-  const moon = activeTool ? toolToMoon(activeTool) : null;
+  const moonCode = activeTool ? toolToMoon(activeTool) : null;
+  const moon = moonCode ? getMoonLabel(moonCode, t) : null;
   const toolName = activeTool ? toolDisplayName(activeTool) : null;
 
   // Thinking → violet dots (same language as ThinkingBlock); tool/waiting → orange.
@@ -412,7 +419,8 @@ function WaitingIndicator({ activeTool, activeThinking }: { activeTool: string |
 
 function ActivityBar({ activeTool }: { activeTool: string | null }) {
   const { t } = useT();
-  const moon = activeTool ? toolToMoon(activeTool) : null;
+  const moonCode = activeTool ? toolToMoon(activeTool) : null;
+  const moon = moonCode ? getMoonLabel(moonCode, t) : null;
   const toolName = activeTool ? toolDisplayName(activeTool) : null;
 
   return (

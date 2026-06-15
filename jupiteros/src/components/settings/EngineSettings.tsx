@@ -50,8 +50,8 @@ export function EngineSettings({ chat, onClose }: Props) {
   const active = ENGINES.find((e) => e.id === engine) ?? ENGINES[0];
 
   // The engine is fixed at session creation, so switching it starts a NEW chat.
-  // Reset the model to one valid for the target engine BEFORE newSession(),
-  // because create_session snapshots engine+model at creation time.
+  // The model is fixed AFTER newSession() because changeModel is per-session:
+  // it must target the freshly created session, not the previous tab's one.
   const handleSelectEngine = async (id: string) => {
     if (id === engine) return;
     const target = ENGINES.find((x) => x.id === id);
@@ -59,8 +59,9 @@ export function EngineSettings({ chat, onClose }: Props) {
     const nextModel = target.models.includes(model) ? model : target.models[0];
     try {
       await setChatEngine(id);
+      const newId = await chat.newSession();
+      if (!newId) return; // tab cap reached — refused with feedback
       if (nextModel && nextModel !== model) await chat.changeModel(nextModel);
-      await chat.newSession();
       setEngine(id);
     } catch {
       /* ignore */

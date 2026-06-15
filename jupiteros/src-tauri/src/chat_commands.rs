@@ -13,6 +13,8 @@ pub struct ChatSessionInfo {
     pub id: String,
     pub title: String,
     pub message_count: usize,
+    pub model: String,
+    pub engine: String,
 }
 
 #[derive(Serialize)]
@@ -123,6 +125,8 @@ pub fn list_chat_sessions(state: State<'_, ChatState>) -> Vec<ChatSessionInfo> {
             id: s.id.clone(),
             title: s.title.clone(),
             message_count: s.messages.len(),
+            model: s.model.clone(),
+            engine: s.engine.clone(),
         })
         .collect()
 }
@@ -141,6 +145,32 @@ pub fn set_chat_model(model: String, state: State<'_, ChatState>) {
             }));
         }
     }
+}
+
+/// Change the model of ONE session (per-tab model). Also updates the global
+/// default so future sessions inherit the last choice.
+#[tauri::command]
+pub fn set_chat_session_model(
+    session_id: String,
+    model: String,
+    state: State<'_, ChatState>,
+) -> Result<(), String> {
+    {
+        let mut sessions = state.sessions.lock().map_err(|e| e.to_string())?;
+        let session = sessions
+            .iter_mut()
+            .find(|s| s.id == session_id)
+            .ok_or_else(|| format!("Session {} not found", session_id))?;
+        session.model = model.clone();
+        crate::claude::save_sessions_to_disk(&sessions);
+    }
+    state.set_model(model.clone());
+
+    state.send_to_sidecar(serde_json::json!({
+        "cmd": "set_model",
+        "session_id": session_id,
+        "model": model,
+    }))
 }
 
 #[tauri::command]

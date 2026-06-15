@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Edoardo Mancinelli
 
+import { getMoonLabel, getMoonIcon, getMoonColor } from "../../lib/moonInfo";
+import { useT } from "../../i18n";
+
 interface Props {
   /** Close the panel — the right bar then stays blank until a Moon is selected. */
   onClose: () => void;
@@ -8,19 +11,11 @@ interface Props {
   onUsePrompt: (text: string) => void;
 }
 
-interface Section {
-  icon: string;
-  color: string;
-  title: string;
-  prompts: string[];
-}
-
-// What JupiterOS can do, grouped by Moon, with ready-to-run example prompts.
-const SECTIONS: Section[] = [
+// Example prompts grouped by Moon (codename). Title/icon/color come from the
+// single moonInfo display layer — only the prompts live here (content).
+const SECTIONS: Array<{ moon: string; prompts: string[] }> = [
   {
-    icon: "mail",
-    color: "#ff6b1a",
-    title: "Email · Io",
+    moon: "io",
     prompts: [
       "Leggi le ultime email ricevute oggi",
       "Cerca le email che parlano di fatture",
@@ -28,44 +23,35 @@ const SECTIONS: Section[] = [
     ],
   },
   {
-    icon: "forum",
-    color: "#ff3d8b",
-    title: "Messaggi · Europa",
+    moon: "europa",
     prompts: [
       "Mostrami gli ultimi messaggi Telegram",
       "Cerca i messaggi su un argomento",
     ],
   },
   {
-    icon: "bar_chart",
-    color: "#8b5cf6",
-    title: "Grafici · Amalthea",
+    moon: "amalthea",
     prompts: [
       "Crea un grafico a barre con dei dati di esempio",
       "Genera un diagramma di flusso di un processo",
     ],
   },
   {
-    icon: "travel_explore",
-    color: "#10b981",
-    title: "Ricerca web · Himalia",
+    moon: "himalia",
     prompts: ["Cerca sul web le ultime novità sull'AI"],
   },
   {
-    icon: "newspaper",
-    color: "#ec4899",
-    title: "News · Elara",
+    moon: "elara",
     prompts: ["Trova notizie recenti su un tema che mi interessa"],
   },
   {
-    icon: "menu_book",
-    color: "#06b6d4",
-    title: "Documenti · Metis",
+    moon: "metis",
     prompts: ["Cosa dice un documento indicizzato su un certo tema?"],
   },
 ];
 
 export function SuggestionsPanel({ onClose, onUsePrompt }: Props) {
+  const { t } = useT();
   return (
     <div className="w-[320px] min-w-[280px] border-l border-jupiter-orange/25 bg-jupiter-surface flex flex-col min-h-0">
       {/* Header with close (X) */}
@@ -95,13 +81,13 @@ export function SuggestionsPanel({ onClose, onUsePrompt }: Props) {
         </p>
 
         {SECTIONS.map((s) => (
-          <div key={s.title} className="space-y-1.5">
+          <div key={s.moon} className="space-y-1.5">
             <div className="flex items-center gap-2">
-              <span className="material-symbols-outlined text-[16px]" style={{ color: s.color }}>
-                {s.icon}
+              <span className="material-symbols-outlined text-[16px]" style={{ color: getMoonColor(s.moon) }}>
+                {getMoonIcon(s.moon)}
               </span>
               <h4 className="text-[11px] font-bold text-jupiter-text uppercase tracking-wider">
-                {s.title}
+                {getMoonLabel(s.moon, t)}
               </h4>
             </div>
             <div className="space-y-1">

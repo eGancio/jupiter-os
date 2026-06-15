@@ -67,8 +67,13 @@ pub fn extract_text(path: &Path, max_chars: usize) -> Result<String> {
 
 /// Extract text from PDF using pdf-extract (handles compressed streams, font encoding, CMAP).
 fn extract_pdf(path: &Path, _max_chars: usize) -> Result<String> {
-    let text = pdf_extract::extract_text(path)
-        .map_err(|e| SharedError::FileParsing(format!("PDF extraction failed: {e}")))?;
+    // pdf-extract panics (instead of returning Err) on certain malformed PDFs;
+    // contain it so one bad attachment can't kill the calling daemon.
+    let text = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        pdf_extract::extract_text(path)
+    }))
+    .map_err(|_| SharedError::FileParsing("PDF extraction crashed (malformed PDF)".into()))?
+    .map_err(|e| SharedError::FileParsing(format!("PDF extraction failed: {e}")))?;
 
     if text.trim().is_empty() {
         return Err(SharedError::FileParsing(

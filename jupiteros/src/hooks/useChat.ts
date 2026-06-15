@@ -12,13 +12,15 @@ import {
   renameChatSession as renameChatSessionCmd,
   compactChatSession as compactChatSessionCmd,
   getChatModel,
-  setChatModel as setChatModelCmd,
+  setChatSessionModel,
   flushSessionMessages,
 } from "../lib/tauri";
 import type {
   ChatMessage,
   ChatSessionInfo,
+  ChatToast,
   PastedImage,
+  TabStatus,
   ToolCallInfo,
   TextDeltaEvent,
   ThinkingDeltaEvent,
@@ -34,6 +36,10 @@ let msgCounter = 0;
 function nextMsgId() {
   return `msg-${Date.now()}-${++msgCounter}`;
 }
+
+/** Max concurrent open tabs (PO spec: 2-4 chats). */
+export const MAX_TABS = 4;
+const TABS_STORAGE_KEY = "jupiteros.chatTabs.v1";
 
 // ── Sequential parts accumulation ───────────────────────────────
 // These keep the legacy fields (thinking/content/toolCalls) in sync — needed
@@ -96,10 +102,36 @@ function backendMsgToChatMessage(m: any): ChatMessage {
   };
 }
 
+/** Volatile per-session run state. Lives in the ref (no re-render per delta);
+ * it is the source of truth — the React singletons below only mirror the
+ * ACTIVE session's runtime. */
+interface SessionRuntime {
+  streaming: boolean;
+  error: string | null;
+  activeTool: string | null;
+  activeThinking: boolean;
+  activeFile: string | null;
+  lastInputTokens: number;
+  pendingQueue: Array<{ text: string; images?: PastedImage[] }>;
+}
+
+function newRuntime(): SessionRuntime {
+  return {
+    streaming: false,
+    error: null,
+    activeTool: null,
+    activeThinking: false,
+    activeFile: null,
+    lastInputTokens: 0,
+    pendingQueue: [],
+  };
+}
+
 /** Messages + metadata stored per session */
 interface SessionData {
   messages: ChatMessage[];
   usage: { inputTokens: number; outputTokens: number; totalCostUsd: number };
+  runtime: SessionRuntime;
 }
 
 export function useChat() {
@@ -120,8 +152,98 @@ export function useChat() {
   const [lastInputTokens, setLastInputTokens] = useState(0);
   const [activeFile, setActiveFile] = useState<string | null>(null);
 
+  // ── Chat workspace: open tabs + per-tab status + toasts ──────
+  const [openTabs, setOpenTabs] = useState<string[]>([]);
+  const [tabStatus, setTabStatus] = useState<Record<string, TabStatus>>({});
+  const [toasts, setToasts] = useState<ChatToast[]>([]);
+
   const activeRef = useRef<string | null>(null);
-  const pendingQueue = useRef<Array<{ text: string; images?: PastedImage[] }>>([]);
+  const openTabsRef = useRef<string[]>([]);
+  const sessionsRef = useRef<ChatSessionInfo[]>([]);
+  const toastCounter = useRef(0);
+  const toastTimers = useRef<Map<number, ReturnType<typeof setTimeout>>>(new Map());
+
+  useEffect(() => {
+    sessionsRef.current = sessions;
+  }, [sessions]);
+
+  /** setOpenTabs keeping the ref mirror in sync (updater must be pure). */
+  function updateTabs(updater: (prev: string[]) => string[]) {
+    setOpenTabs((prev) => {
+      const next = updater(prev);
+      openTabsRef.current = next;
+      return next;
+    });
+  }
+
+  /** Patch a tab's volatile status; no-op (no re-render) when nothing changes. */
+  function patchTab(sid: string, patch: Partial<TabStatus>) {
+    setTabStatus((prev) => {
+      const cur = prev[sid] ?? { streaming: false, unread: false, error: false };
+      const next = { ...cur, ...patch };
+      if (
+        next.streaming === cur.streaming &&
+        next.unread === cur.unread &&
+        next.error === cur.error
+      ) {
+        return prev;
+      }
+      return { ...prev, [sid]: next };
+    });
+  }
+
+  const dismissToast = useCallback((id: number) => {
+    const t = toastTimers.current.get(id);
+    if (t) {
+      clearTimeout(t);
+      toastTimers.current.delete(id);
+    }
+    setToasts((prev) => prev.filter((x) => x.id !== id));
+  }, []);
+
+  /** Toast for background-session done/error (or kind "info" for tab-cap feedback).
+   * Stack capped at 3 (oldest dropped), auto-dismiss after 6s. */
+  function pushToast(sessionId: string, kind: ChatToast["kind"]) {
+    const id = ++toastCounter.current;
+    const title = sessionsRef.current.find((s) => s.id === sessionId)?.title || "";
+    setToasts((prev) => {
+      const next = [...prev, { id, sessionId, kind, title }];
+      while (next.length > 3) {
+        const drop = next.shift()!;
+        const t = toastTimers.current.get(drop.id);
+        if (t) {
+          clearTimeout(t);
+          toastTimers.current.delete(drop.id);
+        }
+      }
+      return next;
+    });
+    toastTimers.current.set(
+      id,
+      setTimeout(() => dismissToast(id), 6000)
+    );
+  }
+
+  useEffect(() => {
+    const timers = toastTimers.current;
+    return () => {
+      timers.forEach((t) => clearTimeout(t));
+      timers.clear();
+    };
+  }, []);
+
+  // Persist open tabs across restarts (reconciled against real sessions on boot).
+  useEffect(() => {
+    if (openTabs.length === 0) return;
+    try {
+      localStorage.setItem(
+        TABS_STORAGE_KEY,
+        JSON.stringify({ open: openTabs, active: activeSessionId })
+      );
+    } catch {
+      // storage full/unavailable — tabs just won't survive restart
+    }
+  }, [openTabs, activeSessionId]);
 
   // Debounced eager-flush of per-session message snapshot to disk.
   // Survives sidecar crashes mid-stream (worst case: ~500ms of deltas lost).
@@ -154,7 +276,11 @@ export function useChat() {
   function getSessionData(sid: string): SessionData {
     let data = sessionDataRef.current.get(sid);
     if (!data) {
-      data = { messages: [], usage: { inputTokens: 0, outputTokens: 0, totalCostUsd: 0 } };
+      data = {
+        messages: [],
+        usage: { inputTokens: 0, outputTokens: 0, totalCostUsd: 0 },
+        runtime: newRuntime(),
+      };
       sessionDataRef.current.set(sid, data);
     }
     return data;
@@ -170,29 +296,65 @@ export function useChat() {
     }
   }
 
-  // Load model from backend on mount
-  useEffect(() => {
-    getChatModel().then(setModel).catch(() => {});
-  }, []);
+  /** Mirror a session's runtime into the active-session React state.
+   * Call ONLY for the active session (typically right after activating it). */
+  function syncRuntime(sid: string) {
+    const rt = getSessionData(sid).runtime;
+    setStreaming(rt.streaming);
+    setError(rt.error);
+    setActiveTool(rt.activeTool);
+    setActiveThinking(rt.activeThinking);
+    setActiveFile(rt.activeFile);
+    setLastInputTokens(rt.lastInputTokens);
+  }
 
-  // Load existing sessions on mount, or create a new one if none exist
+  // Load existing sessions on mount, or create a new one if none exist.
+  // Open tabs are restored from localStorage, reconciled against real sessions.
   useEffect(() => {
     listChatSessions().then(async (list) => {
+      sessionsRef.current = list;
       if (list.length > 0) {
-        // Use the most recent (last) saved session
         setSessions(list);
-        const lastSession = list[list.length - 1];
-        setActiveSessionId(lastSession.id);
-        activeRef.current = lastSession.id;
-        getSessionData(lastSession.id);
-        // Load messages for the active session
+
+        let open: string[] = [];
+        let active: string | null = null;
+        try {
+          const saved = JSON.parse(localStorage.getItem(TABS_STORAGE_KEY) || "null");
+          if (saved && Array.isArray(saved.open)) {
+            const ids = new Set(list.map((s) => s.id));
+            open = saved.open.filter((id: unknown): id is string =>
+              typeof id === "string" && ids.has(id)
+            ).slice(0, MAX_TABS);
+            active =
+              typeof saved.active === "string" && open.includes(saved.active)
+                ? saved.active
+                : open[open.length - 1] ?? null;
+          }
+        } catch {
+          // corrupt storage — fall through to default
+        }
+        if (open.length === 0 || !active) {
+          const last = list[list.length - 1];
+          open = [last.id];
+          active = last.id;
+        }
+
+        updateTabs(() => open);
+        setActiveSessionId(active);
+        activeRef.current = active;
+        getSessionData(active);
+        const info = list.find((s) => s.id === active);
+        if (info?.model) setModel(info.model);
+        else getChatModel().then(setModel).catch(() => {});
+
+        // Load messages for the active session (other tabs lazy-load on switch)
         try {
           const { getChatMessages } = await import("../lib/tauri");
-          const msgs = await getChatMessages(lastSession.id);
+          const msgs = await getChatMessages(active);
           if (msgs.length > 0) {
-            const data = getSessionData(lastSession.id);
+            const data = getSessionData(active);
             data.messages = msgs.map(backendMsgToChatMessage);
-            syncMessages(lastSession.id);
+            syncMessages(active);
           }
         } catch {
           // ignore — messages will load when user sends a message
@@ -203,6 +365,8 @@ export function useChat() {
         setActiveSessionId(id);
         activeRef.current = id;
         getSessionData(id);
+        updateTabs(() => [id]);
+        getChatModel().then(setModel).catch(() => {});
         refreshSessionList();
       }
     });
@@ -212,6 +376,7 @@ export function useChat() {
   const refreshSessionList = useCallback(async () => {
     try {
       const list = await listChatSessions();
+      sessionsRef.current = list;
       setSessions(list);
     } catch {
       // ignore
@@ -219,16 +384,24 @@ export function useChat() {
   }, []);
 
   // ── Core send (no queue check) ──────────────────────────
+  // Takes the session id explicitly: the done-handler drains queued messages
+  // of BACKGROUND sessions too, so it can't rely on activeRef.
   const doSend = useCallback(
-    async (text: string, images?: PastedImage[]) => {
-      if (!activeRef.current) return;
-      const sid = activeRef.current;
-      setError(null);
-      setStreaming(true);
-      setActiveTool(null);
+    async (sid: string, text: string, images?: PastedImage[]) => {
+      if (!sid) return;
+      const data = getSessionData(sid);
+      const rt = data.runtime;
+      rt.error = null;
+      rt.streaming = true;
+      rt.activeTool = null;
+      patchTab(sid, { streaming: true });
+      if (sid === activeRef.current) {
+        setError(null);
+        setStreaming(true);
+        setActiveTool(null);
+      }
 
       // Add user message
-      const data = getSessionData(sid);
       data.messages.push({
         id: nextMsgId(),
         role: "user",
@@ -249,8 +422,16 @@ export function useChat() {
         await sendChatMessage(sid, text, imageDataList);
       } catch (e) {
         const errMsg = String(e);
-        setStreaming(false);
-        setError(errMsg);
+        rt.streaming = false;
+        rt.error = errMsg;
+        patchTab(sid, { streaming: false, error: true });
+        if (sid === activeRef.current) {
+          setStreaming(false);
+          setError(errMsg);
+        } else {
+          patchTab(sid, { unread: true });
+          pushToast(sid, "error");
+        }
         // Show the error as an assistant message so it's visible in the chat
         data.messages.push({
           id: nextMsgId(),
@@ -276,7 +457,13 @@ export function useChat() {
         const sid = event.payload.session_id;
         if (!sid) return;
         const data = getSessionData(sid);
+        const rt = data.runtime;
 
+        rt.activeThinking = true;
+        if (!rt.streaming) {
+          rt.streaming = true;
+          patchTab(sid, { streaming: true });
+        }
         if (sid === activeRef.current) setActiveThinking(true);
 
         const msgs = data.messages;
@@ -306,7 +493,15 @@ export function useChat() {
         const sid = event.payload.session_id;
         if (!sid) return;
         const data = getSessionData(sid);
+        const rt = data.runtime;
 
+        rt.activeTool = null;
+        rt.activeThinking = false;
+        rt.activeFile = null;
+        if (!rt.streaming) {
+          rt.streaming = true;
+          patchTab(sid, { streaming: true });
+        }
         if (sid === activeRef.current) {
           setActiveTool(null);
           setActiveThinking(false);
@@ -340,6 +535,7 @@ export function useChat() {
         if (!sid) return;
         const data = getSessionData(sid);
 
+        data.runtime.activeTool = event.payload.tool_name;
         if (sid === activeRef.current) setActiveTool(event.payload.tool_name);
 
         const msgs = data.messages;
@@ -413,17 +609,17 @@ export function useChat() {
             last.toolCalls[last.toolCalls.length - 1];
           lastTc.input += event.payload.partial_json;
 
-          // Extract file path from accumulated tool input
-          if (sid === activeRef.current) {
-            try {
-              const fileMatch = lastTc.input.match(/"(?:file_path|path|notebook_path)"\s*:\s*"([^"]+)"/);
-              if (fileMatch) {
-                const fullPath = fileMatch[1];
-                const fileName = fullPath.split(/[/\\]/).pop() || fullPath;
-                setActiveFile(fileName);
-              }
-            } catch { /* ignore partial JSON parse errors */ }
-          }
+          // Extract file path from accumulated tool input (runtime always,
+          // React state only for the active session)
+          try {
+            const fileMatch = lastTc.input.match(/"(?:file_path|path|notebook_path)"\s*:\s*"([^"]+)"/);
+            if (fileMatch) {
+              const fullPath = fileMatch[1];
+              const fileName = fullPath.split(/[/\\]/).pop() || fullPath;
+              data.runtime.activeFile = fileName;
+              if (sid === activeRef.current) setActiveFile(fileName);
+            }
+          } catch { /* ignore partial JSON parse errors */ }
 
           syncMessages(sid);
           scheduleFlush(sid);
@@ -438,6 +634,8 @@ export function useChat() {
         if (!sid) return;
         const data = getSessionData(sid);
 
+        data.runtime.activeTool = null;
+        data.runtime.activeFile = null;
         if (sid === activeRef.current) {
           setActiveTool(null);
           setActiveFile(null);
@@ -473,6 +671,7 @@ export function useChat() {
         // to avoid racing with backend's own save_sessions_to_disk.
         cancelFlush(sid);
         const data = getSessionData(sid);
+        const rt = data.runtime;
 
         const msgs = data.messages;
         const last = msgs[msgs.length - 1];
@@ -488,20 +687,31 @@ export function useChat() {
           }
         }
 
+        rt.activeTool = null;
+        rt.activeThinking = false;
+        rt.activeFile = null;
+
+        // Drain this session's queue (works for background tabs too), or
+        // finish the run.
+        const next = rt.pendingQueue.shift();
+        if (next) {
+          // Small delay to let UI update
+          setTimeout(() => doSend(sid, next.text, next.images), 100);
+        } else {
+          rt.streaming = false;
+          patchTab(sid, { streaming: false });
+        }
+
         if (sid === activeRef.current) {
           setActiveTool(null);
           setActiveThinking(false);
           setActiveFile(null);
           syncMessages(sid);
-
-          // Send next queued message, or stop streaming
-          const next = pendingQueue.current.shift();
-          if (next) {
-            // Small delay to let UI update
-            setTimeout(() => doSend(next.text, next.images), 100);
-          } else {
-            setStreaming(false);
-          }
+          if (!next) setStreaming(false);
+        } else if (!next) {
+          // Background run finished: badge + clickable toast
+          patchTab(sid, { unread: true });
+          pushToast(sid, "done");
         }
 
         // Refresh session list (title may have updated)
@@ -518,8 +728,11 @@ export function useChat() {
 
         // Track context window % — only from the final result event (total_cost_usd > 0)
         // to avoid fluctuations from intermediate usage_update events during agentic loops
-        if (sid === activeRef.current && event.payload.input_tokens > 0 && event.payload.total_cost_usd > 0) {
-          setLastInputTokens(event.payload.input_tokens);
+        if (event.payload.input_tokens > 0 && event.payload.total_cost_usd > 0) {
+          data.runtime.lastInputTokens = event.payload.input_tokens;
+          if (sid === activeRef.current) {
+            setLastInputTokens(event.payload.input_tokens);
+          }
         }
 
         // Accumulate cost only from final result events (total_cost_usd > 0)
@@ -538,6 +751,7 @@ export function useChat() {
         if (!sid) return;
         cancelFlush(sid);
         const data = getSessionData(sid);
+        const rt = data.runtime;
 
         const msgs = data.messages;
         const last = msgs[msgs.length - 1];
@@ -560,15 +774,25 @@ export function useChat() {
           });
         }
 
+        // Clear THIS session's queue — messages would be sent into a broken state
+        rt.pendingQueue = [];
+        rt.streaming = false;
+        rt.error = event.payload.error;
+        rt.activeTool = null;
+        rt.activeThinking = false;
+        rt.activeFile = null;
+        patchTab(sid, { streaming: false, error: true });
+
         if (sid === activeRef.current) {
-          // Clear queued messages — they'd be sent into a broken state
-          pendingQueue.current = [];
           setStreaming(false);
           setActiveTool(null);
           setActiveThinking(false);
           setActiveFile(null);
           setError(event.payload.error);
           syncMessages(sid);
+        } else {
+          patchTab(sid, { unread: true });
+          pushToast(sid, "error");
         }
       })
     );
@@ -582,10 +806,11 @@ export function useChat() {
 
   const sendMessage = useCallback(
     async (text: string, images?: PastedImage[]) => {
-      if (!activeRef.current) return;
-      if (streaming) {
+      const sid = activeRef.current;
+      if (!sid) return;
+      const data = getSessionData(sid);
+      if (data.runtime.streaming) {
         // Queue the message — it will be sent when streaming ends
-        const data = getSessionData(activeRef.current);
         data.messages.push({
           id: nextMsgId(),
           role: "user",
@@ -594,20 +819,21 @@ export function useChat() {
           toolCalls: [],
           timestamp: Date.now(),
         });
-        syncMessages(activeRef.current);
-        pendingQueue.current.push({ text, images });
+        syncMessages(sid);
+        data.runtime.pendingQueue.push({ text, images });
         return;
       }
-      await doSend(text, images);
+      await doSend(sid, text, images);
     },
-    [streaming, doSend]
+    [doSend]
   );
 
   const stopStreaming = useCallback(async () => {
-    if (!activeRef.current) return;
+    const sid = activeRef.current;
+    if (!sid) return;
 
     // Mark any running tools as stopped so they don't show as "running" forever
-    const data = sessionDataRef.current.get(activeRef.current);
+    const data = sessionDataRef.current.get(sid);
     if (data) {
       for (const msg of data.messages) {
         if (msg.streaming) msg.streaming = false;
@@ -617,11 +843,17 @@ export function useChat() {
           }
         }
       }
-      syncMessages(activeRef.current);
+      data.runtime.streaming = false;
+      data.runtime.activeTool = null;
+      data.runtime.activeThinking = false;
+      data.runtime.activeFile = null;
+      data.runtime.pendingQueue = [];
+      syncMessages(sid);
     }
+    patchTab(sid, { streaming: false });
 
     try {
-      await stopChatCmd(activeRef.current);
+      await stopChatCmd(sid);
     } catch {
       // ignore
     }
@@ -629,28 +861,6 @@ export function useChat() {
     setActiveTool(null);
     setActiveFile(null);
     setActiveThinking(false);
-  }, []);
-
-  const newSession = useCallback(async () => {
-    const id = await createChatSession();
-    setActiveSessionId(id);
-    activeRef.current = id;
-    getSessionData(id);
-    setMessages([]);
-    setStreaming(false);
-    setError(null);
-    setActiveTool(null);
-    setActiveFile(null);
-    setLastInputTokens(0);
-    await refreshSessionList();
-  }, [refreshSessionList]);
-
-  /** Compact: reset SDK context window but keep the same UI session. */
-  const compactSession = useCallback(async () => {
-    const sid = activeRef.current;
-    if (!sid) return;
-    await compactChatSessionCmd(sid);
-    setLastInputTokens(0);
   }, []);
 
   const switchSession = useCallback(
@@ -674,12 +884,96 @@ export function useChat() {
       }
 
       setMessages([...data.messages]);
-      setStreaming(false);
-      setError(null);
-      setActiveTool(null);
+      // Restore the target's real run state (fixes the old "switching loses
+      // the streaming indicator" behavior) and clear its attention flags.
+      syncRuntime(targetId);
+      patchTab(targetId, { unread: false, error: false });
+      const info = sessionsRef.current.find((s) => s.id === targetId);
+      if (info?.model) setModel(info.model);
     },
     []
   );
+
+  /** Create a new session in a new tab. Returns the id, or null if refused
+   * (tab cap reached — feedback shown via toast). */
+  const newSession = useCallback(async (): Promise<string | null> => {
+    if (openTabsRef.current.length >= MAX_TABS) {
+      pushToast("", "info");
+      return null;
+    }
+    const id = await createChatSession();
+    setActiveSessionId(id);
+    activeRef.current = id;
+    getSessionData(id);
+    updateTabs((prev) => (prev.includes(id) ? prev : [...prev, id]));
+    setMessages([]);
+    setStreaming(false);
+    setError(null);
+    setActiveTool(null);
+    setActiveFile(null);
+    setActiveThinking(false);
+    setLastInputTokens(0);
+    await refreshSessionList();
+    return id;
+  }, [refreshSessionList]);
+
+  /** Open a session as a tab (or just activate it if already open). */
+  const openTab = useCallback(
+    async (sid: string) => {
+      // Guard against stale toast clicks on deleted sessions
+      if (!sessionsRef.current.some((s) => s.id === sid)) return;
+      if (openTabsRef.current.includes(sid)) {
+        await switchSession(sid);
+        return;
+      }
+      if (openTabsRef.current.length >= MAX_TABS) {
+        pushToast("", "info");
+        return;
+      }
+      updateTabs((prev) => (prev.includes(sid) ? prev : [...prev, sid]));
+      await switchSession(sid);
+    },
+    [switchSession]
+  );
+
+  /** Close a tab. The session is NOT deleted; a streaming session keeps
+   * running headless (its done/error toast can reopen it). */
+  const closeTab = useCallback(
+    async (sid: string) => {
+      const tabs = openTabsRef.current;
+      const idx = tabs.indexOf(sid);
+      if (idx === -1) return;
+      const next = tabs.filter((id) => id !== sid);
+      updateTabs(() => next);
+
+      if (sid !== activeRef.current) return;
+
+      // Right neighbor first, else left
+      const neighbor = next[Math.min(idx, next.length - 1)];
+      if (neighbor) {
+        await switchSession(neighbor);
+        return;
+      }
+      // Last tab closed: open the most recent other session, else create new
+      const candidate = [...sessionsRef.current].reverse().find((s) => s.id !== sid);
+      if (candidate) {
+        updateTabs(() => [candidate.id]);
+        await switchSession(candidate.id);
+      } else {
+        await newSession();
+      }
+    },
+    [switchSession, newSession]
+  );
+
+  /** Compact: reset SDK context window but keep the same UI session. */
+  const compactSession = useCallback(async () => {
+    const sid = activeRef.current;
+    if (!sid) return;
+    await compactChatSessionCmd(sid);
+    getSessionData(sid).runtime.lastInputTokens = 0;
+    setLastInputTokens(0);
+  }, []);
 
   const deleteSession = useCallback(
     async (targetId: string) => {
@@ -690,12 +984,26 @@ export function useChat() {
         // ignore
       }
       sessionDataRef.current.delete(targetId);
+      updateTabs((prev) => prev.filter((id) => id !== targetId));
+      setTabStatus((prev) => {
+        if (!(targetId in prev)) return prev;
+        const next = { ...prev };
+        delete next[targetId];
+        return next;
+      });
+      setToasts((prev) => prev.filter((t) => t.sessionId !== targetId));
 
-      // If deleting active session, switch to another or create new
+      // If deleting active session, switch to another open tab, then any
+      // remaining session, then create new
       if (targetId === activeRef.current) {
+        const remainingTab = openTabsRef.current.find((id) => id !== targetId);
         const remaining = sessions.filter((s) => s.id !== targetId);
-        if (remaining.length > 0) {
-          switchSession(remaining[0].id);
+        if (remainingTab) {
+          await switchSession(remainingTab);
+        } else if (remaining.length > 0) {
+          const last = remaining[remaining.length - 1];
+          updateTabs((prev) => (prev.includes(last.id) ? prev : [...prev, last.id]));
+          await switchSession(last.id);
         } else {
           await newSession();
         }
@@ -723,15 +1031,19 @@ export function useChat() {
     return getSessionData(activeRef.current).usage;
   }, []);
 
-  /** Change the active model */
+  /** Change the ACTIVE session's model (per-tab). Other tabs keep theirs;
+   * new sessions inherit the last choice (backend updates the default). */
   const changeModel = useCallback(async (newModel: string) => {
+    const sid = activeRef.current;
+    if (!sid) return;
     try {
-      await setChatModelCmd(newModel);
+      await setChatSessionModel(sid, newModel);
       setModel(newModel);
+      await refreshSessionList();
     } catch {
       // ignore
     }
-  }, []);
+  }, [refreshSessionList]);
 
   /** Clear frontend messages for the active session (backend keeps full context) */
   const clearMessages = useCallback(() => {
@@ -776,6 +1088,14 @@ export function useChat() {
     renameSession,
     newSession,
     compactSession,
+
+    // Chat workspace (tabs + toasts)
+    tabs: openTabs,
+    tabStatus,
+    openTab,
+    closeTab,
+    toasts,
+    dismissToast,
 
     // Actions
     sendMessage,

@@ -107,9 +107,18 @@ export function Sidebar({
 
       {/* Footer */}
       <div className={`${collapsed ? "p-2" : "p-4"} border-t border-jupiter-border relative`}>
-        {/* System controls popover */}
+        {/* System controls popover. With the sidebar collapsed (64px rail) the
+            in-flow anchoring would squeeze it to ~32px and the rail's
+            overflow-x-hidden would clip any overflow — so it becomes a fixed
+            flyout next to the rail instead. */}
         {showSystem && (
-          <div className="absolute left-4 right-4 bottom-[calc(100%-0.5rem)] mb-2 rounded-xl bg-jupiter-elevated border border-jupiter-border card-shadow p-3 space-y-3 z-50">
+          <div
+            className={`${
+              collapsed
+                ? "fixed left-[72px] bottom-4 w-60"
+                : "absolute left-4 right-4 bottom-[calc(100%-0.5rem)] mb-2"
+            } rounded-xl bg-jupiter-elevated border border-jupiter-border card-shadow p-3 space-y-3 z-50`}
+          >
             <div className="flex gap-1.5">
               <button
                 onClick={handleStartAll}

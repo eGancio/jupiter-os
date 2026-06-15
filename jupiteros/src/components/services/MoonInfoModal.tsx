@@ -2,7 +2,7 @@
 // Copyright (C) 2026 Edoardo Mancinelli
 
 import { useEffect, useState } from "react";
-import { getMoonInfo, getMoonColor, getMoonIcon } from "../../lib/moonInfo";
+import { getMoonInfo, getMoonColor, getMoonIcon, getMoonLabel } from "../../lib/moonInfo";
 import { useT } from "../../i18n";
 
 interface Props {
@@ -52,7 +52,7 @@ export function MoonInfoModal({ moonName, running, onClose }: Props) {
                 {getMoonIcon(moonName)}
               </span>
               <h2 className="text-sm font-bold text-jupiter-text font-display">
-                {info?.displayName ?? moonName}
+                {getMoonLabel(moonName, t)}
               </h2>
               <span
                 className={`w-2 h-2 rounded-full flex-shrink-0 ${
@@ -108,6 +108,8 @@ export function MoonInfoModal({ moonName, running, onClose }: Props) {
                 </span>
                 <span className="text-jupiter-dim/30">·</span>
                 <span className="text-white">{info.location}</span>
+                <span className="text-jupiter-dim/30">·</span>
+                <span className="font-mono text-jupiter-dim">{moonName}</span>
               </div>
 
               <div className="border-t border-jupiter-border pt-3">

@@ -67,7 +67,7 @@ export function ServiceDetail({ service, onRefresh }: Props) {
     <div className="flex flex-col h-full p-3 min-h-0">
       {/* Header */}
       <div className="flex items-center gap-2 mb-2">
-        <h2 className="text-sm font-extrabold text-jupiter-text">{getMoonLabel(service.name)}</h2>
+        <h2 className="text-sm font-extrabold text-jupiter-text">{getMoonLabel(service.name, t)}</h2>
         <span className="text-[10px] text-jupiter-dim uppercase tracking-wider px-1.5 py-0.5 rounded-md bg-jupiter-elevated">
           {kindLabel}
         </span>

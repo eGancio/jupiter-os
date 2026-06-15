@@ -3,6 +3,7 @@
 
 import { useEffect, useState } from "react";
 import { useT } from "../../i18n";
+import { getMoonLabel } from "../../lib/moonInfo";
 import type { ToolCallInfo } from "../../types";
 
 interface Props {
@@ -186,7 +187,7 @@ export function ToolTimeline({ toolCalls, onPreviewChart }: Props) {
           <li key={idx} className="tool-timeline-group">
             <span className="tool-timeline-item">
               <span className="tool-timeline-dot" data-status={g.status} />
-              <span className={`tool-badge ${serverBadgeClass(g.server)}`}>{g.server}</span>
+              <span className={`tool-badge ${serverBadgeClass(g.server)}`}>{getMoonLabel(g.server, t)}</span>
               <span className="tool-name">{g.bareName}</span>
               {desc && <span className="tool-desc">{desc}</span>}
               {count > 1 && <span className="tool-count">×{count}</span>}

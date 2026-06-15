@@ -40,7 +40,7 @@ function MoonRow({
     return (
       <button
         onClick={() => onSelect(svc.name)}
-        title={getMoonLabel(svc.name)}
+        title={getMoonLabel(svc.name, t)}
         className={`group relative w-full flex items-center justify-center py-2 rounded-lg transition-colors ${
           selected
             ? "bg-jupiter-orange/10 text-jupiter-primary"
@@ -69,7 +69,7 @@ function MoonRow({
       <span className="material-symbols-outlined text-[20px] flex-shrink-0">
         {getMoonIcon(svc.name)}
       </span>
-      <span className="flex-1 truncate whitespace-nowrap text-[13px]">{getMoonLabel(svc.name)}</span>
+      <span className="flex-1 truncate whitespace-nowrap text-[13px]">{getMoonLabel(svc.name, t)}</span>
       <span className="ml-auto flex items-center gap-2 flex-shrink-0">
         {removable && (
           <span

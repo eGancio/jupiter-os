@@ -2,6 +2,7 @@
 // Copyright (C) 2026 Edoardo Mancinelli
 
 import { useState, useRef, useCallback, useMemo } from "react";
+import { readImage } from "@tauri-apps/plugin-clipboard-manager";
 import type { PastedImage } from "../../types";
 import { getCompletions, type SlashCommand } from "../../lib/commands";
 import { useT } from "../../i18n";
@@ -128,20 +129,63 @@ export function InputBar({ onSend, onStop, onCommand, disabled: _disabled, strea
     reader.readAsDataURL(file);
   }, []);
 
+  const addImageFromDataUrl = useCallback((dataUrl: string, name: string) => {
+    setImages((prev) => [
+      ...prev,
+      { id: `img-${Date.now()}-${Math.random()}`, dataUrl, name },
+    ]);
+  }, []);
+
+  // Read an image off the system clipboard via Tauri and convert the raw RGBA
+  // to a PNG data URL. WebKitGTK (Tauri/Linux) does NOT expose pasted images in
+  // the web `clipboardData`, so the standard paste path silently finds nothing —
+  // this is the only reliable way to support Ctrl+V of an image on Linux.
+  const tryPasteFromTauri = useCallback(async () => {
+    try {
+      const image = await readImage();
+      const rgba = await image.rgba();
+      const { width, height } = await image.size();
+      if (!width || !height) return false;
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return false;
+      ctx.putImageData(
+        new ImageData(new Uint8ClampedArray(rgba), width, height),
+        0,
+        0,
+      );
+      addImageFromDataUrl(canvas.toDataURL("image/png"), `pasted-${Date.now()}.png`);
+      return true;
+    } catch {
+      // Clipboard holds no image (e.g. a text paste) — nothing to do.
+      return false;
+    }
+  }, [addImageFromDataUrl]);
+
   const handlePaste = useCallback(
     (e: React.ClipboardEvent) => {
       const items = e.clipboardData?.items;
-      if (!items) return;
-      for (const item of items) {
-        if (item.type.startsWith("image/")) {
-          e.preventDefault();
-          const file = item.getAsFile();
-          if (file) addImageFromFile(file);
-          return;
+      // Index-based: on WebKitGTK (Tauri/Linux) DataTransferItemList is not
+      // iterable with for...of, so a for-of loop throws and the paste is lost.
+      if (items) {
+        for (let i = 0; i < items.length; i++) {
+          const item = items[i];
+          if (item.type.startsWith("image/")) {
+            e.preventDefault();
+            const file = item.getAsFile();
+            if (file) addImageFromFile(file);
+            return;
+          }
         }
       }
+      // No image in the web clipboard (the WebKitGTK case): fall back to reading
+      // the system clipboard through Tauri. Fire-and-forget — if it finds only
+      // text, the default text paste already happened, which is what we want.
+      void tryPasteFromTauri();
     },
-    [addImageFromFile]
+    [addImageFromFile, tryPasteFromTauri]
   );
 
   const handleDrop = useCallback(
@@ -149,7 +193,9 @@ export function InputBar({ onSend, onStop, onCommand, disabled: _disabled, strea
       e.preventDefault();
       const files = e.dataTransfer?.files;
       if (!files) return;
-      for (const file of files) {
+      // Index-based: FileList isn't reliably iterable on WebKitGTK either.
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
         if (file.type.startsWith("image/")) {
           addImageFromFile(file);
         }
@@ -170,8 +216,8 @@ export function InputBar({ onSend, onStop, onCommand, disabled: _disabled, strea
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const files = e.target.files;
       if (!files) return;
-      for (const file of files) {
-        addImageFromFile(file);
+      for (let i = 0; i < files.length; i++) {
+        addImageFromFile(files[i]);
       }
       e.target.value = "";
     },

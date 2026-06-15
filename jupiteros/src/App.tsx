@@ -14,6 +14,8 @@ import { useChartPanel } from "./hooks/useChartPanel";
 import { MoonInfoModal } from "./components/services/MoonInfoModal";
 import { AddMoonModal } from "./components/services/AddMoonModal";
 import { EngineSettings } from "./components/settings/EngineSettings";
+import { Toasts } from "./components/ui/Toasts";
+import { getMoonLabel } from "./lib/moonInfo";
 import { removeMoon } from "./lib/tauri";
 import { useT } from "./i18n";
 
@@ -47,7 +49,7 @@ function App() {
   })();
 
   const handleRemoveMoon = async (name: string) => {
-    if (!confirm(t("app.removeMoonConfirm", { name }))) return;
+    if (!confirm(t("app.removeMoonConfirm", { name: getMoonLabel(name, t) }))) return;
     await removeMoon(name);
     refresh();
     if (selectedMoon === name) setSelectedMoon(null);
@@ -73,7 +75,7 @@ function App() {
         onRemoveMoon={handleRemoveMoon}
         chatSessions={chat.sessions}
         activeSessionId={chat.sessionId}
-        onSelectSession={chat.switchSession}
+        onSelectSession={chat.openTab}
         onNewSession={chat.newSession}
         onDeleteSession={chat.deleteSession}
         onRenameSession={chat.renameSession}
@@ -129,6 +131,11 @@ function App() {
           onClose={() => setShowEngineSettings(false)}
         />
       )}
+      <Toasts
+        toasts={chat.toasts}
+        onDismiss={chat.dismissToast}
+        onActivate={chat.openTab}
+      />
     </div>
   );
 }

@@ -11,6 +11,7 @@ mod credentials;
 mod emails;
 mod europa_credentials;
 mod metis;
+mod qdrant;
 mod services;
 mod state;
 mod thebe;
@@ -30,6 +31,7 @@ struct StatusChanged {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_clipboard_manager::init())
         .manage(AppState::new())
         .manage(ChatState::new())
         .manage(europa_credentials::TelegramAuth::default())
@@ -56,6 +58,7 @@ pub fn run() {
             chat_commands::get_chat_messages,
             chat_commands::list_chat_sessions,
             chat_commands::set_chat_model,
+            chat_commands::set_chat_session_model,
             chat_commands::set_chat_permission_mode,
             chat_commands::delete_chat_session,
             chat_commands::compact_chat_session,
@@ -96,6 +99,10 @@ pub fn run() {
         .setup(|app| {
             let handle = app.handle().clone();
 
+            // Host-owned Qdrant: up BEFORE any Moon, so they all connect to
+            // the same instance/storage instead of racing to spawn their own.
+            qdrant::ensure_running();
+
             // Auto-start daemons
             let state = app.state::<AppState>();
             state.autostart_daemons(handle.clone());
@@ -132,6 +139,7 @@ pub fn run() {
             if let tauri::RunEvent::Exit = event {
                 let state = app_handle.state::<AppState>();
                 state.stop_all();
+                qdrant::shutdown();
 
                 // Save sessions and stop the sidecar on exit
                 let chat_state = app_handle.state::<ChatState>();

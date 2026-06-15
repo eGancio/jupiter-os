@@ -31,6 +31,40 @@ function toSdkPermissionMode(_mode) {
   return "bypassPermissions";
 }
 
+// Sniff the image MIME type from the first bytes of a base64 string. The GUI
+// strips the `data:<mime>;base64,` prefix before sending, so the media_type
+// the Anthropic API requires is no longer self-described — recover it from the
+// magic bytes. Covers every format the clipboard/file picker produce; defaults
+// to PNG (the screenshot format) when unrecognized.
+function sniffImageMediaType(base64) {
+  if (base64.startsWith("/9j/")) return "image/jpeg";
+  if (base64.startsWith("iVBORw0KGgo")) return "image/png";
+  if (base64.startsWith("R0lGOD")) return "image/gif";
+  if (base64.startsWith("UklGR")) return "image/webp"; // RIFF container
+  if (base64.startsWith("Qk")) return "image/bmp";
+  return "image/png";
+}
+
+// Build the SDK streaming-input prompt: one user message whose content carries
+// the text plus an image block per pasted image. Yielding a single message and
+// returning closes the input stream, so the query runs exactly one turn and
+// terminates normally (same lifecycle as the string-prompt path).
+async function* buildImagePrompt(text, images) {
+  const content = [];
+  if (text) content.push({ type: "text", text });
+  for (const data of images) {
+    content.push({
+      type: "image",
+      source: { type: "base64", media_type: sniffImageMediaType(data), data },
+    });
+  }
+  yield {
+    type: "user",
+    parent_tool_use_id: null,
+    message: { role: "user", content },
+  };
+}
+
 export class ClaudeAgentEngine {
   constructor(cfg = {}) {
     // Per-session SDK state (formerly the sessions Map entry fields).
@@ -54,7 +88,7 @@ export class ClaudeAgentEngine {
    * emits). Errors propagate to the transport; the transport decides done/error.
    */
   async *run(prompt, options) {
-    const { session_id, model, cwd, mcpConfigPath, permissionMode } = options;
+    const { session_id, model, cwd, mcpConfigPath, permissionMode, images } = options;
 
     const mcpServers = mcpConfigPath ? loadMcpServers(mcpConfigPath) : {};
 
@@ -86,15 +120,17 @@ export class ClaudeAgentEngine {
       queryOptions.resume = this.sdkSessionId;
     }
 
-    // NOTE: images are accepted by the transport but, as in the V1 sidecar, the
-    // prompt is sent text-only. Preserved as-is to keep behavior identical.
+    // With images, send a streaming-input prompt carrying image content blocks;
+    // without, keep the plain string prompt (byte-for-byte the prior behavior).
+    const hasImages = Array.isArray(images) && images.length > 0;
+    const promptInput = hasImages ? buildImagePrompt(prompt, images) : prompt;
 
     this.aborted = false;
     process.stderr.write(
-      `[SIDECAR] query() session=${session_id} resume=${this.sdkSessionId || "new"} prompt=${String(prompt).slice(0, 80)}\n`,
+      `[SIDECAR] query() session=${session_id} resume=${this.sdkSessionId || "new"} images=${hasImages ? images.length : 0} prompt=${String(prompt).slice(0, 80)}\n`,
     );
 
-    const q = query({ prompt, options: queryOptions });
+    const q = query({ prompt: promptInput, options: queryOptions });
     this.queryInstance = q;
 
     try {

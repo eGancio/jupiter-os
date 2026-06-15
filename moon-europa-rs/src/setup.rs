@@ -129,10 +129,18 @@ pub async fn ensure_qdrant(qdrant_url: &str, data_dir: &Path) -> anyhow::Result<
     // so they MUST agree on one storage directory — otherwise whichever Moon
     // wins the startup race after a reboot picks its own (possibly empty)
     // storage and the others see a phantom "data loss". QDRANT_STORAGE_DIR
-    // pins that shared location; without it we fall back to the per-Moon dir.
+    // pins that shared location; without it we prefer the canonical shared
+    // dir (Moon Io's, like the BGE-M3 model) and only then our own dir.
     let storage_root = std::env::var("QDRANT_STORAGE_DIR")
         .map(std::path::PathBuf::from)
-        .unwrap_or_else(|_| qdrant_dir.clone());
+        .unwrap_or_else(|_| {
+            let shared = Path::new("../moon-io-rs/data/qdrant");
+            if shared.is_dir() {
+                shared.to_path_buf()
+            } else {
+                qdrant_dir.clone()
+            }
+        });
     let qdrant_storage = storage_root.join("storage");
     let qdrant_snapshots = storage_root.join("snapshots");
 

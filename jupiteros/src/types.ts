@@ -85,6 +85,24 @@ export interface ChatSessionInfo {
   id: string;
   title: string;
   message_count: number;
+  model: string;
+  engine: string;
+}
+
+// ── Chat workspace (tabs) ─────────────────────────────────────
+
+/** Volatile per-tab status driving the tab-strip indicators. */
+export interface TabStatus {
+  streaming: boolean;
+  unread: boolean;
+  error: boolean;
+}
+
+export interface ChatToast {
+  id: number;
+  sessionId: string;
+  kind: "done" | "error" | "info";
+  title: string;
 }
 
 // Backend ChatMsg (from Rust)

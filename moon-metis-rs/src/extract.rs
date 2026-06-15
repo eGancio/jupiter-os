@@ -72,8 +72,29 @@ pub fn extract(path: &Path) -> Result<Extraction> {
 }
 
 fn extract_pdf(path: &Path) -> Result<Extraction> {
-    let pages_text = pdf_extract::extract_text_by_pages(path)
-        .map_err(|e| anyhow!("Estrazione PDF fallita: {e}"))?;
+    // pdf-extract panics (instead of returning Err) on certain malformed PDFs
+    // (corrupt deflate streams, broken font tables). A panic here would kill
+    // the whole ingest run, so contain it; on failure fall back to poppler's
+    // `pdftotext` (much more tolerant) before giving up on the file.
+    let parsed = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        pdf_extract::extract_text_by_pages(path)
+    }));
+
+    let pages_text = match parsed {
+        Ok(Ok(pages)) => pages,
+        Ok(Err(e)) => match extract_pdf_via_pdftotext(path) {
+            Ok(pages) => pages,
+            Err(_) => return Err(anyhow!("Estrazione PDF fallita: {e}")),
+        },
+        Err(_) => extract_pdf_via_pdftotext(path).map_err(|_| {
+            anyhow!(
+                "PDF malformato: il parser è andato in crash ({}) e pdftotext \
+                 non è disponibile o ha fallito. Prova a riparare il file \
+                 (es. `gs -o riparato.pdf -sDEVICE=pdfwrite originale.pdf`).",
+                path.display()
+            )
+        })?,
+    };
 
     let pages: Vec<Page> = pages_text
         .into_iter()
@@ -91,6 +112,29 @@ fn extract_pdf(path: &Path) -> Result<Extraction> {
         is_scanned,
         pages,
     })
+}
+
+/// Fallback extraction via poppler's `pdftotext` (if installed): one string
+/// per page, split on the form feeds pdftotext emits between pages.
+fn extract_pdf_via_pdftotext(path: &Path) -> Result<Vec<String>> {
+    let out = std::process::Command::new("pdftotext")
+        .arg("-enc")
+        .arg("UTF-8")
+        .arg(path)
+        .arg("-")
+        .output()
+        .map_err(|e| anyhow!("pdftotext non eseguibile: {e}"))?;
+    if !out.status.success() {
+        return Err(anyhow!(
+            "pdftotext fallito: {}",
+            String::from_utf8_lossy(&out.stderr)
+        ));
+    }
+    let text = String::from_utf8_lossy(&out.stdout).to_string();
+    if text.trim().is_empty() {
+        return Err(anyhow!("pdftotext non ha estratto testo"));
+    }
+    Ok(text.split('\u{c}').map(|p| p.to_string()).collect())
 }
 
 /// `file_utils::extract_text` prepends a two-line header

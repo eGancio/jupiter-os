@@ -33,8 +33,15 @@ export const it: Record<string, string> = {
   "moonlist.info": "Info",
 
   // ── chat area / tab bar ──
-  "chat.tab": "Chat",
   "chat.newChat": "Nuova chat",
+
+  // ── chat workspace (tab + toast) ──
+  "tabs.close": "Chiudi scheda",
+  "tabs.new": "Nuova chat",
+  "tabs.limit": "Massimo {{max}} chat aperte — chiudi prima una scheda",
+  "toast.done": "\"{{title}}\" ha terminato",
+  "toast.error": "\"{{title}}\" è andata in errore",
+  "toast.dismiss": "Chiudi",
   "chat.zoomOut": "Riduci zoom (Ctrl+-)",
   "chat.zoomReset": "Reimposta zoom (Ctrl+0)",
   "chat.zoomIn": "Aumenta zoom (Ctrl++)",
@@ -247,6 +254,17 @@ export const it: Record<string, string> = {
   "metis.openFile": "Apri: {{path}}",
   "metis.revealFile": "Mostra nel file manager",
   "metis.removeDoc": "Rimuovi dalla knowledge base",
+
+  // ── Moon etichette function-first (lib/moonInfo.ts) ──
+  "moon.io.fn": "Email",
+  "moon.europa.fn": "Chat",
+  "moon.amalthea.fn": "Grafici",
+  "moon.callisto.fn": "Trascrizioni",
+  "moon.metis.fn": "Conoscenza",
+  "moon.himalia.fn": "Web",
+  "moon.elara.fn": "Notizie",
+  "moon.thebe.fn": "Brand",
+  "moon.gtd.fn": "Attività",
 
   // ── Moon metadata (lib/moonInfo.ts) ──
   "moon.io.category": "Email e Calendario",

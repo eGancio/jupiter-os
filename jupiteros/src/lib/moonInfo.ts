@@ -126,25 +126,30 @@ const MOON_INFO: Record<string, MoonInfo> = {
   },
 };
 
-const MOON_COLORS: Record<string, string> = {
-  io: "#f59e0b",
-  europa: "#3b82f6",
-  amalthea: "#8b5cf6",
-  metis: "#06b6d4",
-  himalia: "#10b981",
-  elara: "#ec4899",
-};
+/**
+ * Function-first display layer (single source of truth for the UI).
+ * The lunar codename stays everywhere in the backend (MCP servers, .mcp.json,
+ * skills, ports); the UI shows the Moon by its FUNCTION with a functional icon.
+ *   - fnKey: i18n key for the short function label ("Email", "Chat", ...)
+ *   - icon:  Material Symbols glyph that says what the Moon does
+ *   - color: brand color used for the icon/badge
+ */
+interface MoonDisplay {
+  fnKey: string;
+  icon: string;
+  color: string;
+}
 
-/** Material Symbols moon-phase glyph per moon (matches the approved mockup). */
-const MOON_ICONS: Record<string, string> = {
-  io: "brightness_2",
-  europa: "brightness_4",
-  amalthea: "brightness_high",
-  ganymede: "brightness_5",
-  callisto: "brightness_6",
-  metis: "brightness_7",
-  himalia: "brightness_3",
-  elara: "brightness_1",
+const MOON_DISPLAY: Record<string, MoonDisplay> = {
+  io: { fnKey: "moon.io.fn", icon: "mail", color: "#f59e0b" },
+  europa: { fnKey: "moon.europa.fn", icon: "forum", color: "#3b82f6" },
+  amalthea: { fnKey: "moon.amalthea.fn", icon: "bar_chart", color: "#8b5cf6" },
+  callisto: { fnKey: "moon.callisto.fn", icon: "subtitles", color: "#14b8a6" },
+  metis: { fnKey: "moon.metis.fn", icon: "menu_book", color: "#06b6d4" },
+  himalia: { fnKey: "moon.himalia.fn", icon: "travel_explore", color: "#10b981" },
+  elara: { fnKey: "moon.elara.fn", icon: "newspaper", color: "#ec4899" },
+  thebe: { fnKey: "moon.thebe.fn", icon: "palette", color: "#fb7185" },
+  gtd: { fnKey: "moon.gtd.fn", icon: "checklist", color: "#22c55e" },
 };
 
 export function getMoonInfo(moonName: string): MoonInfo | null {
@@ -152,15 +157,19 @@ export function getMoonInfo(moonName: string): MoonInfo | null {
 }
 
 export function getMoonColor(moonName: string): string {
-  return MOON_COLORS[moonName.toLowerCase()] ?? "#f97316";
+  return MOON_DISPLAY[moonName.toLowerCase()]?.color ?? "#f97316";
 }
 
-/** Moon-phase Material Symbols icon name; falls back to a generic moon. */
+/** Functional Material Symbols icon name; falls back to a generic moon for
+ * user-added Moons not in the display map. */
 export function getMoonIcon(moonName: string): string {
-  return MOON_ICONS[moonName.toLowerCase()] ?? "nightlight";
+  return MOON_DISPLAY[moonName.toLowerCase()]?.icon ?? "nightlight";
 }
 
-/** Capitalized display label for the sidebar (e.g. "io" → "Io"). */
-export function getMoonLabel(moonName: string): string {
+/** Function-first display label (e.g. "io" → "Email"). Falls back to the
+ * capitalized codename for user-added Moons not in the display map. */
+export function getMoonLabel(moonName: string, t: (key: string) => string): string {
+  const entry = MOON_DISPLAY[moonName.toLowerCase()];
+  if (entry) return t(entry.fnKey);
   return moonName.charAt(0).toUpperCase() + moonName.slice(1);
 }
