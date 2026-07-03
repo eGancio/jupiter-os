@@ -51,6 +51,22 @@ incremental = true
 opt-level = 1
 debug = false
 
+# I crate `rten*` (runtime OCR di Moon Metis) usano SIMD/intrinsics pesanti che
+# fanno crashare (ICE) il backend Cranelift. Li compiliamo con LLVM: il resto del
+# workspace resta su Cranelift (build veloci).
+[profile.dev.package.rten]
+codegen-backend = "llvm"
+[profile.dev.package.rten-gemm]
+codegen-backend = "llvm"
+[profile.dev.package.rten-simd]
+codegen-backend = "llvm"
+[profile.dev.package.rten-vecmath]
+codegen-backend = "llvm"
+[profile.dev.package.rten-tensor]
+codegen-backend = "llvm"
+[profile.dev.package.rten-base]
+codegen-backend = "llvm"
+
 # Release: ottimizzato per produzione
 [profile.release]
 opt-level = 3

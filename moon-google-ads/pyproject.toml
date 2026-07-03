@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=75.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "moon-google-ads"
+version = "0.1.0"
+description = "Moon Google Ads — Keyword Planner + GAQL reporting MCP server for JupiterOS"
+license = "AGPL-3.0-or-later"
+authors = [{ name = "Edoardo Mancinelli", email = "e.mancinelli@brunelleschi.ai" }]
+requires-python = ">=3.10"
+dependencies = [
+    "mcp[cli]>=1.2.0",
+    "google-ads>=25.0.0",
+    "python-dotenv>=1.0.0",
+]
+
+[project.urls]
+Repository = "https://github.com/eGancio/jupiter-os"
+
+[project.scripts]
+moon-google-ads = "moon_google_ads.server:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

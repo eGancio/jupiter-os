@@ -4,6 +4,7 @@
 import { useEffect, useState } from "react";
 import type { useChat } from "../../hooks/useChat";
 import { getChatEngine, setChatEngine } from "../../lib/tauri";
+import { ENGINE_MODELS, modelDisplayLabel } from "../../lib/models";
 
 interface Props {
   chat: ReturnType<typeof useChat>;
@@ -21,14 +22,18 @@ interface EngineDef {
 // Claude + local Ollama are wired. Gemini is shown disabled so the structure
 // is visible. The engine binds at session creation, so switching engine starts
 // a new chat (see handleSelectEngine). Ollama Phase A is chat-only (no Moons).
+// Model lists live in src/lib/models.ts (single source, shared with the in-chat
+// ModelDropdown). qwen3 30B-A3B instruct (MoE, 3B attivi) è il miglior locale su
+// CPU; la variante IBRIDA (qwen3:30b) è esclusa di proposito (thinking inusabile
+// su CPU).
 const ENGINES: EngineDef[] = [
-  { id: "claude", name: "Claude (Anthropic)", models: ["sonnet", "haiku", "opus", "claude-fable-5"], available: true },
-  // qwen3 30B-A3B instruct (MoE, 3B attivi): il miglior locale su CPU — tool
-  // choice affidabile a ~2 min/turno. La variante IBRIDA (qwen3:30b) è esclusa
-  // di proposito: il thinking (~1.5k token/turno) la rende inusabile su CPU.
-  { id: "ollama", name: "Ollama (local)", models: ["qwen3:30b-a3b-instruct-2507-q4_K_M", "qwen2.5:7b", "qwen2.5:3b"], available: true },
-  { id: "gemini", name: "Gemini (Google)", models: ["gemini-2.5-flash", "gemini-flash-latest", "gemini-2.5-pro"], available: true },
-  { id: "groq", name: "Groq (free, fast)", models: ["llama-3.3-70b-versatile", "openai/gpt-oss-120b", "llama-3.1-8b-instant"], available: true },
+  { id: "claude", name: "Claude (Anthropic)", models: ENGINE_MODELS.claude, available: true },
+  { id: "ollama", name: "Ollama (local)", models: ENGINE_MODELS.ollama, available: true },
+  { id: "gemini", name: "Gemini (Google)", models: ENGINE_MODELS.gemini, available: true },
+  { id: "groq", name: "Groq (free, fast)", models: ENGINE_MODELS.groq, available: true },
+  { id: "dwarfstar", name: "DwarfStar (local DeepSeek V4)", models: ENGINE_MODELS.dwarfstar, available: true },
+  { id: "localops", name: "LocalOps (llama.cpp, local)", models: ENGINE_MODELS.localops, available: true },
+  { id: "openrouter", name: "OpenRouter (DeepSeek V4 API)", models: ENGINE_MODELS.openrouter, available: true },
 ];
 
 export function EngineSettings({ chat, onClose }: Props) {
@@ -60,7 +65,13 @@ export function EngineSettings({ chat, onClose }: Props) {
     try {
       await setChatEngine(id);
       const newId = await chat.newSession();
-      if (!newId) return; // tab cap reached — refused with feedback
+      if (!newId) {
+        // Tab cap: nessuna sessione creata — rollback dell'engine globale,
+        // altrimenti resta puntato al nuovo engine mentre la sessione attiva
+        // (e le prossime "NEW CHAT") sono ancora su quello vecchio.
+        await setChatEngine(engine);
+        return;
+      }
       if (nextModel && nextModel !== model) await chat.changeModel(nextModel);
       setEngine(id);
     } catch {
@@ -148,7 +159,7 @@ export function EngineSettings({ chat, onClose }: Props) {
                           : "border-jupiter-orange/15 bg-jupiter-surface/40 text-jupiter-muted hover:bg-jupiter-elevated"
                       }`}
                     >
-                      {m}
+                      {modelDisplayLabel(active.id, m, sel ? chat.resolvedModel : null)}
                     </button>
                   );
                 })}

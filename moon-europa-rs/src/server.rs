@@ -174,7 +174,7 @@ impl EuropaServer {
 
         let headers = self
             .store
-            .list_messages(limit, contact_ref, offset, None)
+            .list_messages(limit, contact_ref, offset, None, p.channel.as_deref())
             .await
             .map_err(|e| format!("List messages: {e}"))?;
 
@@ -220,7 +220,7 @@ impl EuropaServer {
 
         let headers = self
             .store
-            .list_messages(50, contact_ref, 0, None)
+            .list_messages(50, contact_ref, 0, None, p.channel.as_deref())
             .await
             .map_err(|e| format!("Read messages: {e}"))?;
 
@@ -264,7 +264,7 @@ impl EuropaServer {
 
         let results = self
             .store
-            .search(&p.query, None, limit, None)
+            .search(&p.query, None, limit, None, p.channel.as_deref())
             .await
             .map_err(|e| format!("Search: {e}"))?;
 
@@ -309,7 +309,7 @@ impl EuropaServer {
 
         let results = self
             .store
-            .search_by_contact(&p.contact, limit, None)
+            .search_by_contact(&p.contact, limit, None, p.channel.as_deref())
             .await
             .map_err(|e| format!("Search by contact: {e}"))?;
 

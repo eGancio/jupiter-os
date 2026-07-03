@@ -1,0 +1,6 @@
+{
+  "name": "localops-eval",
+  "private": true,
+  "type": "module",
+  "description": "Harness eval Fase 0 — tool calling di un LLM locale (llama.cpp) sui tool MCP reali dei Moon. Nessuna dipendenza propria: riusa engine.mjs e l'SDK MCP del sidecar."
+}

@@ -97,16 +97,23 @@ pub async fn ingest_file(
         return FileResult::simple(&source_path, "skipped", "Invariato dall'ultimo ingest");
     }
 
-    let extraction = match extract::extract(path) {
-        Ok(x) => x,
-        Err(e) => return FileResult::simple(&source_path, "error", &e.to_string()),
+    // Extraction is CPU-bound and, for scanned PDFs, may run OCR over many pages
+    // (seconds each) — keep it off the async runtime threads.
+    let path_buf = path.to_path_buf();
+    let extraction = match tokio::task::spawn_blocking(move || extract::extract(&path_buf)).await {
+        Ok(Ok(x)) => x,
+        Ok(Err(e)) => return FileResult::simple(&source_path, "error", &e.to_string()),
+        Err(e) => {
+            return FileResult::simple(&source_path, "error", &format!("Task estrazione: {e}"))
+        }
     };
 
-    if extraction.is_scanned {
+    // Scanned PDF that OCR couldn't recover (OCR off, failed, or empty result).
+    if extraction.is_scanned && !extraction.ocr_applied {
         return FileResult::simple(
             &source_path,
             "scanned",
-            "Documento immagine (PDF scansionato): OCR in arrivo (Stadio 1.5), non indicizzato.",
+            "Documento immagine (PDF scansionato): OCR non disponibile o senza testo, non indicizzato.",
         );
     }
 

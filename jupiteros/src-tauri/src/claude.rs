@@ -140,7 +140,7 @@ impl ChatSession {
             id,
             sdk_session_id: None,
             messages: Vec::new(),
-            model: "sonnet".to_string(),
+            model: "opus".to_string(),
             engine: "claude".to_string(),
             title: "Nuova chat".to_string(),
             created_at: now,
@@ -257,6 +257,21 @@ impl AgentSidecar {
         // Inject credentials.env so stdio MCP servers (es. ClickUp) can resolve ${VAR}
         for (k, v) in config::load_credentials_env() {
             cmd.env(k, v);
+        }
+
+        // Inject Ads API keys from the OS keyring (Google Ads / Meta Ads stdio
+        // MCP servers). Secrets stay encrypted at rest in the keyring and only
+        // reach the child process in memory; .mcp.json holds only ${VAR}
+        // placeholders that the sidecar's expandEnv resolves from these.
+        for (k, v) in crate::ads_credentials::load_ads_env_from_keyring() {
+            cmd.env(k, v);
+        }
+
+        // The official Google Ads MCP server reads creds from a google-ads.yaml
+        // file, not env vars. Generate it from the keyring into a RAM-backed
+        // tmpfs dir and point the server at it via GOOGLE_ADS_CREDENTIALS.
+        if let Some(yaml_path) = crate::ads_credentials::materialize_google_ads_yaml() {
+            cmd.env("GOOGLE_ADS_CREDENTIALS", yaml_path);
         }
 
         #[cfg(target_os = "windows")]
@@ -605,6 +620,22 @@ impl AgentSidecar {
                                 s.sdk_session_id = Some(sdk_sid.clone());
                             }
                         }
+                    }
+                    // Forward the model id RESOLVED by the SDK (e.g. "claude-opus-4-8")
+                    // so the frontend can show the real version, not just the alias.
+                    let resolved_model = json
+                        .get("model")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string();
+                    if !resolved_model.is_empty() && !sid.is_empty() {
+                        let _ = handle.emit(
+                            "claude-model-resolved",
+                            serde_json::json!({
+                                "session_id": sid,
+                                "model": resolved_model,
+                            }),
+                        );
                     }
                     // Log init info
                     if let Ok(mut log) =

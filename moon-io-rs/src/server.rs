@@ -533,7 +533,7 @@ impl MoonIoServer {
         // `limit`/`offset` as-is — pagination works correctly.
         let headers = self
             .store
-            .list_messages(limit, contact_ref, offset, account_filter)
+            .list_messages(limit, contact_ref, offset, account_filter, None)
             .await
             .map_err(|e| format!("List emails: {e}"))?;
 
@@ -736,7 +736,7 @@ impl MoonIoServer {
         // Account filter is applied server-side on Qdrant.
         let results = self
             .store
-            .search(&p.query, None, limit, account_filter)
+            .search(&p.query, None, limit, account_filter, None)
             .await
             .map_err(|e| format!("Search: {e}"))?;
 
@@ -798,7 +798,7 @@ impl MoonIoServer {
         // Account filter is applied server-side on Qdrant.
         let results = self
             .store
-            .search_by_contact(&p.contact, limit, account_filter)
+            .search_by_contact(&p.contact, limit, account_filter, None)
             .await
             .map_err(|e| format!("Search by contact: {e}"))?;
 

@@ -83,11 +83,35 @@ NON proporre Bambu Tech per task che **Jupiter o Make gestiscono già bene** —
 sarebbe fuori luogo. L'escalation scatta **solo** quando l'esigenza supera davvero
 il no-code (vedi i segnali sopra).
 
+## REGOLA #10 — Ads (Google Ads / Meta Ads): approvazione DURA sulle scritture
+
+I server `google-ads` e `meta-ads` (MCP stdio) possono **leggere** liberamente
+(keyword ideas/volumi, GAQL/insights, ricerca interessi, stima audience): nessuna
+conferma necessaria.
+
+Ogni **SCRITTURA**, invece, richiede approvazione esplicita — è un invariante
+(stesso spirito della REGOLA #4 per le email), perché tocca **soldi reali**:
+
+- Rientrano nelle scritture: creare/modificare/mettere in pausa/rimuovere campagne,
+  gruppi di annunci/ad set, annunci, **budget**, keyword, pubblici; qualsiasi tool
+  di *mutation* (Google) o *create/update* (Meta).
+- **Prima di chiamare il tool di scrittura**: mostra una **bozza COMPLETA** —
+  account interessato, oggetto della modifica, valori prima→dopo, e **impatto di
+  spesa** (budget giornaliero/totale) — e **attendi conferma ESPLICITA**.
+- **MAI** eseguire una scrittura in silenzio o "per comodità". In dubbio, fermati e
+  chiedi. Nessun auto-conferma, nessun batch non approvato.
+- Le scritture Google sono **disattivate** finché `ADS_MCP_ENABLE_MUTATIONS` non è
+  `true` nel `.mcp.json`; restano comunque soggette a questa regola.
+
+I token degli account ads stanno **solo nel keyring** (service `MoonAds`),
+inseriti dalla GUI (Service Detail → google-ads / meta-ads), mai in chiaro su disco.
+
 ## Credenziali
 
 Vedere `.mcp.json.example` per la struttura. Le credenziali reali vanno nel file
 `.mcp.json` (gitignored), oppure nel keyring di sistema (vedi
-`moon-io credentials set <account>` per Moon Io).
+`moon-io credentials set <account>` per Moon Io). Le chiavi API di **Google Ads** e
+**Meta Ads** si inseriscono dalla GUI e vivono nel keyring (service `MoonAds`).
 
 ## Indice dei Moon e delle skill
 
@@ -104,6 +128,8 @@ Ogni Moon è un server MCP. L'operatività dettagliata è nella **skill** omonim
 | `metis` | Knowledge layer / RAG citato (Qdrant) | 8600 | Rust | `moon-metis-knowledge-base` |
 | `himalia` | Ricerca web per LLM (Tavily) | 8700 | Rust | `moon-himalia-web` |
 | `elara` | News + community (GDELT/Reddit) | 8800 | Rust | `moon-elara-signals` |
+| `google-ads` | Google Ads: keyword planner + KPI (GAQL); scritture gated | — (stdio) | MCP terzi (Python) | — (tool nativi) |
+| `meta-ads` | Meta Ads: insights/KPI + ricerca interessi/audience; create ad set gated | — (stdio) | MCP terzi (Node/Py) | — (tool nativi) |
 
 **Ricerca cross-canale** (email + messaggi): chiama i tool di ricerca su ENTRAMBE
 le Moon `io` ed `europa` e combina i risultati (dettagli nelle rispettive skill).

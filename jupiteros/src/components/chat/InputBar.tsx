@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Edoardo Mancinelli
 
-import { useState, useRef, useCallback, useMemo } from "react";
+import { useState, useRef, useCallback, useMemo, type ReactNode } from "react";
 import { readImage } from "@tauri-apps/plugin-clipboard-manager";
 import type { PastedImage } from "../../types";
 import { getCompletions, type SlashCommand } from "../../lib/commands";
@@ -22,6 +22,8 @@ interface Props {
   activeTool?: string | null;
   contextPercent?: number;
   activeFile?: string | null;
+  /** Model picker rendered in the bottom-left bar (next to "Auto mode"). */
+  modelSlot?: ReactNode;
 }
 
 const PERMISSION_LABEL_KEYS: Record<PermissionMode, string> = {
@@ -30,7 +32,7 @@ const PERMISSION_LABEL_KEYS: Record<PermissionMode, string> = {
   bypass: "input.permission.bypass",
 };
 
-export function InputBar({ onSend, onStop, onCommand, disabled: _disabled, streaming, zoom = 1, permissionMode = "auto", showPermissionToggle = true, activeTool, activeFile }: Props) {
+export function InputBar({ onSend, onStop, onCommand, disabled: _disabled, streaming, zoom = 1, permissionMode = "auto", showPermissionToggle = true, activeTool, activeFile, modelSlot }: Props) {
   const { t } = useT();
   const [text, setText] = useState("");
   const [images, setImages] = useState<PastedImage[]>([]);
@@ -308,7 +310,10 @@ export function InputBar({ onSend, onStop, onCommand, disabled: _disabled, strea
         {/* Bottom bar — status left, actions right (VS Code Claude Code style) */}
         <div className="flex items-center justify-between px-3 py-1.5 border-t border-white/5">
           {/* Left — status indicators */}
-          <div className="flex items-center gap-4 text-[12px] min-w-0 overflow-hidden">
+          <div className="flex items-center gap-3 text-[12px] min-w-0 overflow-hidden">
+            {/* Model / engine picker */}
+            {modelSlot}
+
             {/* Permission mode — single real "Auto mode", Claude only */}
             {showPermissionToggle && (
               <span className="flex items-center gap-1.5 whitespace-nowrap text-white/60">

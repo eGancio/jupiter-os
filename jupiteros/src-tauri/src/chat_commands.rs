@@ -29,6 +29,13 @@ pub fn create_chat_session(state: State<'_, ChatState>) -> String {
     state.create_session()
 }
 
+/// Restart the chat sidecar so newly-saved credentials (e.g. Ads API keys) are
+/// injected into its environment. The frontend calls this after saving ads keys.
+#[tauri::command]
+pub fn restart_sidecar(state: State<'_, ChatState>) -> Result<(), String> {
+    state.restart_sidecar()
+}
+
 #[tauri::command]
 pub fn send_chat_message(
     session_id: String,

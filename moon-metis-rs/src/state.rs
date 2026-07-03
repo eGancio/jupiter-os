@@ -53,4 +53,20 @@ impl IngestState {
             .map(|d| d.content_hash == content_hash)
             .unwrap_or(false)
     }
+
+    /// Remove the entry matching this `doc_id`. The map is keyed by source path,
+    /// but each `DocState` carries its `doc_id`, so we find the key first.
+    /// Returns the removed source path, if any.
+    pub fn remove_by_doc_id(&mut self, doc_id: &str) -> Option<String> {
+        let key = self
+            .docs
+            .iter()
+            .find(|(_, d)| d.doc_id == doc_id)
+            .map(|(k, _)| k.clone());
+        if let Some(k) = key {
+            self.docs.remove(&k);
+            return Some(k);
+        }
+        None
+    }
 }

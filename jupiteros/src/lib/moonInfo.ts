@@ -150,6 +150,8 @@ const MOON_DISPLAY: Record<string, MoonDisplay> = {
   elara: { fnKey: "moon.elara.fn", icon: "newspaper", color: "#ec4899" },
   thebe: { fnKey: "moon.thebe.fn", icon: "palette", color: "#fb7185" },
   gtd: { fnKey: "moon.gtd.fn", icon: "checklist", color: "#22c55e" },
+  "google-ads": { fnKey: "moon.google-ads.fn", icon: "ads_click", color: "#4285f4" },
+  "meta-ads": { fnKey: "moon.meta-ads.fn", icon: "campaign", color: "#0866ff" },
 };
 
 export function getMoonInfo(moonName: string): MoonInfo | null {

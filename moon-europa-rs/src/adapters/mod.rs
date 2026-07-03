@@ -5,6 +5,7 @@ pub mod slack;
 pub mod teams;
 pub mod telegram;
 pub mod telegram_bot;
+pub mod whatsapp;
 
 use std::path::{Path, PathBuf};
 

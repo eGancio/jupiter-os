@@ -36,26 +36,32 @@
   }
   body { margin: 0; }
 
-  /* ── Cover / title block (first page, in content flow) ── */
+  /* ── Cover / title block (first page, in content flow) ──
+     Stacked layout: a masthead row (logo left, brand id right) ABOVE a
+     full-width title. The old side-by-side flex squeezed long titles into a
+     narrow middle column; here the title gets the whole page width. */
   .cover {
-    display: flex;
-    align-items: center;
-    gap: 16px;
     border-bottom: 2.5pt solid {{ brand.colors.primary }};
     padding-bottom: 14px;
     margin-bottom: 22px;
   }
-  .cover .logo { height: 46px; width: auto; }
-  .cover .cover-meta { flex: 1; }
+  .cover .cover-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+  .cover .logo { height: 52px; width: auto; }
   .cover h1 {
     margin: 0;
-    font-size: 21pt;
+    font-size: 27pt;
     font-weight: 700;
     color: {{ brand.colors.primary }};
-    line-height: 1.15;
+    line-height: 1.1;
   }
-  .cover .subtitle { margin: 4px 0 0; font-size: 11pt; color: {{ brand.colors.muted }}; }
-  .cover .date { margin: 6px 0 0; font-size: 9pt; color: {{ brand.colors.muted }}; }
+  .cover .subtitle { margin: 7px 0 0; font-size: 11.5pt; color: {{ brand.colors.muted }}; }
+  .cover .date { margin: 5px 0 0; font-size: 9pt; color: {{ brand.colors.muted }}; }
   .cover .brand-name {
     font-size: 10pt; font-weight: 600; color: {{ brand.colors.text }};
     text-align: right; white-space: nowrap;
@@ -110,19 +116,19 @@
     {{ brand.footer.company or brand.name }}{% if brand.footer.vat %} · P.IVA {{ brand.footer.vat }}{% endif %}{% if brand.footer.address %} · {{ brand.footer.address }}{% endif %}
   </div>
 
-  <!-- Cover / title block (first page) -->
+  <!-- Cover / title block (first page): logo+brand on top, long title below -->
   <header class="cover">
-    {% if brand._logo_uri %}<img class="logo" src="{{ brand._logo_uri }}" alt="logo">{% endif %}
-    <div class="cover-meta">
-      <h1>{{ title }}</h1>
-      {% if subtitle %}<p class="subtitle">{{ subtitle }}</p>{% endif %}
-      <p class="date">{{ date_str }}</p>
+    <div class="cover-top">
+      {% if brand._logo_uri %}<img class="logo" src="{{ brand._logo_uri }}" alt="logo">{% endif %}
+      <div class="brand-name">
+        {{ brand.name }}
+        {% if brand.tagline %}<span class="tagline">{{ brand.tagline }}</span>{% endif %}
+        {% if brand.footer.contacts %}<span class="tagline">{{ brand.footer.contacts }}</span>{% endif %}
+      </div>
     </div>
-    <div class="brand-name">
-      {{ brand.name }}
-      {% if brand.tagline %}<span class="tagline">{{ brand.tagline }}</span>{% endif %}
-      {% if brand.footer.contacts %}<span class="tagline">{{ brand.footer.contacts }}</span>{% endif %}
-    </div>
+    <h1>{{ title }}</h1>
+    {% if subtitle %}<p class="subtitle">{{ subtitle }}</p>{% endif %}
+    <p class="date">{{ date_str }}</p>
   </header>
 
   <main class="content">

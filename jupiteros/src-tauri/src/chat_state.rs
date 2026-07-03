@@ -26,7 +26,7 @@ impl ChatState {
         let saved = load_sessions_from_disk();
         Self {
             sessions: Arc::new(Mutex::new(saved)),
-            model: Arc::new(Mutex::new("sonnet".to_string())),
+            model: Arc::new(Mutex::new("opus".to_string())),
             engine: Arc::new(Mutex::new("claude".to_string())),
             permission_mode: Arc::new(Mutex::new("auto".to_string())),
             sidecar: Arc::new(Mutex::new(None)),
@@ -169,6 +169,14 @@ impl ChatState {
         // "send" we're about to retry finds its session (and resumes context).
         self.register_restored_sessions();
         Ok(())
+    }
+
+    /// Public: restart the sidecar so freshly-saved environment (e.g. Ads API
+    /// keys entered in the GUI) is picked up. Env is injected at spawn time, so
+    /// keys added while the sidecar is running need a respawn to take effect.
+    /// Sessions are re-registered and resume with their saved SDK token.
+    pub fn restart_sidecar(&self) -> Result<(), String> {
+        self.respawn_sidecar()
     }
 
     /// Create a new session and tell the sidecar about it.

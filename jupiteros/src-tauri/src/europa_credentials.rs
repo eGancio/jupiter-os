@@ -16,8 +16,12 @@
 //! reads env) and mirrored into the OS keyring (service "MoonEuropa") for parity.
 
 use std::path::PathBuf;
+use std::process::Stdio;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
+
+use tokio::io::{AsyncBufReadExt, BufReader};
+use tokio::process::Command;
 
 use grammers_client::client::{LoginToken, PasswordToken};
 use grammers_client::{Client, SignInError};
@@ -121,6 +125,44 @@ fn telegram_session_path() -> PathBuf {
     europa_data_dir().join("telegram")
 }
 
+/// Baileys session dir for WhatsApp (where the companion-device creds live).
+fn whatsapp_session_dir() -> PathBuf {
+    europa_data_dir().join("whatsapp")
+}
+
+/// True only if the Baileys `creds.json` is a USABLE companion session, not just
+/// present. A SIGKILL mid-write (or an aborted pairing) can leave a 0-byte or
+/// half-written `creds.json` that still "exists" but never links — showing it as
+/// "Sessione salvata" misleads the user into waiting instead of re-pairing. We
+/// require: present, non-empty, valid JSON, and a linked identity (`me.id`).
+/// Mirrors moon-europa's `config::whatsapp_session_valid` — and like it must NOT
+/// gate on `creds.registered`, which Baileys never sets for QR linking.
+fn whatsapp_session_valid() -> bool {
+    let creds = whatsapp_session_dir().join("creds.json");
+    match std::fs::read_to_string(&creds) {
+        Ok(s) if !s.trim().is_empty() => serde_json::from_str::<Value>(&s)
+            .ok()
+            .and_then(|v| {
+                v.get("me")
+                    .and_then(|me| me.get("id"))
+                    .and_then(|id| id.as_str())
+                    .map(|id| !id.is_empty())
+            })
+            .unwrap_or(false),
+        _ => false,
+    }
+}
+
+/// Absolute path of the WhatsApp Baileys helper script. Derived from the europa
+/// DATA_DIR (`.../moon-europa-rs/data`) whose parent is the crate root, so it
+/// matches moon-europa's own default and works regardless of where the GUI binary
+/// lives (get_base_dir points at the binary dir, NOT the repo root).
+fn whatsapp_helper_path() -> PathBuf {
+    let data = europa_data_dir();
+    let root = data.parent().map(|p| p.to_path_buf()).unwrap_or(data);
+    root.join("whatsapp-helper").join("helper.mjs")
+}
+
 /// Path of the `<channel>.connected` marker that moon-europa writes when it
 /// actually connects that channel (and removes on failure). The panel reads
 /// this to show the REAL connection state, not just "credentials saved".
@@ -213,6 +255,29 @@ pub fn europa_channels_list() -> Result<Vec<EuropaChannel>, String> {
             "Account Microsoft collegato".into()
         } else {
             "Login fatto — connessione non confermata".into()
+        },
+    });
+
+    // WhatsApp (personal, Baileys companion device)
+    let wa_valid = whatsapp_session_valid();
+    let wa_enabled = env_str(&env, "WHATSAPP_ENABLED") == "true" || wa_valid;
+    // A session dir/creds file present but NOT valid = corrupt/aborted pairing;
+    // the user must re-pair, not wait for a connection that can never happen.
+    let wa_corrupt = !wa_valid && whatsapp_session_dir().join("creds.json").exists();
+    let wa_connected = channel_connected_marker("whatsapp").exists();
+    out.push(EuropaChannel {
+        channel: "whatsapp".into(),
+        mode: "user".into(),
+        configured: wa_enabled && !wa_corrupt,
+        authorized: wa_connected,
+        detail: if wa_corrupt {
+            "Sessione non valida — rimuovi e ri-accoppia col QR".into()
+        } else if !wa_enabled {
+            "Collega il tuo WhatsApp con il QR".into()
+        } else if wa_connected {
+            "WhatsApp collegato".into()
+        } else {
+            "Sessione salvata — connessione non confermata".into()
         },
     });
 
@@ -599,6 +664,155 @@ pub async fn teams_poll_device_code(state: State<'_, TeamsAuth>) -> Result<Strin
 }
 
 // ---------------------------------------------------------------------------
+// WhatsApp — personal account via the Baileys helper (QR pairing)
+// ---------------------------------------------------------------------------
+
+#[derive(Default, Clone, Serialize)]
+pub struct WhatsappStatus {
+    /// "idle" | "waiting" (QR shown, not yet scanned) | "connected" | "error"
+    pub status: String,
+    /// Current QR string to render (rotates ~every 20s until scanned).
+    pub qr: Option<String>,
+    pub error: Option<String>,
+}
+
+struct WaPairing {
+    child: tokio::process::Child,
+    shared: Arc<Mutex<WhatsappStatus>>,
+}
+
+#[derive(Default)]
+pub struct WhatsappPairing(Mutex<Option<WaPairing>>);
+
+/// Start the WhatsApp pairing: spawn the helper in `pair` mode. The QR string
+/// is then read via `whatsapp_pairing_status`. The GUI stops `europa` first (so
+/// two processes don't open the same session), and restarts it once connected.
+#[tauri::command]
+pub async fn whatsapp_start_pairing(state: State<'_, WhatsappPairing>) -> Result<(), String> {
+    // Kill any previous pairing attempt.
+    if let Some(mut prev) = state.0.lock().unwrap().take() {
+        let _ = prev.child.start_kill();
+    }
+
+    let helper = whatsapp_helper_path();
+    if !helper.exists() {
+        return Err(format!(
+            "Helper WhatsApp non trovato in {helper:?}. Esegui `npm ci` in moon-europa-rs/whatsapp-helper."
+        ));
+    }
+    let session = whatsapp_session_dir();
+    std::fs::create_dir_all(&session).map_err(|e| format!("Create session dir: {e}"))?;
+
+    let mut child = Command::new("node")
+        .arg(&helper)
+        .arg("pair")
+        .arg("--session")
+        .arg(&session)
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
+        .map_err(|e| format!("Avvio helper (node) fallito: {e}"))?;
+
+    let stdout = child
+        .stdout
+        .take()
+        .ok_or_else(|| "helper senza stdout".to_string())?;
+
+    let shared = Arc::new(Mutex::new(WhatsappStatus {
+        status: "waiting".into(),
+        qr: None,
+        error: None,
+    }));
+    let reader_shared = Arc::clone(&shared);
+
+    // Reader task: update the shared status as the helper emits QR/connected/error.
+    tokio::spawn(async move {
+        let mut lines = BufReader::new(stdout).lines();
+        loop {
+            let line = match lines.next_line().await {
+                Ok(Some(l)) => l,
+                _ => break,
+            };
+            let line = line.trim();
+            if line.is_empty() {
+                continue;
+            }
+            let v: serde_json::Value = match serde_json::from_str(line) {
+                Ok(v) => v,
+                Err(_) => continue,
+            };
+            match v.get("type").and_then(|t| t.as_str()) {
+                Some("qr") => {
+                    if let Some(qr) = v.get("qr").and_then(|q| q.as_str()) {
+                        let mut s = reader_shared.lock().unwrap();
+                        s.status = "waiting".into();
+                        s.qr = Some(qr.to_string());
+                    }
+                }
+                Some("connected") => {
+                    let mut s = reader_shared.lock().unwrap();
+                    s.status = "connected".into();
+                    s.qr = None;
+                }
+                Some("error") => {
+                    let mut s = reader_shared.lock().unwrap();
+                    s.status = "error".into();
+                    s.error = v.get("error").and_then(|e| e.as_str()).map(|x| x.to_string());
+                }
+                _ => {}
+            }
+        }
+    });
+
+    *state.0.lock().unwrap() = Some(WaPairing { child, shared });
+    Ok(())
+}
+
+/// Poll the current pairing status (QR string / connected / error). On the first
+/// "connected" we persist the WhatsApp config so moon-europa starts the channel.
+#[tauri::command]
+pub fn whatsapp_pairing_status(state: State<'_, WhatsappPairing>) -> Result<WhatsappStatus, String> {
+    let snapshot = {
+        let guard = state.0.lock().unwrap();
+        match guard.as_ref() {
+            Some(p) => p.shared.lock().unwrap().clone(),
+            None => WhatsappStatus {
+                status: "idle".into(),
+                qr: None,
+                error: None,
+            },
+        }
+    };
+
+    if snapshot.status == "connected" {
+        // Persist config so moon-europa runs the WhatsApp channel on restart.
+        let abs_data = europa_data_dir().to_string_lossy().to_string();
+        let helper = whatsapp_helper_path().to_string_lossy().to_string();
+        set_europa_env(&[
+            ("WHATSAPP_ENABLED", "true".to_string()),
+            ("WHATSAPP_HELPER", helper),
+            ("DATA_DIR", abs_data),
+        ])?;
+        // The pair-mode helper exits on its own after connecting; drop our handle.
+        if let Some(mut p) = state.0.lock().unwrap().take() {
+            let _ = p.child.start_kill();
+        }
+    }
+
+    Ok(snapshot)
+}
+
+/// Cancel an in-progress pairing (kills the helper).
+#[tauri::command]
+pub fn whatsapp_cancel_pairing(state: State<'_, WhatsappPairing>) -> Result<(), String> {
+    if let Some(mut p) = state.0.lock().unwrap().take() {
+        let _ = p.child.start_kill();
+    }
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
 // Channel removal
 // ---------------------------------------------------------------------------
 
@@ -623,6 +837,12 @@ pub fn europa_channel_remove(channel: String) -> Result<(), String> {
             remove_europa_env(&["TEAMS_CLIENT_ID", "TEAMS_TENANT_ID", "TEAMS_REFRESH_TOKEN"])?;
             keyring_delete("teams_refresh_token");
             let _ = std::fs::remove_file(channel_connected_marker("teams"));
+        }
+        "whatsapp" => {
+            remove_europa_env(&["WHATSAPP_ENABLED"])?;
+            // Remove the Baileys session so the companion device is unlinked.
+            let _ = std::fs::remove_dir_all(whatsapp_session_dir());
+            let _ = std::fs::remove_file(channel_connected_marker("whatsapp"));
         }
         other => return Err(format!("Canale sconosciuto: {other}")),
     }

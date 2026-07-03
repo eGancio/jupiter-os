@@ -294,6 +294,42 @@ export function accountRemove(account: string): Promise<void> {
   return invoke("account_remove", { account });
 }
 
+// ── Ads integration (Google Ads / Meta Ads) ─────────────────────────────────
+// Tokens are stored in the OS keyring (service "MoonAds"), never on disk in
+// plaintext. The status call never returns secret values, only whether each is set.
+
+export interface AdsKeyStatus {
+  key: string;
+  set: boolean;
+  required: boolean;
+}
+
+export interface AdsPlatformStatus {
+  platform: string;
+  configured: boolean;
+  keys: AdsKeyStatus[];
+}
+
+export function adsCredentialsStatus(): Promise<AdsPlatformStatus[]> {
+  return invoke("ads_credentials_status");
+}
+
+export function adsCredentialsSet(
+  platform: string,
+  values: Record<string, string>
+): Promise<void> {
+  return invoke("ads_credentials_set", { platform, values });
+}
+
+export function adsCredentialsDelete(platform: string): Promise<void> {
+  return invoke("ads_credentials_delete", { platform });
+}
+
+/** Restart the chat sidecar so freshly-saved credentials are injected. */
+export function restartSidecar(): Promise<void> {
+  return invoke("restart_sidecar");
+}
+
 // ── Europa messaging channels (Telegram / Slack / Teams) ────────────────────
 
 export interface EuropaChannel {
@@ -355,6 +391,29 @@ export function teamsPollDeviceCode(): Promise<string> {
 
 export function europaChannelRemove(channel: string): Promise<void> {
   return invoke("europa_channel_remove", { channel });
+}
+
+// ── WhatsApp (personal account, Baileys companion device — QR pairing) ──────
+
+export interface WhatsappStatus {
+  /** "idle" | "waiting" | "connected" | "error" */
+  status: string;
+  /** QR string to render (rotates until scanned). */
+  qr: string | null;
+  error: string | null;
+}
+
+/** Start pairing: spawns the Baileys helper. Poll whatsappPairingStatus for the QR. */
+export function whatsappStartPairing(): Promise<void> {
+  return invoke("whatsapp_start_pairing");
+}
+
+export function whatsappPairingStatus(): Promise<WhatsappStatus> {
+  return invoke("whatsapp_pairing_status");
+}
+
+export function whatsappCancelPairing(): Promise<void> {
+  return invoke("whatsapp_cancel_pairing");
 }
 
 // ── Moon Thebe: brand kit ─────────────────────────────────────────────────────

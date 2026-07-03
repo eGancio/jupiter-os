@@ -38,6 +38,17 @@ registerEngine("gemini", (cfg) => new GeminiEngine({ ...cfg, maxToolTokens: 2000
 // ai tool del Moon pertinente.
 registerEngine("groq", (cfg) => new OpenAICompatEngine(cfg, { name: "groq", baseUrl: "https://api.groq.com/openai/v1", keyEnvs: ["GROQ_API_KEY"], maxToolTokens: 3000 }));
 registerEngine("openrouter", (cfg) => new OpenAICompatEngine(cfg, { name: "openrouter", baseUrl: "https://openrouter.ai/api/v1", keyEnvs: ["OPENROUTER_API_KEY"], maxToolTokens: 20000 }));
+// dwarfstar: server locale OpenAI-compatible di antirez/ds4 (DeepSeek V4, offline).
+// baseUrl include /v1 perché l'engine fa append di /chat/completions; nessuna auth
+// (defaultKey è un placeholder che ds4 ignora). Override host/porta via env
+// DWARFSTAR_BASE_URL. budget tool largo: modello locale ad alto contesto.
+registerEngine("dwarfstar", (cfg) => new OpenAICompatEngine(cfg, { name: "dwarfstar", baseUrl: process.env.DWARFSTAR_BASE_URL || "http://127.0.0.1:8000/v1", keyEnvs: ["DWARFSTAR_API_KEY"], defaultKey: "dsv4-local", maxToolTokens: 20000 }));
+// localops: llama-server locale (llama.cpp, CPU) con Qwen3-30B-A3B per le
+// operazioni. Il server è lanciato come daemon dal .mcp.json (porta 8080).
+// budget tool stretto come ollama: su CPU ogni token di schema è prefill;
+// l'eval Fase 0 (tools/localops-eval) mostra che la superficie ristretta è
+// ciò che rende il modello affidabile, non un limite da allargare.
+registerEngine("localops", (cfg) => new OpenAICompatEngine(cfg, { name: "localops", baseUrl: process.env.LOCALOPS_BASE_URL || "http://127.0.0.1:8080/v1", keyEnvs: ["LOCALOPS_API_KEY"], defaultKey: "localops-local", maxToolTokens: 2500 }));
 
 // ── Per-session state: { engine, options } ───────────────────
 // options = neutral per-session config the transport passes to engine.run.
@@ -64,7 +75,7 @@ function emitError(sessionId, error) {
 
 function handleCreateSession(cmd) {
   const cfg = {
-    model: cmd.model || "sonnet",
+    model: cmd.model || "opus",
     cwd: cmd.cwd || process.cwd(),
     mcpConfigPath: cmd.mcp_config || "",
   };

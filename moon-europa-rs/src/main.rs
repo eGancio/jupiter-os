@@ -12,6 +12,7 @@ use moon_europa_rs::adapters::slack::SlackAdapter;
 use moon_europa_rs::adapters::teams::TeamsAdapter;
 use moon_europa_rs::adapters::telegram::TelegramAdapter;
 use moon_europa_rs::adapters::telegram_bot::TelegramBotAdapter;
+use moon_europa_rs::adapters::whatsapp::WhatsappAdapter;
 use moon_europa_rs::adapters::MessagingAdapter;
 use moon_europa_rs::config::Config;
 use moon_europa_rs::daemon::ChannelDaemon;
@@ -99,7 +100,7 @@ async fn main() -> anyhow::Result<()> {
 
     // Reset all connection markers; each successful connect writes its own.
     // The GUI reads these to show the REAL connection state (not just "creds saved").
-    for ch in ["telegram", "slack", "teams"] {
+    for ch in ["telegram", "slack", "teams", "whatsapp"] {
         set_channel_connected(&config.data_dir, ch, false);
     }
 
@@ -156,6 +157,20 @@ async fn main() -> anyhow::Result<()> {
                 info!("Teams connected");
             }
             Err(e) => warn!("Teams connect failed: {e}"),
+        }
+    }
+
+    // WhatsApp (personal account via the Baileys Node helper)
+    if config.has_whatsapp() {
+        info!("Connecting WhatsApp (companion device)...");
+        let mut wa = WhatsappAdapter::new(config.clone());
+        match wa.connect().await {
+            Ok(()) => {
+                adapters.insert("whatsapp".into(), Arc::new(wa));
+                set_channel_connected(&config.data_dir, "whatsapp", true);
+                info!("WhatsApp connected");
+            }
+            Err(e) => warn!("WhatsApp connect failed: {e}"),
         }
     }
 

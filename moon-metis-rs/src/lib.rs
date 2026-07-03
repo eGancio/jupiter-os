@@ -11,6 +11,9 @@
 
 pub mod config;
 pub mod extract;
+pub mod ocr;
+pub mod quality;
+pub mod setup;
 pub mod chunk;
 pub mod procedure;
 pub mod llm;

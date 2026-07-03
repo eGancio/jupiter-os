@@ -70,8 +70,12 @@ zip = "2"
 flate2 = "1"
 tar = "0.4"
 
-# Secrets: native OS credential store (Windows Credential Manager via DPAPI)
-keyring = { version = "3", features = ["windows-native"] }
+# Secrets: native OS credential store. Windows Credential Manager (DPAPI),
+# macOS Keychain, and the Linux D-Bus Secret Service (gnome-keyring / KDE
+# kwallet-ksecretd). Without a Linux backend keyring v3 silently falls back to
+# an in-memory mock store that does NOT persist across processes — which would
+# make OAuth tokens vanish between `oauth connect` and the daemon reading them.
+keyring = { version = "3", features = ["windows-native", "apple-native", "sync-secret-service", "crypto-rust"] }
 
 # Hidden password input for CLI setup
 rpassword = "7"

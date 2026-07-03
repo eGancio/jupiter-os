@@ -32,6 +32,35 @@
       "type": "sse",
       "url": "http://127.0.0.1:8800/sse"
     },
+    "google-ads": {
+      "type": "stdio",
+      "command": "moon-google-ads/.venv/Scripts/python.exe",
+      "args": [
+        "-m",
+        "moon_google_ads.server"
+      ],
+      "env": {
+        "GOOGLE_ADS_CREDENTIALS": "${GOOGLE_ADS_CREDENTIALS}",
+        "GOOGLE_ADS_DEVELOPER_TOKEN": "${GOOGLE_ADS_DEVELOPER_TOKEN}",
+        "GOOGLE_ADS_CLIENT_ID": "${GOOGLE_ADS_CLIENT_ID}",
+        "GOOGLE_ADS_CLIENT_SECRET": "${GOOGLE_ADS_CLIENT_SECRET}",
+        "GOOGLE_ADS_REFRESH_TOKEN": "${GOOGLE_ADS_REFRESH_TOKEN}",
+        "GOOGLE_ADS_LOGIN_CUSTOMER_ID": "${GOOGLE_ADS_LOGIN_CUSTOMER_ID}",
+        "ADS_MCP_ENABLE_MUTATIONS": "false"
+      }
+    },
+    "meta-ads": {
+      "type": "stdio",
+      "command": "moon-meta-ads/.venv/Scripts/python.exe",
+      "args": [
+        "-m",
+        "moon_meta_ads.server"
+      ],
+      "env": {
+        "META_ACCESS_TOKEN": "${META_ACCESS_TOKEN}",
+        "META_AD_ACCOUNT_ID": "${META_AD_ACCOUNT_ID}"
+      }
+    },
     "gtd": {
       "type": "http",
       "url": "https://YOUR_JUPITEROS_HOST/mcp-gtd/YOUR_TOKEN/"
@@ -74,7 +103,10 @@
     },
     "amalthea": {
       "command": "moon-amalthea/.venv/Scripts/python.exe",
-      "args": ["-m", "moon_amalthea.server"],
+      "args": [
+        "-m",
+        "moon_amalthea.server"
+      ],
       "cwd": "moon-amalthea",
       "env": {
         "AMALTHEA_OUTPUT_DIR": "moon-amalthea/output",
@@ -95,7 +127,10 @@
     },
     "callisto": {
       "command": "moon-callisto/.venv/Scripts/python.exe",
-      "args": ["-m", "moon_callisto.server"],
+      "args": [
+        "-m",
+        "moon_callisto.server"
+      ],
       "cwd": "moon-callisto",
       "env": {
         "CALLISTO_OUTPUT_DIR": "moon-callisto/output",
@@ -126,6 +161,10 @@
       "env": {
         "DATA_DIR": "moon-himalia-rs/data",
         "TAVILY_API_KEY": "",
+        "OPENAPI_TOKEN": "",
+        "OPENAPI_COMPANY_TOKEN": "",
+        "OPENAPI_SANDBOX": "0",
+        "IMPRESE_MAX_SPEND_EUR": "50",
         "MCP_TRANSPORT": "sse",
         "MCP_PORT": "8700"
       }
@@ -141,6 +180,37 @@
         "REDDIT_USER_AGENT": "jupiteros-elara/0.1",
         "MCP_TRANSPORT": "sse",
         "MCP_PORT": "8800"
+      }
+    }
+  },
+  "daemons": {
+    "localops-llm": {
+      "command": "/PATH/A/llama.cpp/build/bin/llama-server",
+      "args": [
+        "-m",
+        "/PATH/A/models/gguf/Qwen3.6-35B-A3B-UD-Q4_K_M.gguf",
+        "--alias",
+        "qwen3.6-35b-a3b",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        "8080",
+        "-t",
+        "8",
+        "--ctx-size",
+        "16384",
+        "--jinja",
+        "--chat-template-kwargs",
+        "{\"enable_thinking\":false}",
+        "--temp",
+        "0",
+        "--cache-reuse",
+        "256",
+        "--parallel",
+        "1"
+      ],
+      "env": {
+        "MCP_PORT": "8080"
       }
     }
   }

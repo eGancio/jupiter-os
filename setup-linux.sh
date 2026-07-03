@@ -111,6 +111,38 @@ setup_amalthea_venv() {
 }
 
 # ---------------------------------------------------------------------------
+# 4b. Moon Google Ads — Python venv (Keyword Planner + GAQL reporting)
+# ---------------------------------------------------------------------------
+setup_google_ads_venv() {
+    log "Setting up Moon Google Ads Python venv…"
+    pushd moon-google-ads >/dev/null
+    python3 -m venv .venv
+    # shellcheck disable=SC1091
+    source .venv/bin/activate
+    pip install --upgrade pip
+    pip install -e .
+    deactivate
+    popd >/dev/null
+    log "Google Ads venv ready: $REPO_DIR/moon-google-ads/.venv"
+}
+
+# ---------------------------------------------------------------------------
+# 4c. Moon Meta Ads — Python venv (insights, interest research, ad set creation)
+# ---------------------------------------------------------------------------
+setup_meta_ads_venv() {
+    log "Setting up Moon Meta Ads Python venv…"
+    pushd moon-meta-ads >/dev/null
+    python3 -m venv .venv
+    # shellcheck disable=SC1091
+    source .venv/bin/activate
+    pip install --upgrade pip
+    pip install -e .
+    deactivate
+    popd >/dev/null
+    log "Meta Ads venv ready: $REPO_DIR/moon-meta-ads/.venv"
+}
+
+# ---------------------------------------------------------------------------
 # 5. .mcp.json — bootstrap from example with Linux binary paths
 # ---------------------------------------------------------------------------
 bootstrap_mcp_json() {
@@ -171,6 +203,8 @@ main() {
     build_rust_workspace
     build_tauri_gui
     setup_amalthea_venv
+    setup_google_ads_venv
+    setup_meta_ads_venv
     bootstrap_mcp_json
     print_next_steps
 }

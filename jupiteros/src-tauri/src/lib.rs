@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Edoardo Mancinelli
 
+mod ads_credentials;
 mod autostart;
 mod chat_commands;
 mod chat_state;
@@ -36,6 +37,7 @@ pub fn run() {
         .manage(ChatState::new())
         .manage(europa_credentials::TelegramAuth::default())
         .manage(europa_credentials::TeamsAuth::default())
+        .manage(europa_credentials::WhatsappPairing::default())
         .invoke_handler(tauri::generate_handler![
             commands::get_services,
             commands::get_virtual_moons,
@@ -94,7 +96,14 @@ pub fn run() {
             europa_credentials::slack_save,
             europa_credentials::teams_start_device_code,
             europa_credentials::teams_poll_device_code,
+            europa_credentials::whatsapp_start_pairing,
+            europa_credentials::whatsapp_pairing_status,
+            europa_credentials::whatsapp_cancel_pairing,
             europa_credentials::europa_channel_remove,
+            ads_credentials::ads_credentials_status,
+            ads_credentials::ads_credentials_set,
+            ads_credentials::ads_credentials_delete,
+            chat_commands::restart_sidecar,
         ])
         .setup(|app| {
             let handle = app.handle().clone();

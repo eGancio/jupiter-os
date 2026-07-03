@@ -24,16 +24,19 @@ uuid = { version = "1", features = ["v4"] }
 dirs = "6"
 base64 = "0.22"
 
-# OS credential store (Windows Credential Manager via DPAPI).
+# OS credential store: Windows Credential Manager (DPAPI), macOS Keychain, and
+# the Linux D-Bus Secret Service (gnome-keyring / KDE kwallet-ksecretd).
 # Service name "MoonIo" — same as moon-io.exe CLI uses, so both share the vault.
-keyring = { version = "3", features = ["windows-native"] }
+# A Linux backend is required: without one keyring v3 uses an in-memory mock
+# that never persists.
+keyring = { version = "3", features = ["windows-native", "apple-native", "sync-secret-service", "crypto-rust"] }
 
 # Messaging setup (Moon Europa): Telegram OTP login runs in-process here, sharing
 # the same SQLite session file that moon-europa reads at startup.
 grammers-client = { version = "0.9", features = ["fs"] }
 grammers-session = "0.9"
 grammers-mtsender = "0.9"
-tokio = { version = "1", features = ["rt", "rt-multi-thread", "macros", "sync", "time"] }
+tokio = { version = "1", features = ["rt", "rt-multi-thread", "macros", "sync", "time", "process", "io-util"] }
 
 # HTTP client for the Teams (Microsoft Graph) OAuth device-code flow.
 reqwest = { version = "0.12", features = ["rustls-tls", "json"], default-features = false }

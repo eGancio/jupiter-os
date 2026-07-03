@@ -5,9 +5,15 @@
 //!
 //! Himalia upgrades the deep-research skill's web step: instead of the native
 //! `WebSearch`/`WebFetch` (snippets + raw HTML), it returns LLM-clean results
-//! and full-text extraction. Two tools only — `web_search` (discovery) and
-//! `web_extract` (fetch a page's clean text for the VERIFY step).
+//! and full-text extraction — `web_search` (discovery) and `web_extract` (VERIFY).
+//!
+//! Quando è configurato un token **openapi.it** (`OPENAPI_TOKEN`), Himalia espone
+//! anche i tool **imprese** (bilanci/visure ufficiali di SRL/SpA), così la deep
+//! research può incrociare il web con i dati societari depositati. Senza token,
+//! quei tool tornano un errore chiaro — esattamente come i tool web senza Tavily.
 
 pub mod config;
+pub mod ledger;
+pub mod openapi;
 pub mod server;
 pub mod tavily;

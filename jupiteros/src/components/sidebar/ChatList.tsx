@@ -53,9 +53,9 @@ export function ChatList({ sessions, activeId, onSelect, onNew, onDelete, onRena
           +
         </button>
       </div>
-      <div className="px-2 max-h-[200px] overflow-y-auto space-y-0.5">
+      <div className="px-2 max-h-[340px] overflow-y-auto space-y-1.5">
         {sessions.length === 0 ? (
-          <div className="px-3 py-1.5 text-[11px] text-jupiter-dim italic">
+          <div className="px-3 py-1.5 text-[13px] text-jupiter-dim italic">
             {t("chatlist.empty")}
           </div>
         ) : (
@@ -66,7 +66,7 @@ export function ChatList({ sessions, activeId, onSelect, onNew, onDelete, onRena
             return (
               <div
                 key={s.id}
-                className={`group flex items-center gap-1.5 px-2 py-1.5 rounded text-[12px] cursor-pointer transition-colors ${
+                className={`group flex items-center gap-1.5 px-3 py-2.5 rounded text-[14px] cursor-pointer transition-colors ${
                   isActive
                     ? "bg-jupiter-orange/15 text-jupiter-orange border border-jupiter-orange/30"
                     : "text-jupiter-muted hover:bg-jupiter-elevated hover:text-white border border-transparent"
@@ -74,7 +74,7 @@ export function ChatList({ sessions, activeId, onSelect, onNew, onDelete, onRena
                 onClick={() => !isEditing && onSelect(s.id)}
               >
                 <span
-                  className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                  className={`w-2 h-2 rounded-full flex-shrink-0 ${
                     isActive ? "bg-jupiter-orange" : "bg-jupiter-dim"
                   }`}
                 />
@@ -89,7 +89,7 @@ export function ChatList({ sessions, activeId, onSelect, onNew, onDelete, onRena
                       if (e.key === "Enter") commitRename();
                       if (e.key === "Escape") setEditingId(null);
                     }}
-                    className="flex-1 min-w-0 bg-jupiter-bg border border-jupiter-orange/30 rounded px-1 py-0 text-[12px] text-white outline-none"
+                    className="flex-1 min-w-0 bg-jupiter-bg border border-jupiter-orange/30 rounded px-1 py-0 text-[14px] text-white outline-none"
                     onClick={(e) => e.stopPropagation()}
                   />
                 ) : (
@@ -112,7 +112,7 @@ export function ChatList({ sessions, activeId, onSelect, onNew, onDelete, onRena
                         e.stopPropagation();
                         startRename(s.id, s.title);
                       }}
-                      className="w-4 h-4 flex items-center justify-center text-[10px] text-jupiter-dim hover:text-jupiter-blue rounded"
+                      className="w-5 h-5 flex items-center justify-center text-[12px] text-jupiter-dim hover:text-jupiter-blue rounded"
                       title={t("chatlist.rename")}
                     >
                       &#9998;
@@ -122,7 +122,7 @@ export function ChatList({ sessions, activeId, onSelect, onNew, onDelete, onRena
                         e.stopPropagation();
                         onDelete(s.id);
                       }}
-                      className="w-4 h-4 flex items-center justify-center text-[10px] text-jupiter-dim hover:text-jupiter-red rounded"
+                      className="w-5 h-5 flex items-center justify-center text-[12px] text-jupiter-dim hover:text-jupiter-red rounded"
                       title={t("chatlist.delete")}
                     >
                       &#10005;

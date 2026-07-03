@@ -1,7 +1,32 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Copyright (C) 2026 Edoardo Mancinelli
 
+use std::path::Path;
 use std::path::PathBuf;
+
+/// True only if the Baileys `creds.json` is a USABLE companion session, not just
+/// present on disk. A SIGKILL mid-write (or an aborted pairing) can leave a 0-byte
+/// or half-written `creds.json`; that file still "exists" but linking with it
+/// always fails, so treating it as "configured" makes WhatsApp retry a dead
+/// session forever. We require: file present, non-empty, valid JSON, and a linked
+/// identity (`me.id` set). NOTE: do NOT gate on `creds.registered` — Baileys only
+/// sets that for the pairing-CODE flow, never for QR linking, so a perfectly good
+/// QR companion session has `registered: false` forever.
+pub fn whatsapp_session_valid(session_dir: &Path) -> bool {
+    let creds = session_dir.join("creds.json");
+    match std::fs::read_to_string(&creds) {
+        Ok(s) if !s.trim().is_empty() => serde_json::from_str::<serde_json::Value>(&s)
+            .ok()
+            .and_then(|v| {
+                v.get("me")
+                    .and_then(|me| me.get("id"))
+                    .and_then(|id| id.as_str())
+                    .map(|id| !id.is_empty())
+            })
+            .unwrap_or(false),
+        _ => false,
+    }
+}
 
 /// Moon Europa configuration, loaded from environment variables.
 #[derive(Debug, Clone)]
@@ -23,6 +48,17 @@ pub struct Config {
     pub teams_tenant_id: Option<String>,
     /// OAuth2 refresh token for Teams (normally injected from the keyring by the GUI).
     pub teams_refresh_token: Option<String>,
+
+    // WhatsApp (personal account via the Baileys Node helper)
+    /// True when the WhatsApp channel should be started (env WHATSAPP_ENABLED or
+    /// an existing Baileys session on disk).
+    pub whatsapp_enabled: bool,
+    /// Baileys multi-file auth state dir (`<DATA_DIR>/whatsapp`).
+    pub whatsapp_session_path: PathBuf,
+    /// Absolute path to the helper script (`whatsapp-helper/helper.mjs`).
+    pub whatsapp_helper_path: PathBuf,
+    /// Node binary to run the helper with (defaults to "node" on PATH).
+    pub whatsapp_node: String,
 
     // Storage
     pub data_dir: PathBuf,
@@ -70,6 +106,25 @@ impl Config {
 
         let opt_env = |key: &str| std::env::var(key).ok().filter(|s| !s.is_empty());
 
+        // WhatsApp: enabled via env flag or an already-paired session on disk.
+        let whatsapp_session_path = data_dir.join("whatsapp");
+        let whatsapp_enabled = std::env::var("WHATSAPP_ENABLED")
+            .map(|v| v == "true" || v == "1")
+            .unwrap_or(false)
+            || whatsapp_session_valid(&whatsapp_session_path);
+        // Helper path: explicit env, else the repo layout (moon-europa-rs/whatsapp-helper)
+        // sits next to the data dir's parent.
+        let whatsapp_helper_path = opt_env("WHATSAPP_HELPER")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| {
+                data_dir
+                    .parent()
+                    .unwrap_or(&data_dir)
+                    .join("whatsapp-helper")
+                    .join("helper.mjs")
+            });
+        let whatsapp_node = std::env::var("WHATSAPP_NODE").unwrap_or_else(|_| "node".into());
+
         Ok(Self {
             telegram_api_id,
             telegram_api_hash: std::env::var("TELEGRAM_API_HASH").unwrap_or_default(),
@@ -80,6 +135,10 @@ impl Config {
             teams_client_id: opt_env("TEAMS_CLIENT_ID"),
             teams_tenant_id: opt_env("TEAMS_TENANT_ID"),
             teams_refresh_token: opt_env("TEAMS_REFRESH_TOKEN"),
+            whatsapp_enabled,
+            whatsapp_session_path,
+            whatsapp_helper_path,
+            whatsapp_node,
             data_dir: data_dir.clone(),
             session_path,
             onnx_model_dir,
@@ -121,5 +180,10 @@ impl Config {
     pub fn has_teams(&self) -> bool {
         self.teams_refresh_token.as_deref().map(|t| !t.is_empty()).unwrap_or(false)
             && self.teams_client_id.is_some()
+    }
+
+    /// Check if WhatsApp should be started (flag set or session present).
+    pub fn has_whatsapp(&self) -> bool {
+        self.whatsapp_enabled
     }
 }

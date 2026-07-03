@@ -1,0 +1,13 @@
+{
+  "name": "europa-whatsapp-helper",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Baileys-based WhatsApp companion helper for Moon Europa. Driven over stdio (JSON-lines) by the Rust adapter (run mode) and by the JupiterOS Tauri backend (pair mode, QR).",
+  "license": "AGPL-3.0-or-later",
+  "engines": { "node": ">=18" },
+  "dependencies": {
+    "@whiskeysockets/baileys": "^6.7.0",
+    "pino": "^9.0.0"
+  }
+}

@@ -84,6 +84,31 @@ async fn main() -> anyhow::Result<()> {
         ));
     }
 
+    // Local OCR for scanned PDFs (best-effort): download the ~12 MB ocrs models
+    // on first run and load the engine. Any failure is logged and OCR stays off
+    // — scanned PDFs then fall back to the old "skip" behaviour; the Moon still
+    // starts normally.
+    if config.ocr_enabled {
+        match moon_metis_rs::setup::ensure_ocr_models(&config.ocr_model_dir).await {
+            Ok(()) => match moon_metis_rs::ocr::init(
+                &config.ocr_model_dir,
+                config.ocr_dpi,
+                config.ocr_max_pages,
+            ) {
+                Ok(()) => info!(
+                    "OCR: ready (modelli in {}, {} DPI, max {} pagine)",
+                    config.ocr_model_dir.display(),
+                    config.ocr_dpi,
+                    config.ocr_max_pages
+                ),
+                Err(e) => error!("OCR init fallito, OCR disattivo: {e}"),
+            },
+            Err(e) => error!("Download modelli OCR fallito, OCR disattivo: {e}"),
+        }
+    } else {
+        info!("OCR disabilitato (METIS_OCR_ENABLED=false)");
+    }
+
     let embedding = Arc::new(OnnxEmbedding::load(&config.embedding_model_dir)?);
     let store = Arc::new(
         DocStore::new(&config.qdrant_url, embedding, &config.collection_name, None).await?,

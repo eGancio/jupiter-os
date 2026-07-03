@@ -109,3 +109,7 @@ groq-credentials.txt
 # Moon Thebe — brand kits (personal data) + render output
 moon-thebe/data/
 moon-thebe/output/
+
+# localops-eval: artefatti rigenerabili (dump tool live + risultati run)
+tools/localops-eval/tools-snapshot.json
+tools/localops-eval/results.json

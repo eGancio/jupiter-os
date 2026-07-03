@@ -41,8 +41,19 @@ thiserror = { workspace = true }
 # Document extraction (page-aware PDF) — same crate version as jupiteros-shared
 pdf-extract = "0.10"
 
-# LLM client (OpenAI-compatible, inherits Jupiter's configured engine)
+# LLM client (OpenAI-compatible, inherits Jupiter's configured engine).
+# Also reused to download the small OCR models on first run.
 reqwest = { version = "0.12", features = ["json"] }
+
+# OCR (local, CPU-only) — runs on `rten` (pure-Rust ML runtime), independent of
+# the `ort`/ONNX stack used for embeddings, so there is no version conflict and
+# no system dependency. Page rasterization is done by `pdftoppm` (poppler), which
+# is already a runtime dependency of the `pdftotext` fallback in extract.rs.
+ocrs = "0.12"
+rten = { version = "0.24", default-features = false, features = ["rten_format"] }
+rten-imageproc = "0.24"
+image = { version = "0.25", default-features = false, features = ["png"] }
+tempfile = "3"
 
 # Utilities
 dotenvy = "0.15"

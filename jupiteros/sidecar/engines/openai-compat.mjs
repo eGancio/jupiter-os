@@ -76,7 +76,9 @@ export class OpenAICompatEngine {
     this.name = provider.name || "openai";
     this.baseUrl = (provider.baseUrl || cfg.baseUrl || "").replace(/\/$/, "");
     const envs = provider.keyEnvs || ["OPENAI_API_KEY"];
-    this.apiKey = envs.map((e) => process.env[e]).find(Boolean) || cfg.apiKey || "";
+    // defaultKey: per server LOCALI senza auth (es. ds4/DwarfStar) — un placeholder
+    // non vuoto, così run() non si blocca chiedendo una API key che non esiste.
+    this.apiKey = envs.map((e) => process.env[e]).find(Boolean) || cfg.apiKey || provider.defaultKey || "";
     this.keyHint = envs[0];
     this.mcp = null;
     this.maxToolTokens = Number.isFinite(provider.maxToolTokens) ? provider.maxToolTokens : 6000;

@@ -14,7 +14,9 @@ import {
   getChatModel,
   setChatSessionModel,
   flushSessionMessages,
+  getChatEngine,
 } from "../lib/tauri";
+import { ENGINE_MODELS } from "../lib/models";
 import type {
   ChatMessage,
   ChatSessionInfo,
@@ -37,8 +39,9 @@ function nextMsgId() {
   return `msg-${Date.now()}-${++msgCounter}`;
 }
 
-/** Max concurrent open tabs (PO spec: 2-4 chats). */
-export const MAX_TABS = 4;
+/** Max concurrent open tabs — tetto alto anti-overload (ogni tab tiene viva
+ *  una sessione sidecar, quindi non illimitato). */
+export const MAX_TABS = 16;
 const TABS_STORAGE_KEY = "jupiteros.chatTabs.v1";
 
 // ── Sequential parts accumulation ───────────────────────────────
@@ -148,7 +151,10 @@ export function useChat() {
   const [error, setError] = useState<string | null>(null);
   const [activeTool, setActiveTool] = useState<string | null>(null);
   const [activeThinking, setActiveThinking] = useState(false);
-  const [model, setModel] = useState("sonnet");
+  const [model, setModel] = useState("opus");
+  // Full model id resolved by the SDK for the ACTIVE session (e.g.
+  // "claude-opus-4-8") — lets the UI show the real version, not just the alias.
+  const [resolvedModel, setResolvedModel] = useState<string | null>(null);
   const [lastInputTokens, setLastInputTokens] = useState(0);
   const [activeFile, setActiveFile] = useState<string | null>(null);
 
@@ -159,6 +165,8 @@ export function useChat() {
 
   const activeRef = useRef<string | null>(null);
   const openTabsRef = useRef<string[]>([]);
+  // sid → full model id resolved by the SDK (from the system_init event).
+  const resolvedModelRef = useRef<Map<string, string>>(new Map());
   const sessionsRef = useRef<ChatSessionInfo[]>([]);
   const toastCounter = useRef(0);
   const toastTimers = useRef<Map<number, ReturnType<typeof setTimeout>>>(new Map());
@@ -719,6 +727,20 @@ export function useChat() {
       })
     );
 
+    // Model resolved by the SDK (real version, e.g. "claude-opus-4-8")
+    unlisteners.push(
+      listen<{ session_id: string; model: string }>(
+        "claude-model-resolved",
+        (event) => {
+          const sid = event.payload.session_id;
+          const full = event.payload.model;
+          if (!sid || !full) return;
+          resolvedModelRef.current.set(sid, full);
+          if (sid === activeRef.current) setResolvedModel(full);
+        },
+      ),
+    );
+
     // Usage
     unlisteners.push(
       listen<UsageEvent>("claude-usage", (event) => {
@@ -890,6 +912,7 @@ export function useChat() {
       patchTab(targetId, { unread: false, error: false });
       const info = sessionsRef.current.find((s) => s.id === targetId);
       if (info?.model) setModel(info.model);
+      setResolvedModel(resolvedModelRef.current.get(targetId) ?? null);
     },
     []
   );
@@ -902,6 +925,19 @@ export function useChat() {
       return null;
     }
     const id = await createChatSession();
+    // Coerenza engine/modello: le nuove sessioni ereditano l'ultimo modello
+    // scelto (default globale nel backend), che può appartenere a un ALTRO
+    // engine (es. engine tornato a ollama con modello di localops rimasto
+    // come default). Se il modello non è nella lista dell'engine attivo,
+    // riparti dal default di quell'engine.
+    try {
+      const eng = await getChatEngine();
+      const list = ENGINE_MODELS[eng];
+      if (list?.length && !list.includes(model)) {
+        await setChatSessionModel(id, list[0]);
+        setModel(list[0]);
+      }
+    } catch { /* engine sconosciuto: lascia il modello com'è */ }
     setActiveSessionId(id);
     activeRef.current = id;
     getSessionData(id);
@@ -915,7 +951,7 @@ export function useChat() {
     setLastInputTokens(0);
     await refreshSessionList();
     return id;
-  }, [refreshSessionList]);
+  }, [refreshSessionList, model]);
 
   /** Open a session as a tab (or just activate it if already open). */
   const openTab = useCallback(
@@ -1039,6 +1075,10 @@ export function useChat() {
     try {
       await setChatSessionModel(sid, newModel);
       setModel(newModel);
+      // The resolved version is now stale (different family/version); clear it
+      // so the UI falls back to the alias label until the next system_init.
+      resolvedModelRef.current.delete(sid);
+      setResolvedModel(null);
       await refreshSessionList();
     } catch {
       // ignore
@@ -1078,6 +1118,7 @@ export function useChat() {
     activeTool,
     activeThinking,
     model,
+    resolvedModel,
     lastInputTokens,
     activeFile,
 

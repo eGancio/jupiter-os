@@ -2,6 +2,7 @@
 // Copyright (C) 2026 Edoardo Mancinelli
 
 import { useEffect, useState } from "react";
+import QRCode from "react-qr-code";
 import {
   europaChannelsList,
   europaChannelRemove,
@@ -13,6 +14,9 @@ import {
   slackSave,
   teamsStartDeviceCode,
   teamsPollDeviceCode,
+  whatsappStartPairing,
+  whatsappPairingStatus,
+  whatsappCancelPairing,
   stopService,
   restartService,
   type EuropaChannel,
@@ -25,14 +29,16 @@ interface Props {
   serviceName: string;
 }
 
-type Tab = "telegram" | "telegram-bot" | "slack" | "teams";
+type Tab = "telegram" | "telegram-bot" | "slack" | "teams" | "whatsapp";
 type TgStep = "api" | "phone" | "code" | "2fa" | "done";
+type WaStep = "idle" | "qr" | "connecting";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "telegram", label: "Telegram (account)" },
   { id: "telegram-bot", label: "Telegram (bot)" },
   { id: "slack", label: "Slack" },
   { id: "teams", label: "Teams" },
+  { id: "whatsapp", label: "WhatsApp" },
 ];
 
 const inputCls =
@@ -41,6 +47,82 @@ const primaryBtn =
   "flex-1 px-2 py-1 text-[10px] font-bold uppercase tracking-wider rounded-lg bg-jupiter-orange text-white hover:opacity-90 disabled:opacity-40 transition-all";
 const ghostBtn =
   "px-2 py-1 text-[10px] rounded-lg text-jupiter-dim hover:text-white hover:bg-jupiter-elevated transition-colors";
+
+// One row of the post-scan WhatsApp stepper.
+function WaSyncStep({
+  state,
+  label,
+}: {
+  state: "done" | "active" | "pending";
+  label: string;
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      {state === "done" ? (
+        <span className="material-symbols-outlined text-[16px] text-jupiter-green">check_circle</span>
+      ) : state === "active" ? (
+        <span className="material-symbols-outlined text-[16px] text-jupiter-violet animate-spin">progress_activity</span>
+      ) : (
+        <span className="material-symbols-outlined text-[16px] text-jupiter-dim/50">radio_button_unchecked</span>
+      )}
+      <span
+        className={
+          state === "pending"
+            ? "text-[11px] text-jupiter-dim/60"
+            : state === "active"
+              ? "text-[11px] text-white"
+              : "text-[11px] text-jupiter-muted"
+        }
+      >
+        {label}
+      </span>
+    </div>
+  );
+}
+
+// Animated feedback shown after the QR is scanned, while europa restarts and the
+// channel is verified connected. Replaces the old static "Collegato! Avvio…".
+function WaSyncPanel({ phase }: { phase: "restarting" | "syncing" | "done" }) {
+  const done = phase === "done";
+  const stepState = (s: "restarting" | "syncing"): "done" | "active" | "pending" => {
+    if (done) return "done";
+    if (phase === s) return "active";
+    if (s === "restarting" && phase === "syncing") return "done";
+    return "pending";
+  };
+  return (
+    <div className="space-y-3 py-2">
+      <div className="flex items-center gap-2">
+        {done ? (
+          <span className="material-symbols-outlined text-[20px] text-jupiter-green wa-pop">check_circle</span>
+        ) : (
+          <span className="material-symbols-outlined text-[18px] text-jupiter-violet animate-spin">progress_activity</span>
+        )}
+        <span className="text-[12px] font-medium text-white">
+          {done ? "WhatsApp collegato" : "Collegamento in corso…"}
+        </span>
+      </div>
+
+      {!done && (
+        <div className="relative h-1 w-full overflow-hidden rounded-full bg-white/10">
+          <div className="absolute inset-y-0 w-1/3 rounded-full bg-gradient-to-r from-jupiter-pink via-jupiter-violet to-jupiter-orange wa-shimmer" />
+        </div>
+      )}
+
+      <div className="space-y-1.5 pl-0.5">
+        <WaSyncStep state="done" label="Telefono collegato" />
+        <WaSyncStep state={stepState("restarting")} label="Riavvio del canale Europa" />
+        <WaSyncStep state={stepState("syncing")} label="Sincronizzazione delle ultime chat" />
+      </div>
+
+      {done && (
+        <div className="text-[10px] text-jupiter-dim leading-snug wa-pop">
+          Le tue ultime conversazioni vengono indicizzate in background.
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function EuropaCredentialsPanel({ serviceName }: Props) {
   const { t } = useT();
@@ -71,6 +153,14 @@ export function EuropaCredentialsPanel({ serviceName }: Props) {
   const [teamsClientId, setTeamsClientId] = useState("");
   const [teamsTenant, setTeamsTenant] = useState("");
   const [device, setDevice] = useState<DeviceCodeInfo | null>(null);
+
+  // WhatsApp (QR pairing)
+  const [waStep, setWaStep] = useState<WaStep>("idle");
+  const [waQr, setWaQr] = useState<string | null>(null);
+  // Post-scan sync feedback (drives the animated stepper). Survives resetForms()
+  // so the user sees progress through the europa restart + channel verification
+  // instead of the QR screen flashing back to "Genera QR".
+  const [waSync, setWaSync] = useState<null | "restarting" | "syncing" | "done">(null);
 
   const reload = async () => {
     if (!enabled) return;
@@ -107,6 +197,8 @@ export function EuropaCredentialsPanel({ serviceName }: Props) {
     setTeamsClientId("");
     setTeamsTenant("");
     setDevice(null);
+    setWaStep("idle");
+    setWaQr(null);
     setInfo(null);
   };
 
@@ -133,6 +225,7 @@ export function EuropaCredentialsPanel({ serviceName }: Props) {
 
   // Cancel/abandon the current flow: bring europa back up, then clear the form.
   const cancel = async () => {
+    if (waStep !== "idle") await whatsappCancelPairing().catch(() => {});
     await reactivateEuropa();
     setError(null);
     resetForms();
@@ -284,6 +377,65 @@ export function EuropaCredentialsPanel({ serviceName }: Props) {
       setTimeout(tick, 4000);
     };
     setTimeout(tick, 4000);
+  };
+
+  // ── WhatsApp QR pairing ────────────────────────────────────────────────
+  const startWhatsapp = async () => {
+    setBusy(true);
+    setError(null);
+    setInfo(null);
+    try {
+      // Stop europa so it doesn't hold the same Baileys session during pairing.
+      await stopService("europa").catch(() => {});
+      setLoginActive(true);
+      await whatsappStartPairing();
+      setWaStep("qr");
+      setWaQr(null);
+      pollWhatsapp();
+    } catch (e) {
+      setError(String(e));
+      await reactivateEuropa();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const pollWhatsapp = () => {
+    const tick = async () => {
+      try {
+        const s = await whatsappPairingStatus();
+        if (s.status === "connected") {
+          // Drive the animated stepper through the real phases. waSync persists
+          // across resetForms() so the feedback stays on screen until the channel
+          // is verified connected.
+          setWaStep("idle");
+          setWaQr(null);
+          setLoginActive(false);
+          setWaSync("restarting");
+          await restartService("europa").catch(() => {});
+          setWaSync("syncing");
+          await reload();
+          resetForms();
+          await refreshUntilConnected("whatsapp");
+          setWaSync("done");
+          setTimeout(() => setWaSync(null), 2600);
+          return;
+        }
+        if (s.status === "error") {
+          setError(s.error || "Pairing WhatsApp fallito.");
+          await reactivateEuropa();
+          setWaStep("idle");
+          setWaQr(null);
+          return;
+        }
+        if (s.qr) setWaQr(s.qr);
+      } catch (e) {
+        setError(String(e));
+        return;
+      }
+      setTimeout(tick, 2000);
+    };
+    setTimeout(tick, 1500);
   };
 
   const handleRemove = async (channel: string) => {
@@ -590,6 +742,56 @@ export function EuropaCredentialsPanel({ serviceName }: Props) {
                       {device.user_code}
                     </div>
                     <div className="text-[10px] text-jupiter-dim">{t("europa.waiting")}</div>
+                    <button onClick={cancel} className={ghostBtn}>
+                      {t("common.cancel")}
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* ── WhatsApp (QR pairing) ── */}
+            {tab === "whatsapp" && waSync && <WaSyncPanel phase={waSync} />}
+            {tab === "whatsapp" && !waSync && (
+              <>
+                {waStep === "idle" && (
+                  <>
+                    <div className="text-[10px] text-jupiter-dim leading-snug">
+                      Collega il tuo WhatsApp personale come dispositivo. Premi
+                      &nbsp;<span className="text-white">Genera QR</span>, poi sul telefono:
+                      WhatsApp → Impostazioni → Dispositivi collegati → Collega un
+                      dispositivo, e inquadra il codice.
+                    </div>
+                    <div className="flex gap-1.5 pt-0.5">
+                      <button onClick={startWhatsapp} disabled={busy} className={primaryBtn}>
+                        {busy ? "…" : "Genera QR"}
+                      </button>
+                      <button onClick={cancel} className={ghostBtn}>
+                        {t("common.cancel")}
+                      </button>
+                    </div>
+                  </>
+                )}
+
+                {waStep === "qr" && (
+                  <div className="space-y-1.5">
+                    {waQr ? (
+                      <div className="flex justify-center bg-white p-3 rounded-lg wa-breathe">
+                        <QRCode value={waQr} size={180} />
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center gap-2 py-7">
+                        <span className="flex gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-jupiter-violet animate-bounce" style={{ animationDelay: "0ms" }} />
+                          <span className="w-1.5 h-1.5 rounded-full bg-jupiter-violet animate-bounce" style={{ animationDelay: "120ms" }} />
+                          <span className="w-1.5 h-1.5 rounded-full bg-jupiter-violet animate-bounce" style={{ animationDelay: "240ms" }} />
+                        </span>
+                        <div className="text-[11px] text-jupiter-dim">Generazione QR…</div>
+                      </div>
+                    )}
+                    <div className="text-[10px] text-jupiter-dim leading-snug text-center">
+                      WhatsApp → Dispositivi collegati → Collega un dispositivo
+                    </div>
                     <button onClick={cancel} className={ghostBtn}>
                       {t("common.cancel")}
                     </button>

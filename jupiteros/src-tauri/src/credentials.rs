@@ -352,7 +352,7 @@ pub fn oauth_disconnect(account: String) -> Result<bool, String> {
 ///
 /// Also writes `GMAIL_USERNAME` into `.mcp.json` so the daemon picks it up.
 #[tauri::command]
-pub fn oauth_connect_gmail(email: String) -> Result<String, String> {
+pub async fn oauth_connect_gmail(email: String) -> Result<String, String> {
     let email = email.trim().to_string();
     if email.is_empty() {
         return Err("Email vuota.".into());
@@ -402,8 +402,13 @@ pub fn oauth_connect_gmail(email: String) -> Result<String, String> {
         cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
     }
 
-    let output = cmd
-        .output()
+    // The subprocess waits up to 5 minutes for the Google callback. Run the
+    // blocking wait on a dedicated blocking thread so the Tauri main thread
+    // (which drives the webview) stays responsive — otherwise the whole UI
+    // freezes for the duration of the consent flow.
+    let output = tokio::task::spawn_blocking(move || cmd.output())
+        .await
+        .map_err(|e| format!("Join spawn_blocking: {e}"))?
         .map_err(|e| format!("Spawn moon-io oauth: {e}"))?;
 
     if !output.status.success() {

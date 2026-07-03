@@ -27,6 +27,14 @@ pub struct Config {
     pub llm_model: String,
     pub llm_api_key: String,
 
+    // --- OCR (local, for scanned/image PDFs). Models live in `ocr_model_dir`
+    //     and are downloaded on first run (~12 MB). Disable via env to fall back
+    //     to the old "scanned → skip" behaviour. ---
+    pub ocr_enabled: bool,
+    pub ocr_model_dir: PathBuf,
+    pub ocr_dpi: u32,
+    pub ocr_max_pages: usize,
+
     // --- MCP transport ---
     pub mcp_transport: String,
     pub mcp_host: String,
@@ -53,6 +61,23 @@ impl Config {
             std::env::var("METIS_LLM_MODEL").unwrap_or_else(|_| "qwen2.5:7b".into());
         let llm_api_key = std::env::var("METIS_LLM_API_KEY").unwrap_or_default();
 
+        // OCR: on by default. `METIS_OCR_ENABLED=false|0` turns it off.
+        let ocr_enabled = std::env::var("METIS_OCR_ENABLED")
+            .map(|v| !matches!(v.trim().to_lowercase().as_str(), "false" | "0" | "no"))
+            .unwrap_or(true);
+        let ocr_model_dir = PathBuf::from(
+            std::env::var("METIS_OCR_MODEL_DIR")
+                .unwrap_or_else(|_| data_dir.join("ocr-model").to_string_lossy().into_owned()),
+        );
+        let ocr_dpi: u32 = std::env::var("METIS_OCR_DPI")
+            .ok()
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(300);
+        let ocr_max_pages: usize = std::env::var("METIS_OCR_MAX_PAGES")
+            .ok()
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(100);
+
         let mcp_transport = std::env::var("MCP_TRANSPORT").unwrap_or_else(|_| "sse".into());
         let mcp_host = std::env::var("MCP_HOST").unwrap_or_else(|_| "127.0.0.1".into());
         let mcp_port: u16 = std::env::var("MCP_PORT")
@@ -68,6 +93,10 @@ impl Config {
             llm_base_url,
             llm_model,
             llm_api_key,
+            ocr_enabled,
+            ocr_model_dir,
+            ocr_dpi,
+            ocr_max_pages,
             mcp_transport,
             mcp_host,
             mcp_port,

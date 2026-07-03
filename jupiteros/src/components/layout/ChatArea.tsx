@@ -5,6 +5,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { ChatMessage } from "../chat/ChatMessage";
 import { InputBar } from "../chat/InputBar";
 import { ChatTabs } from "../chat/ChatTabs";
+import { ModelDropdown } from "../chat/ModelDropdown";
 import { getMoonLabel } from "../../lib/moonInfo";
 import { COMMANDS } from "../../lib/commands";
 import { getClaudeMdStatus, setChatPermissionMode, type ChatPermissionMode } from "../../lib/tauri";
@@ -304,18 +305,8 @@ export function ChatArea({ chat, services, onPreviewChart, onOpenEngineSettings 
           </div>
         )}
 
-        {/* Engine & model settings (engine of the ACTIVE tab's session) */}
-        <button
-          onClick={onOpenEngineSettings}
-          className="ml-auto px-2 py-0.5 text-[10px] rounded bg-jupiter-blue/10 text-jupiter-blue border border-jupiter-blue/25 hover:bg-jupiter-blue/20 flex items-center gap-1 transition-colors font-mono"
-          title="Engine & model"
-        >
-          <span className="text-[11px]">&#9881;</span>
-          {activeEngine} · {chat.model}
-        </button>
-
-        {/* Zoom controls */}
-        <div className="flex items-center gap-0.5">
+        {/* Zoom controls (model picker now lives in the input bar) */}
+        <div className="flex items-center gap-0.5 ml-auto">
           <button
             onClick={zoomOut}
             className="w-6 h-6 flex items-center justify-center text-[13px] text-jupiter-dim hover:text-white hover:bg-jupiter-elevated rounded transition-colors"
@@ -373,6 +364,16 @@ export function ChatArea({ chat, services, onPreviewChart, onOpenEngineSettings 
         activeTool={activeTool}
         contextPercent={lastInputTokens > 0 ? Math.min(100, Math.round(lastInputTokens / 2000)) : 0}
         activeFile={activeFile}
+        modelSlot={
+          <ModelDropdown
+            engine={activeEngine}
+            model={chat.model}
+            resolvedModel={chat.resolvedModel}
+            onChange={changeModel}
+            onOpenEngineSettings={() => onOpenEngineSettings?.()}
+            direction="up"
+          />
+        }
       />
           </div>
         </div>

@@ -1,0 +1,47 @@
+{
+  "systemHint": "Per domande sul CONTENUTO dei documenti (cosa dicono, cosa prevedono, cerca nei documenti) usa metis_search; metis_list_documents serve SOLO a elencare i titoli del catalogo.",
+  "toolDescriptionOverrides": {
+    "metis_search": "USA QUESTO per ogni domanda sul CONTENUTO dei documenti indicizzati (bandi, norme, preventivi, contratti): cerca i passaggi rilevanti e restituisce citazioni con fonte e pagina. Se l'utente chiede cosa dice/prevede/contiene un documento, o cerca un'informazione nei suoi documenti, chiama questo tool con la domanda come query.",
+    "metis_list_documents": "SOLO per elencare il catalogo dei documenti presenti nella knowledge base (titoli, natura, pagine, doc_id). NON risponde a domande sul contenuto: per cercare dentro i documenti usa metis_search."
+  },
+  "restrictedSurface": [
+    "metis_search",
+    "metis_list_documents",
+    "list_emails",
+    "search_emails",
+    "gtd_get_today"
+  ],
+  "cases": [
+    { "id": "ms-01", "prompt": "Cosa dice il bando sulla scadenza per la presentazione delle domande?", "expected": { "tool": "metis_search", "args": { "query": { "re": "scadenz|domand|bando|presentazion" } } } },
+    { "id": "ms-02", "prompt": "Nel preventivo che ho caricato, quanto costa la manodopera?", "expected": { "tool": "metis_search", "args": { "query": { "re": "manodopera|costo|preventiv" } } } },
+    { "id": "ms-03", "prompt": "Cerca nei miei documenti i requisiti di accesso al contributo", "expected": { "tool": "metis_search", "args": { "query": { "re": "requisit|contribut|accesso" } } } },
+    { "id": "ms-04", "prompt": "Cosa prevede la norma sulla revisione periodica dei veicoli?", "expected": { "tool": "metis_search", "args": { "query": { "re": "revision|veicol|norma|periodic" } } } },
+    { "id": "ms-05", "prompt": "Trova nei documenti le penali per ritardata consegna", "expected": { "tool": "metis_search", "args": { "query": { "re": "penal|ritard|consegn" } } } },
+    { "id": "ms-06", "prompt": "Qual è l'importo massimo finanziabile secondo il bando?", "expected": { "tool": "metis_search", "args": { "query": { "re": "import|finanziab|massim|bando" } } } },
+    { "id": "ms-07", "prompt": "Cerca nella knowledge base le condizioni di pagamento del fornitore", "expected": { "tool": "metis_search", "args": { "query": { "re": "pagament|fornitor|condizion" } } } },
+    { "id": "ms-08", "prompt": "Che garanzie sono previste nel contratto che ti ho fatto indicizzare?", "expected": { "tool": "metis_search", "args": { "query": { "re": "garanz|contratt" } } } },
+    { "id": "ms-09", "prompt": "Dimmi cosa dicono i miei documenti sulla sicurezza sul lavoro", "expected": { "tool": "metis_search", "args": { "query": { "re": "sicurezza|lavoro" } } } },
+    { "id": "ml-01", "prompt": "Che documenti ci sono nella knowledge base?", "expected": { "tool": "metis_list_documents", "args": {} } },
+    { "id": "ml-02", "prompt": "Elencami i documenti che ho indicizzato", "expected": { "tool": "metis_list_documents", "args": {} } },
+    { "id": "ml-03", "prompt": "Quanti documenti ho caricato in Metis e di che tipo sono?", "expected": { "tool": "metis_list_documents", "args": {} } },
+    { "id": "le-01", "prompt": "Fammi vedere le ultime 10 email", "expected": { "tool": "list_emails", "args": { "limit": { "eq": 10 } } }, "acceptTools": ["read_recent_emails"] },
+    { "id": "le-02", "prompt": "Panoramica delle email recenti", "expected": { "tool": "list_emails", "args": {} }, "acceptTools": ["read_recent_emails"] },
+    { "id": "le-03", "prompt": "Mostrami le email di Anna", "expected": { "tool": "list_emails", "args": { "contact": { "re": "anna" } } }, "acceptTools": ["search_by_contact"] },
+    { "id": "le-04", "prompt": "Le ultime 5 email dell'account gmail", "expected": { "tool": "list_emails", "args": { "account": { "re": "gmail" }, "limit": { "eq": 5 } } }, "acceptTools": ["read_recent_emails"] },
+    { "id": "le-05", "prompt": "Che email ho ricevuto ultimamente?", "expected": { "tool": "list_emails", "args": {} }, "acceptTools": ["read_recent_emails"] },
+    { "id": "se-01", "prompt": "Cerca le email che parlano del preventivo Consauto", "expected": { "tool": "search_emails", "args": { "query": { "re": "preventiv|consauto" } } } },
+    { "id": "se-02", "prompt": "Trova le email sulla fattura di giugno", "expected": { "tool": "search_emails", "args": { "query": { "re": "fattur|giugno" } } } },
+    { "id": "se-03", "prompt": "C'è qualche email riguardo al rinnovo del contratto?", "expected": { "tool": "search_emails", "args": { "query": { "re": "rinnov|contratt" } } } },
+    { "id": "se-04", "prompt": "Cerca nella posta qualcosa sulla revisione della Panda", "expected": { "tool": "search_emails", "args": { "query": { "re": "revision|panda" } } } },
+    { "id": "se-05", "prompt": "Trova le email dove si parla dell'appuntamento in sede", "expected": { "tool": "search_emails", "args": { "query": { "re": "appuntament|sede" } } } },
+    { "id": "gt-01", "prompt": "Cosa scade questa settimana?", "expected": { "tool": "gtd_get_today", "args": {} } },
+    { "id": "gt-02", "prompt": "Che task ho in scadenza?", "expected": { "tool": "gtd_get_today", "args": {} } },
+    { "id": "gt-03", "prompt": "Situazione di oggi: cosa devo fare?", "expected": { "tool": "gtd_get_today", "args": {} } },
+    { "id": "gt-04", "prompt": "Ci sono faccende in alert?", "expected": { "tool": "gtd_get_today", "args": {} } },
+    { "id": "neg-01", "prompt": "Ciao! Come va?", "expected": { "tool": null } },
+    { "id": "neg-02", "prompt": "Spiegami in due righe cos'è un modello MoE", "expected": { "tool": null } },
+    { "id": "neg-03", "prompt": "Traduci in inglese: buongiorno, a presto", "expected": { "tool": null } },
+    { "id": "neg-04", "prompt": "Scrivimi una battuta sui programmatori", "expected": { "tool": null } },
+    { "id": "neg-05", "prompt": "Che differenza c'è tra HTTP e HTTPS?", "expected": { "tool": null } }
+  ]
+}

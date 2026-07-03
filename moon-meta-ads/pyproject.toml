@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=75.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "moon-meta-ads"
+version = "0.1.0"
+description = "Moon Meta Ads — Insights, interest research & ad set creation MCP server for JupiterOS"
+license = "AGPL-3.0-or-later"
+authors = [{ name = "Edoardo Mancinelli", email = "e.mancinelli@brunelleschi.ai" }]
+requires-python = ">=3.10"
+dependencies = [
+    "mcp[cli]>=1.2.0",
+    "requests>=2.31.0",
+    "python-dotenv>=1.0.0",
+]
+
+[project.urls]
+Repository = "https://github.com/eGancio/jupiter-os"
+
+[project.scripts]
+moon-meta-ads = "moon_meta_ads.server:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

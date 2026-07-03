@@ -10,6 +10,7 @@ import { LogViewer } from "./LogViewer";
 import { StatusBadge } from "./StatusBadge";
 import { CredentialsPanel } from "./CredentialsPanel";
 import { EuropaCredentialsPanel } from "./EuropaCredentialsPanel";
+import { AdsCredentialsPanel } from "./AdsCredentialsPanel";
 import { EmailsPanel } from "./EmailsPanel";
 import { MetisIngestPanel } from "./MetisIngestPanel";
 import { BrandKitPanel } from "./BrandKitPanel";
@@ -169,6 +170,9 @@ export function ServiceDetail({ service, onRefresh }: Props) {
 
           {/* Brand kit setup (only for the report renderer "thebe") */}
           <BrandKitPanel serviceName={service.name} />
+
+          {/* Ads API keys setup (only for "google-ads" / "meta-ads") */}
+          <AdsCredentialsPanel serviceName={service.name} />
 
           {/* Logs */}
           <div className="flex items-center gap-1.5 text-[10px] text-jupiter-dim mb-1.5 font-bold uppercase tracking-wider">

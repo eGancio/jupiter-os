@@ -28,6 +28,7 @@ use crate::extract;
 use crate::ingest;
 use crate::llm::LlmClient;
 use crate::procedure;
+use crate::quality;
 use crate::state::IngestState;
 
 // ===========================================================================
@@ -105,6 +106,12 @@ pub struct ChunkIdParams {
 #[derive(Serialize, Deserialize, JsonSchema)]
 pub struct ClassifyParams {
     /// Percorso del file di cui indovinare la natura tramite l'LLM locale.
+    file_path: String,
+}
+
+#[derive(Serialize, Deserialize, JsonSchema)]
+pub struct AssessParams {
+    /// Percorso del file da valutare per la compilazione (quality gate, no LLM).
     file_path: String,
 }
 
@@ -373,6 +380,50 @@ impl MoonMetisServer {
             .await
             .map_err(|e| format!("Classificazione LLM: {e}"))?;
         Ok(json!({ "file_path": p.file_path, "nature": nature }).to_string())
+    }
+
+    /// Rimuovi completamente un documento dalla knowledge base.
+    #[tool(
+        name = "metis_forget",
+        description = "Rimuove COMPLETAMENTE un documento dalla knowledge base: cancella tutti i suoi chunk da Qdrant e la sua voce dallo stato di ingest. Passa il doc_id (da metis_list_documents / metis_search). Irreversibile: per riaverlo va re-ingerito. Usalo per ripulire file caricati per errore."
+    )]
+    pub async fn metis_forget(&self, params: Parameters<DocIdParams>) -> Result<String, String> {
+        let p = params.0;
+        let deleted_chunks = self
+            .store
+            .delete_document(&p.doc_id)
+            .await
+            .map_err(|e| format!("metis_forget: {e}"))?;
+        let mut state = self.state.lock().await;
+        let source_path = state.remove_by_doc_id(&p.doc_id);
+        state
+            .save(&self.state_path())
+            .map_err(|e| format!("Salvataggio stato: {e}"))?;
+        let status = if deleted_chunks > 0 || source_path.is_some() {
+            "forgotten"
+        } else {
+            "not_found"
+        };
+        Ok(json!({
+            "doc_id": p.doc_id,
+            "deleted_chunks": deleted_chunks,
+            "source_path": source_path,
+            "status": status,
+        })
+        .to_string())
+    }
+
+    /// Quality gate deterministico (no LLM) per decidere se vale la pena compilare.
+    #[tool(
+        name = "metis_assess",
+        description = "Valuta in modo DETERMINISTICO (senza LLM) se un documento vale la pena di essere compilato nel wiki: rifiuta PDF scansionati, file troppo corti, e testo poco alfabetico (binari/estrazione sporca). Usalo PRIMA di compilare, per non inquinare il wiki con spazzatura. Restituisce {compilable, reason, signals}."
+    )]
+    pub async fn metis_assess(&self, params: Parameters<AssessParams>) -> Result<String, String> {
+        let p = params.0;
+        let path = PathBuf::from(&p.file_path);
+        let extraction = extract::extract(&path).map_err(|e| e.to_string())?;
+        let assessment = quality::assess(&extraction);
+        serde_json::to_string(&assessment).map_err(|e| e.to_string())
     }
 }
 

@@ -41,9 +41,32 @@ const MAX_TEXT_LEN: usize = 30_000;
 /// "no account filter". Lowercases the value because account names are stored
 /// lowercase by the indexer and `Condition::matches` is case-sensitive.
 fn account_condition(account: Option<&str>) -> Option<Condition> {
-    account
+    account.filter(|s| !s.is_empty()).map(|s| {
+        let lower = s.to_lowercase();
+        if lower == s {
+            Condition::matches("account", lower)
+        } else {
+            // Il payload "account" è scritto col case ORIGINALE (es.
+            // "EMOTION - ARUBA", vedi index_message), ma storicamente qui si
+            // filtrava sul lowercase: match esatto Qdrant → zero risultati per
+            // ogni account non-minuscolo. Accetta entrambe le forme, così non
+            // serve reindicizzare i corpora esistenti.
+            Filter::should([
+                Condition::matches("account", s.to_string()),
+                Condition::matches("account", lower),
+            ])
+            .into()
+        }
+    })
+}
+
+/// Filter on the `channel` payload field (e.g. "telegram", "whatsapp", "email").
+/// Without this, a search/list mixes channels and the largest corpus dominates.
+fn channel_condition(channel: Option<&str>) -> Option<Condition> {
+    channel
+        .map(|s| s.trim())
         .filter(|s| !s.is_empty())
-        .map(|s| Condition::matches("account", s.to_lowercase()))
+        .map(|s| Condition::matches("channel", s.to_string()))
 }
 
 /// A message to be indexed in the vector store.
@@ -682,6 +705,7 @@ impl MessageStore {
         contact: Option<&str>,
         limit: usize,
         account: Option<&str>,
+        channel: Option<&str>,
     ) -> Result<Vec<SearchResult>> {
         // Generate both dense and sparse query embeddings in a single forward pass.
         let query_hybrid = self
@@ -695,6 +719,9 @@ impl MessageStore {
             filter_conditions.push(Condition::matches("_namespace", ns.clone()));
         }
         if let Some(c) = account_condition(account) {
+            filter_conditions.push(c);
+        }
+        if let Some(c) = channel_condition(channel) {
             filter_conditions.push(c);
         }
         if let Some(contact) = contact {
@@ -841,6 +868,7 @@ impl MessageStore {
         contact: &str,
         limit: usize,
         account: Option<&str>,
+        channel: Option<&str>,
     ) -> Result<Vec<SearchResult>> {
         let mut all_results = Vec::new();
         let mut offset = None;
@@ -852,6 +880,9 @@ impl MessageStore {
             scroll_conditions.push(Condition::matches("_namespace", ns.clone()));
         }
         if let Some(c) = account_condition(account) {
+            scroll_conditions.push(c);
+        }
+        if let Some(c) = channel_condition(channel) {
             scroll_conditions.push(c);
         }
 
@@ -939,6 +970,7 @@ impl MessageStore {
         contact: Option<&str>,
         offset: usize,
         account: Option<&str>,
+        channel: Option<&str>,
     ) -> Result<Vec<MessageHeader>> {
         let contact_lower = contact.map(|c| c.to_lowercase());
         let need_total = offset + limit;
@@ -950,6 +982,7 @@ impl MessageStore {
                 limit,
                 offset,
                 account,
+                channel,
             ).await;
         }
 
@@ -970,6 +1003,9 @@ impl MessageStore {
             conditions.push(Condition::matches("_namespace", ns.clone()));
         }
         if let Some(c) = account_condition(account) {
+            conditions.push(c);
+        }
+        if let Some(c) = channel_condition(channel) {
             conditions.push(c);
         }
         if !conditions.is_empty() {
@@ -1017,6 +1053,7 @@ impl MessageStore {
         limit: usize,
         offset: usize,
         account: Option<&str>,
+        channel: Option<&str>,
     ) -> Result<Vec<MessageHeader>> {
         let contact_lower = contact.to_lowercase();
         let mut all_headers = Vec::new();
@@ -1028,6 +1065,9 @@ impl MessageStore {
             scroll_conditions.push(Condition::matches("_namespace", ns.clone()));
         }
         if let Some(c) = account_condition(account) {
+            scroll_conditions.push(c);
+        }
+        if let Some(c) = channel_condition(channel) {
             scroll_conditions.push(c);
         }
 

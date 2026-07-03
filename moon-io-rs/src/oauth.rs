@@ -242,12 +242,16 @@ pub async fn authorize_interactive(
             Err(_) => return Err("Timeout aspettando il consenso Google".into()),
         };
 
-    // Read the HTTP request line (just need the URL)
+    // Read the HTTP request line (just need the URL). Bound this with a
+    // timeout: a browser can open the socket without ever sending a complete
+    // request, which would otherwise hang this task (and any caller waiting on
+    // it) forever.
     let mut buf = [0u8; 4096];
-    let n = socket
-        .read(&mut buf)
-        .await
-        .map_err(|e| format!("Read callback: {e}"))?;
+    let n = match tokio::time::timeout(Duration::from_secs(30), socket.read(&mut buf)).await {
+        Ok(Ok(n)) => n,
+        Ok(Err(e)) => return Err(format!("Read callback: {e}")),
+        Err(_) => return Err("Timeout leggendo la risposta del browser".into()),
+    };
     let request = String::from_utf8_lossy(&buf[..n]);
     let first_line = request.lines().next().unwrap_or("");
     // "GET /oauth/callback?code=...&state=... HTTP/1.1"
@@ -321,7 +325,10 @@ async fn exchange_code(
     redirect_uri: &str,
     code_verifier: &str,
 ) -> Result<TokenResponse, String> {
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(30))
+        .build()
+        .map_err(|e| format!("HTTP client: {e}"))?;
     let params = [
         ("client_id", client_id),
         ("client_secret", client_secret),
@@ -379,7 +386,10 @@ pub async fn get_access_token(
 }
 
 async fn refresh_access_token(creds: &OAuthCredentials) -> Result<TokenResponse, String> {
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(30))
+        .build()
+        .map_err(|e| format!("HTTP client: {e}"))?;
     let params = [
         ("client_id", creds.client_id.as_str()),
         ("client_secret", creds.client_secret.as_str()),

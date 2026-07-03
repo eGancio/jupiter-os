@@ -23,9 +23,13 @@ pub struct Page {
 #[derive(Debug, Clone)]
 pub struct Extraction {
     pub format: String,
-    /// True when a PDF yielded no extractable text on any page (likely scanned
-    /// images) — the caller should warn and skip rather than index nothing.
+    /// True when a PDF has no native text layer (likely scanned images). Stays
+    /// true even after OCR — the document *is* a scan — so callers can flag the
+    /// citation as OCR-derived; see `ocr_applied`.
     pub is_scanned: bool,
+    /// True when the page text below was produced by OCR (the PDF was scanned and
+    /// OCR succeeded). Such text may contain recognition errors.
+    pub ocr_applied: bool,
     pub pages: Vec<Page>,
 }
 
@@ -64,6 +68,7 @@ pub fn extract(path: &Path) -> Result<Extraction> {
     Ok(Extraction {
         format: ext,
         is_scanned: false,
+        ocr_applied: false,
         pages: vec![Page {
             number: 0,
             text,
@@ -107,9 +112,35 @@ fn extract_pdf(path: &Path) -> Result<Extraction> {
 
     let is_scanned = pages.iter().all(|p| p.text.trim().is_empty());
 
+    // Scanned PDF with no native text layer: try local OCR if it's loaded.
+    // On success the pages are replaced with the recognized text; `is_scanned`
+    // stays true (the document *is* a scan) but `ocr_applied` flags the source.
+    let (pages, ocr_applied) = if is_scanned && crate::ocr::is_ready() {
+        match crate::ocr::ocr_pdf(path) {
+            Ok(ocr_pages) => {
+                let pages = ocr_pages
+                    .into_iter()
+                    .enumerate()
+                    .map(|(i, t)| Page {
+                        number: (i + 1) as u32,
+                        text: t,
+                    })
+                    .collect();
+                (pages, true)
+            }
+            Err(e) => {
+                tracing::warn!("OCR fallito per {}: {e}", path.display());
+                (pages, false)
+            }
+        }
+    } else {
+        (pages, false)
+    };
+
     Ok(Extraction {
         format: "pdf".to_string(),
         is_scanned,
+        ocr_applied,
         pages,
     })
 }

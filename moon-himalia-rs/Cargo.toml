@@ -25,8 +25,14 @@ serde_json = { workspace = true }
 # JSON schema for MCP tool params
 schemars = "1"
 
-# HTTP client for the Tavily API
+# HTTP client for the Tavily + openapi.it APIs
 reqwest = { version = "0.12", features = ["rustls-tls", "json"] }
+
+# openapi.it imprese: decode base64 allegati, unzip, parse XBRL, monthly ledger
+base64 = "0.22"
+zip = "2"
+roxmltree = "0.20"
+chrono = { workspace = true }
 
 # Logging
 tracing = { workspace = true }
