@@ -59,6 +59,12 @@ export function compactChatSession(sessionId: string): Promise<void> {
   return invoke("compact_chat_session", { sessionId });
 }
 
+/** Fire a background Haiku auto-title for a chat. Rust guards make it a no-op
+ *  when the chat isn't worth titling, so it's safe to call freely. */
+export function classifyChatSession(sessionId: string): Promise<void> {
+  return invoke("classify_chat_session", { sessionId });
+}
+
 export function getChatModel(): Promise<string> {
   return invoke("get_chat_model");
 }

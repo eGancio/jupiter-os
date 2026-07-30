@@ -87,6 +87,8 @@ export interface ChatSessionInfo {
   message_count: number;
   model: string;
   engine: string;
+  /** User set the group by hand (auto-classifier won't touch it). */
+  manual: boolean;
 }
 
 // ── Chat workspace (tabs) ─────────────────────────────────────

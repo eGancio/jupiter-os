@@ -250,8 +250,45 @@ pub fn rename_chat_session(
         .find(|s| s.id == session_id)
         .ok_or_else(|| format!("Session {} not found", session_id))?;
     session.title = title;
+    // A hand-set title must never be clobbered by the Haiku auto-titler.
+    session.title_manual = true;
     crate::claude::save_sessions_to_disk(&sessions);
     Ok(())
+}
+
+/// Fire a background Haiku auto-title for one chat, IF it's worth it: idle, has
+/// content, never successfully titled, and not renamed by hand. All guards live
+/// here so the frontend can call this freely on every `claude-done` and on
+/// startup without wasting Haiku calls.
+#[tauri::command]
+pub fn classify_chat_session(
+    session_id: String,
+    state: State<'_, ChatState>,
+) -> Result<(), String> {
+    let prompt = {
+        let sessions = state.sessions.lock().map_err(|e| e.to_string())?;
+        let session = match sessions.iter().find(|s| s.id == session_id) {
+            Some(s) => s,
+            None => return Ok(()), // session gone — nothing to do
+        };
+
+        let should = !session.title_manual
+            && !session.is_busy()
+            && session.messages.len() >= 2
+            && session.classified_at.is_none();
+        if !should {
+            return Ok(());
+        }
+
+        crate::claude::build_classify_prompt(session)
+    };
+
+    state.send_to_sidecar(serde_json::json!({
+        "cmd": "classify",
+        "session_id": session_id,
+        "prompt": prompt,
+        "model": "haiku",
+    }))
 }
 
 #[tauri::command]

@@ -15,6 +15,9 @@
 
 import { query } from "@anthropic-ai/claude-agent-sdk";
 import { loadMcpServers, waitForMcpServers } from "./engine.mjs";
+import { mkdtempSync, writeFileSync, rmSync } from "fs";
+import { tmpdir } from "os";
+import { join } from "path";
 
 const ALLOWED_TOOLS = [
   "mcp__*",
@@ -45,24 +48,77 @@ function sniffImageMediaType(base64) {
   return "image/png";
 }
 
-// Build the SDK streaming-input prompt: one user message whose content carries
-// the text plus an image block per pasted image. Yielding a single message and
-// returning closes the input stream, so the query runs exactly one turn and
-// terminates normally (same lifecycle as the string-prompt path).
-async function* buildImagePrompt(text, images) {
-  const content = [];
-  if (text) content.push({ type: "text", text });
-  for (const data of images) {
-    content.push({
-      type: "image",
-      source: { type: "base64", media_type: sniffImageMediaType(data), data },
-    });
+// Extension for a sniffed media type, so the temp file is named in a way the
+// Read tool recognizes as an image (it renders png/jpg/gif/webp/bmp visually).
+function extForMediaType(mt) {
+  switch (mt) {
+    case "image/jpeg": return "jpg";
+    case "image/gif": return "gif";
+    case "image/webp": return "webp";
+    case "image/bmp": return "bmp";
+    default: return "png";
   }
-  yield {
-    type: "user",
-    parent_tool_use_id: null,
-    message: { role: "user", content },
+}
+
+// Write pasted images to a fresh temp dir and return { dir, prompt }.
+//
+// Rationale: inlining base64 forced the SDK onto the streaming-stdin path
+// (`--input-format stream-json`), on which the child `claude` CLI intermittently
+// died at startup with the opaque "exited with code 1" — a crash the plain
+// string-prompt (`--print`) path never showed. Handing the model file PATHS lets
+// it open them with the Read tool (native Claude Code image handling), keeps the
+// robust string-prompt path, and stops pushing MB of base64 through two stdin
+// pipes. The caller rm -rf's `dir` after the turn.
+function buildImageFilePrompt(text, images) {
+  const dir = mkdtempSync(join(tmpdir(), "jupiter-imgs-"));
+  const paths = [];
+  images.forEach((data, i) => {
+    const p = join(dir, `paste-${i + 1}.${extForMediaType(sniffImageMediaType(data))}`);
+    writeFileSync(p, Buffer.from(data, "base64"));
+    paths.push(p);
+  });
+  const list = paths.map((p) => `- ${p}`).join("\n");
+  const note =
+    `[L'utente ha allegato ${paths.length} immagine/i. ` +
+    `Aprile con il tool Read prima di rispondere:]\n${list}`;
+  const prompt = text ? `${text}\n\n${note}` : note;
+  return { dir, prompt };
+}
+
+/**
+ * Fire a single, tool-less, non-persisted completion and return the plain text.
+ *
+ * Used by the background chat classifier: it must be CHEAP and isolated — no
+ * MCP Moons, no skills, no project settings (which would load the guardrail
+ * CLAUDE.md and every skill), no session resume, one turn only. Reuses the same
+ * `claude` CLI auth the chat sessions use, so it needs no extra API key.
+ */
+export async function oneShot(prompt, model, systemPrompt) {
+  const queryOptions = {
+    model: model || "haiku",
+    permissionMode: "bypassPermissions",
+    allowDangerouslySkipPermissions: true,
+    mcpServers: {},
+    allowedTools: [],
+    // Load NOTHING from the project/user config: a bare classifier, not an agent.
+    settingSources: [],
+    includePartialMessages: false,
+    persistSession: false,
+    maxTurns: 1,
   };
+  if (systemPrompt) queryOptions.systemPrompt = systemPrompt;
+
+  let text = "";
+  const q = query({ prompt, options: queryOptions });
+  for await (const msg of q) {
+    if (msg.type === "assistant") {
+      const content = msg.message?.content || [];
+      for (const block of content) {
+        if (block.type === "text") text += block.text || "";
+      }
+    }
+  }
+  return text.trim();
 }
 
 export class ClaudeAgentEngine {
@@ -113,6 +169,15 @@ export class ClaudeAgentEngine {
       includePartialMessages: true,
       persistSession: true,
       thinking: { type: "adaptive" },
+      // Capture the child `claude` CLI's stderr. Without this the SDK discards
+      // it, so a CLI that dies at startup (e.g. on an image/streaming-input
+      // turn) surfaces only the opaque "Claude Code process exited with code 1"
+      // with zero cause. Tagging it CLI-STDERR routes it into the same
+      // .claude-gui-debug.log the Rust side captures from our stderr, so the
+      // real reason is on record the next time it crashes.
+      stderr: (line) => {
+        process.stderr.write(`[CLI-STDERR ${session_id}] ${line}\n`);
+      },
     };
 
     // Resume from previous SDK session if available
@@ -120,10 +185,19 @@ export class ClaudeAgentEngine {
       queryOptions.resume = this.sdkSessionId;
     }
 
-    // With images, send a streaming-input prompt carrying image content blocks;
-    // without, keep the plain string prompt (byte-for-byte the prior behavior).
+    // With images, write them to temp files and pass the model their PATHS in a
+    // plain string prompt (it opens them with Read). This keeps the robust
+    // string-prompt path instead of switching to streaming-stdin, which is where
+    // the child CLI intermittently died at startup. Without images the prompt is
+    // the bare string, byte-for-byte the prior behavior.
     const hasImages = Array.isArray(images) && images.length > 0;
-    const promptInput = hasImages ? buildImagePrompt(prompt, images) : prompt;
+    let imageTempDir = null;
+    let promptInput = prompt;
+    if (hasImages) {
+      const built = buildImageFilePrompt(prompt, images);
+      imageTempDir = built.dir;
+      promptInput = built.prompt;
+    }
 
     this.aborted = false;
     process.stderr.write(
@@ -140,6 +214,12 @@ export class ClaudeAgentEngine {
       }
     } finally {
       this.queryInstance = null;
+      // Best-effort cleanup of the pasted-image temp dir. The model has already
+      // Read the files by the time the turn ends; a leftover dir is harmless but
+      // we avoid unbounded /tmp growth across a long session.
+      if (imageTempDir) {
+        try { rmSync(imageTempDir, { recursive: true, force: true }); } catch { /* ignore */ }
+      }
     }
   }
 

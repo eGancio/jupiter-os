@@ -119,6 +119,13 @@ pub struct ChatSessionPersist {
     pub title: String,
     pub created_at: u64,
     pub updated_at: u64,
+    // Both #[serde(default)] so pre-existing jupiteros-sessions.json load fine.
+    /// User renamed the title by hand → the auto-titler must NOT overwrite it.
+    #[serde(default)]
+    pub title_manual: bool,
+    /// Unix secs of the last successful auto-title (None = never titled).
+    #[serde(default)]
+    pub classified_at: Option<u64>,
 }
 
 pub struct ChatSession {
@@ -130,6 +137,8 @@ pub struct ChatSession {
     pub title: String,
     pub created_at: u64,
     pub updated_at: u64,
+    pub title_manual: bool,
+    pub classified_at: Option<u64>,
     busy: Arc<AtomicBool>,
 }
 
@@ -145,6 +154,8 @@ impl ChatSession {
             title: "Nuova chat".to_string(),
             created_at: now,
             updated_at: now,
+            title_manual: false,
+            classified_at: None,
             busy: Arc::new(AtomicBool::new(false)),
         }
     }
@@ -159,6 +170,8 @@ impl ChatSession {
             title: p.title,
             created_at: p.created_at,
             updated_at: p.updated_at,
+            title_manual: p.title_manual,
+            classified_at: p.classified_at,
             busy: Arc::new(AtomicBool::new(false)),
         }
     }
@@ -173,6 +186,8 @@ impl ChatSession {
             title: self.title.clone(),
             created_at: self.created_at,
             updated_at: self.updated_at,
+            title_manual: self.title_manual,
+            classified_at: self.classified_at,
         }
     }
 
@@ -197,13 +212,17 @@ impl ChatSession {
         });
         self.updated_at = now_secs();
 
-        // Auto-title from first user message
+        // Auto-title from first user message. Char-safe truncation: byte-slicing
+        // at 40 would panic on a multibyte char straddling the boundary. This is
+        // only a placeholder — the Haiku classifier replaces it with a real title
+        // once the chat has enough content (unless the user renamed it by hand).
         if self.messages.len() == 1 {
             let t = &self.messages[0].content;
-            self.title = if t.len() > 40 {
-                format!("{}...", &t[..40])
+            let truncated: String = t.chars().take(40).collect();
+            self.title = if truncated.chars().count() < t.chars().count() {
+                format!("{}...", truncated)
             } else {
-                t.clone()
+                truncated
             };
         }
     }
@@ -648,6 +667,29 @@ impl AgentSidecar {
                     // Forward to frontend for chat management
                     let _ = handle.emit("claude-sessions-list", json.clone());
                 }
+                "classify_result" => {
+                    // One-shot Haiku auto-title came back. Parse the JSON
+                    // {"title": ...} and write it onto the session, respecting a
+                    // hand-set title. classified_at is stamped only on success,
+                    // so a transient failure (empty result, junk output) retries
+                    // at the next idle instead of leaving the chat untitled.
+                    let raw = json.get("result").and_then(|v| v.as_str()).unwrap_or("");
+                    if sid.is_empty() {
+                        continue;
+                    }
+                    if let Some(title) = parse_classify_result(raw) {
+                        if let Ok(mut sessions) = sessions.lock() {
+                            if let Some(s) = sessions.iter_mut().find(|s| s.id == sid) {
+                                if !s.title_manual {
+                                    s.title = title;
+                                }
+                                s.classified_at = Some(now_secs());
+                            }
+                            save_sessions_to_disk(&sessions);
+                        }
+                        let _ = handle.emit("chats-reclassified", serde_json::json!({ "session_id": sid }));
+                    }
+                }
                 _ => {}
             }
         }
@@ -688,6 +730,57 @@ pub fn now_secs() -> u64 {
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
         .as_secs()
+}
+
+// ── Auto-title (Haiku one-shot) ─────────────────────────────
+
+/// Parse the Haiku auto-titler's raw output into a title. The model is asked
+/// for bare JSON `{"title": ...}` but may wrap it in a ```json fence or add
+/// prose — strip to the outermost object and parse. Returns None if
+/// unparseable or the title is empty/placeholder.
+pub fn parse_classify_result(raw: &str) -> Option<String> {
+    let start = raw.find('{')?;
+    let end = raw.rfind('}')?;
+    if end < start {
+        return None;
+    }
+    let slice = &raw[start..=end];
+    let v: serde_json::Value = serde_json::from_str(slice).ok()?;
+    let s = v.get("title")?.as_str()?.trim().to_string();
+    let low = s.to_lowercase();
+    if s.is_empty() || low == "null" || low == "none" || low == "n/a" {
+        None
+    } else {
+        Some(s)
+    }
+}
+
+/// Build the user-side prompt for titling a session: its current title plus the
+/// first couple of user messages (truncated) and a bit of assistant context.
+pub fn build_classify_prompt(session: &ChatSession) -> String {
+    let mut parts = Vec::new();
+    parts.push(format!("Titolo attuale: {}", session.title));
+
+    let mut shown = 0;
+    for m in session.messages.iter() {
+        if m.role == "user" {
+            let snippet: String = m.content.chars().take(500).collect();
+            parts.push(format!("Messaggio utente: {}", snippet));
+            shown += 1;
+            if shown >= 2 {
+                break;
+            }
+        }
+    }
+    // A little assistant context helps disambiguate the topic.
+    if let Some(a) = session.messages.iter().find(|m| m.role == "assistant") {
+        let snippet: String = a.content.chars().take(400).collect();
+        if !snippet.trim().is_empty() {
+            parts.push(format!("Risposta assistente (estratto): {}", snippet));
+        }
+    }
+
+    parts.join("\n")
 }
 
 // ── Session persistence ─────────────────────────────────────

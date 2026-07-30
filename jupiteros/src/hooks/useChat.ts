@@ -11,6 +11,7 @@ import {
   deleteChatSession as deleteChatSessionCmd,
   renameChatSession as renameChatSessionCmd,
   compactChatSession as compactChatSessionCmd,
+  classifyChatSession,
   getChatModel,
   setChatSessionModel,
   flushSessionMessages,
@@ -323,6 +324,18 @@ export function useChat() {
       sessionsRef.current = list;
       if (list.length > 0) {
         setSessions(list);
+
+        // Backlog sweep: auto-title chats created before this feature (or whose
+        // earlier attempt failed). Rust guards skip anything not worth
+        // (re)titling; stagger to avoid spawning many Haiku one-shots at once.
+        // `chats-reclassified` refreshes as they land.
+        void (async () => {
+          const pending = list.filter((s) => s.message_count >= 2);
+          for (const s of pending) {
+            classifyChatSession(s.id).catch(() => {});
+            await new Promise((r) => setTimeout(r, 400));
+          }
+        })();
 
         let open: string[] = [];
         let active: string | null = null;
@@ -723,6 +736,21 @@ export function useChat() {
         }
 
         // Refresh session list (title may have updated)
+        refreshSessionList();
+
+        // Chat is now idle: fire a background Haiku auto-title. Rust guards
+        // make this a no-op unless the chat is worth titling, so it's safe to
+        // call on every turn. The `chats-reclassified` event refreshes the
+        // sidebar once the title comes back.
+        if (!next) {
+          classifyChatSession(sid).catch(() => {});
+        }
+      })
+    );
+
+    // Auto-title came back → refresh the sidebar.
+    unlisteners.push(
+      listen<{ session_id: string }>("chats-reclassified", () => {
         refreshSessionList();
       })
     );

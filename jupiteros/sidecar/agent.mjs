@@ -18,7 +18,7 @@
 
 import * as readline from "readline";
 import { createEngine, registerEngine } from "./engines/engine.mjs";
-import { ClaudeAgentEngine } from "./engines/claude.mjs";
+import { ClaudeAgentEngine, oneShot } from "./engines/claude.mjs";
 import { OllamaEngine } from "./engines/ollama.mjs";
 import { GeminiEngine } from "./engines/gemini.mjs";
 import { OpenAICompatEngine } from "./engines/openai-compat.mjs";
@@ -162,6 +162,27 @@ function handleSetModel(cmd) {
   }
 }
 
+// ── Background auto-titler (cheap, Haiku) ────────────────────
+// The Rust backend fires `classify` when a chat goes idle; we run a tool-less
+// one-shot and emit the raw JSON back for Rust to parse and persist.
+const CLASSIFY_SYSTEM = `Dai un titolo a una conversazione di chat.
+
+Rispondi ESCLUSIVAMENTE con un oggetto JSON, senza testo attorno, in questa forma:
+{"title": string}
+
+"title": un titolo conciso della chat, 3-5 parole, in italiano, senza virgolette.`;
+
+async function handleClassify(cmd) {
+  try {
+    const result = await oneShot(cmd.prompt, cmd.model || "haiku", CLASSIFY_SYSTEM);
+    emit({ event: "classify_result", session_id: cmd.session_id, result });
+  } catch (err) {
+    process.stderr.write(`[SIDECAR] classify error: ${err && err.message}\n`);
+    // Emit an empty result so Rust stamps classified_at and doesn't retry forever.
+    emit({ event: "classify_result", session_id: cmd.session_id, result: "" });
+  }
+}
+
 function handleSetPermissionMode(cmd) {
   // Update permission mode for all future runs in a session. Read per-turn by
   // the Claude engine; other engines ignore it.
@@ -194,6 +215,12 @@ rl.on("line", async (line) => {
     case "send":
       // Run in background so we can process stop commands concurrently
       handleSend(cmd).catch((err) => emitError(cmd.session_id, err.message));
+      break;
+    case "classify":
+      // Background classification: never blocks the send/stop loop.
+      handleClassify(cmd).catch((err) =>
+        process.stderr.write(`[SIDECAR] classify dispatch error: ${err && err.message}\n`),
+      );
       break;
     case "stop":
       handleStop(cmd);

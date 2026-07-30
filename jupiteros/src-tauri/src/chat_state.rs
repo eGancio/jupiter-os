@@ -22,10 +22,8 @@ pub struct ChatState {
 
 impl ChatState {
     pub fn new() -> Self {
-        // Load saved sessions from disk
-        let saved = load_sessions_from_disk();
         Self {
-            sessions: Arc::new(Mutex::new(saved)),
+            sessions: Arc::new(Mutex::new(load_sessions_from_disk())),
             model: Arc::new(Mutex::new("opus".to_string())),
             engine: Arc::new(Mutex::new("claude".to_string())),
             permission_mode: Arc::new(Mutex::new("auto".to_string())),
