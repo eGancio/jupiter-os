@@ -126,6 +126,12 @@ pub struct ChatSessionPersist {
     /// Unix secs of the last successful auto-title (None = never titled).
     #[serde(default)]
     pub classified_at: Option<u64>,
+    /// Scudo PII attivo: i messaggi escono anonimizzati verso il cloud.
+    #[serde(default)]
+    pub pii_shield: bool,
+    /// Dizionario {placeholder → valore vero} della chat. Solo su disco locale.
+    #[serde(default)]
+    pub pii_map: std::collections::BTreeMap<String, String>,
 }
 
 pub struct ChatSession {
@@ -139,6 +145,8 @@ pub struct ChatSession {
     pub updated_at: u64,
     pub title_manual: bool,
     pub classified_at: Option<u64>,
+    pub pii_shield: bool,
+    pub pii_map: std::collections::BTreeMap<String, String>,
     busy: Arc<AtomicBool>,
 }
 
@@ -156,6 +164,8 @@ impl ChatSession {
             updated_at: now,
             title_manual: false,
             classified_at: None,
+            pii_shield: false,
+            pii_map: std::collections::BTreeMap::new(),
             busy: Arc::new(AtomicBool::new(false)),
         }
     }
@@ -172,6 +182,8 @@ impl ChatSession {
             updated_at: p.updated_at,
             title_manual: p.title_manual,
             classified_at: p.classified_at,
+            pii_shield: p.pii_shield,
+            pii_map: p.pii_map,
             busy: Arc::new(AtomicBool::new(false)),
         }
     }
@@ -188,6 +200,8 @@ impl ChatSession {
             updated_at: self.updated_at,
             title_manual: self.title_manual,
             classified_at: self.classified_at,
+            pii_shield: self.pii_shield,
+            pii_map: self.pii_map.clone(),
         }
     }
 
@@ -369,6 +383,22 @@ impl AgentSidecar {
             std::collections::HashMap::new();
         let mut pending_tools: std::collections::HashMap<String, Vec<ToolCallInfo>> =
             std::collections::HashMap::new();
+        // Scudo PII: rewriter streaming per sessione (placeholder → valori veri)
+        let mut pii_restorers: std::collections::HashMap<String, crate::pii::StreamRestorer> =
+            std::collections::HashMap::new();
+        // Dizionario della sessione, o None se lo scudo è spento (clone piccolo,
+        // preso sotto lock breve — mai tenere il lock durante l'emit).
+        let pii_map_of = |sessions: &Arc<Mutex<Vec<ChatSession>>>,
+                          sid: &str|
+         -> Option<std::collections::BTreeMap<String, String>> {
+            let guard = sessions.lock().ok()?;
+            let s = guard.iter().find(|s| s.id == sid)?;
+            if s.pii_shield && !s.pii_map.is_empty() {
+                Some(s.pii_map.clone())
+            } else {
+                None
+            }
+        };
 
         // Read raw BYTES, not lines(): lines() yields Err on invalid UTF-8 and
         // the old `Err => break` closed the read end, which made the sidecar's
@@ -424,14 +454,26 @@ impl AgentSidecar {
                     // Session is now active in the SDK
                 }
                 "text_delta" => {
-                    let text = json.get("text").and_then(|v| v.as_str()).unwrap_or("");
+                    let raw = json.get("text").and_then(|v| v.as_str()).unwrap_or("");
+                    // Scudo PII: il delta passa dal rewriter (holdback sui
+                    // placeholder spezzati) prima di UI e persistenza.
+                    let text = match pii_map_of(&sessions, &sid) {
+                        Some(map) => pii_restorers
+                            .entry(sid.clone())
+                            .or_insert_with(crate::pii::StreamRestorer::new)
+                            .push(raw, &map),
+                        None => raw.to_string(),
+                    };
+                    if text.is_empty() {
+                        continue; // tutto trattenuto nel holdback
+                    }
                     // Accumulate for persistence
-                    pending_text.entry(sid.clone()).or_default().push_str(text);
+                    pending_text.entry(sid.clone()).or_default().push_str(&text);
                     let _ = handle.emit(
                         "claude-text-delta",
                         TextDeltaPayload {
                             session_id: sid,
-                            text: text.to_string(),
+                            text,
                         },
                     );
                 }
@@ -545,9 +587,30 @@ impl AgentSidecar {
                 }
                 "done" => {
                     // Save accumulated assistant message + mark not busy
-                    let text = pending_text.remove(&sid).unwrap_or_default();
+                    let mut text = pending_text.remove(&sid).unwrap_or_default();
                     let thinking = pending_thinking.remove(&sid).unwrap_or_default();
                     let tools = pending_tools.remove(&sid).unwrap_or_default();
+                    // Scudo PII: svuota il holdback del rewriter (l'ultimo pezzo
+                    // va anche al frontend) e ripassa il testo integrale, così
+                    // lo storico locale resta coi valori veri comunque.
+                    if let Some(map) = pii_map_of(&sessions, &sid) {
+                        if let Some(mut r) = pii_restorers.remove(&sid) {
+                            let tail = r.flush(&map);
+                            if !tail.is_empty() {
+                                text.push_str(&tail);
+                                let _ = handle.emit(
+                                    "claude-text-delta",
+                                    TextDeltaPayload {
+                                        session_id: sid.clone(),
+                                        text: tail,
+                                    },
+                                );
+                            }
+                        }
+                        text = crate::pii::restore(&text, &map);
+                    } else {
+                        pii_restorers.remove(&sid);
+                    }
                     if let Ok(mut sessions) = sessions.lock() {
                         if let Some(s) = sessions.iter_mut().find(|s| s.id == sid) {
                             // Only save if there's content
@@ -610,6 +673,7 @@ impl AgentSidecar {
                 }
                 "error" => {
                     let error = json.get("error").and_then(|v| v.as_str()).unwrap_or("Unknown error");
+                    pii_restorers.remove(&sid);
                     // Mark session as not busy
                     if !sid.is_empty() {
                         if let Ok(mut sessions) = sessions.lock() {
@@ -757,7 +821,25 @@ pub fn parse_classify_result(raw: &str) -> Option<String> {
 
 /// Build the user-side prompt for titling a session: its current title plus the
 /// first couple of user messages (truncated) and a bit of assistant context.
+/// Con lo scudo PII attivo i messaggi locali sono in CHIARO: prima di mandarli
+/// a Haiku (cloud) vanno ri-anonimizzati col dizionario della sessione.
 pub fn build_classify_prompt(session: &ChatSession) -> String {
+    let shield = |text: &str| -> String {
+        if !session.pii_shield || session.pii_map.is_empty() {
+            return text.to_string();
+        }
+        let mut out = text.to_string();
+        // Valori più lunghi prima: evita che "Rossi" mangi "Mario Rossi".
+        let mut entries: Vec<(&String, &String)> = session.pii_map.iter().collect();
+        entries.sort_by_key(|(_, v)| std::cmp::Reverse(v.len()));
+        for (ph, value) in entries {
+            if !value.is_empty() {
+                out = out.replace(value.as_str(), ph);
+            }
+        }
+        out
+    };
+
     let mut parts = Vec::new();
     parts.push(format!("Titolo attuale: {}", session.title));
 
@@ -765,7 +847,7 @@ pub fn build_classify_prompt(session: &ChatSession) -> String {
     for m in session.messages.iter() {
         if m.role == "user" {
             let snippet: String = m.content.chars().take(500).collect();
-            parts.push(format!("Messaggio utente: {}", snippet));
+            parts.push(format!("Messaggio utente: {}", shield(&snippet)));
             shown += 1;
             if shown >= 2 {
                 break;
@@ -776,7 +858,7 @@ pub fn build_classify_prompt(session: &ChatSession) -> String {
     if let Some(a) = session.messages.iter().find(|m| m.role == "assistant") {
         let snippet: String = a.content.chars().take(400).collect();
         if !snippet.trim().is_empty() {
-            parts.push(format!("Risposta assistente (estratto): {}", snippet));
+            parts.push(format!("Risposta assistente (estratto): {}", shield(&snippet)));
         }
     }
 

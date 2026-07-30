@@ -12,6 +12,7 @@ mod credentials;
 mod emails;
 mod europa_credentials;
 mod metis;
+mod pii;
 mod qdrant;
 mod services;
 mod state;
@@ -65,6 +66,7 @@ pub fn run() {
             chat_commands::delete_chat_session,
             chat_commands::compact_chat_session,
             chat_commands::rename_chat_session,
+            chat_commands::set_chat_pii_shield,
             chat_commands::classify_chat_session,
             chat_commands::get_chat_model,
             chat_commands::get_chat_engine,
@@ -150,6 +152,7 @@ pub fn run() {
                 let state = app_handle.state::<AppState>();
                 state.stop_all();
                 qdrant::shutdown();
+                pii::shutdown();
 
                 // Save sessions and stop the sidecar on exit
                 let chat_state = app_handle.state::<ChatState>();

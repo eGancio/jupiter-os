@@ -113,6 +113,9 @@ async function handleSend(cmd) {
     mcpConfigPath: entry.options.mcp_config,
     permissionMode: entry.options.permission_mode,
     images: cmd.images,
+    // Scudo PII: {placeholder → valore vero}, solo per ripristinare gli
+    // argomenti dei tool che girano in locale. Mai inviato al cloud.
+    piiMapping: cmd.pii_mapping,
   };
 
   try {

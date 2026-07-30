@@ -55,10 +55,10 @@ impl AppState {
     pub fn autostart_services(&self, app_handle: AppHandle) {
         if let Ok(mut services) = self.services.lock() {
             for state in services.values_mut() {
-                let wanted = match state.kind {
-                    ProcessKind::Daemon => true,
-                    ProcessKind::McpServer => state.def.autostart,
-                };
+                // `autostart` (default true) vale per entrambi i kind: così un
+                // daemon pesante (es. rizzo-pii, llama-server) può stare in
+                // config con "autostart": false e partire solo on-demand.
+                let wanted = state.def.autostart;
                 if wanted && !state.running {
                     state.start(Some(app_handle.clone()));
                 }

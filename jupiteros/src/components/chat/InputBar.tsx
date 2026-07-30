@@ -24,6 +24,9 @@ interface Props {
   activeFile?: string | null;
   /** Model picker rendered in the bottom-left bar (next to "Auto mode"). */
   modelSlot?: ReactNode;
+  /** Scudo PII: stato per-chat + toggle. */
+  piiShield?: boolean;
+  onPiiShieldToggle?: () => void;
 }
 
 const PERMISSION_LABEL_KEYS: Record<PermissionMode, string> = {
@@ -32,7 +35,7 @@ const PERMISSION_LABEL_KEYS: Record<PermissionMode, string> = {
   bypass: "input.permission.bypass",
 };
 
-export function InputBar({ onSend, onStop, onCommand, disabled: _disabled, streaming, zoom = 1, permissionMode = "auto", showPermissionToggle = true, activeTool, activeFile, modelSlot }: Props) {
+export function InputBar({ onSend, onStop, onCommand, disabled: _disabled, streaming, zoom = 1, permissionMode = "auto", showPermissionToggle = true, activeTool, activeFile, modelSlot, piiShield = false, onPiiShieldToggle }: Props) {
   const { t } = useT();
   const [text, setText] = useState("");
   const [images, setImages] = useState<PastedImage[]>([]);
@@ -313,6 +316,24 @@ export function InputBar({ onSend, onStop, onCommand, disabled: _disabled, strea
           <div className="flex items-center gap-3 text-[12px] min-w-0 overflow-hidden">
             {/* Model / engine picker */}
             {modelSlot}
+
+            {/* Scudo PII — toggle ON/OFF per-chat, mai ambiguo */}
+            {onPiiShieldToggle && (
+              <button
+                onClick={onPiiShieldToggle}
+                className={`flex items-center gap-1.5 whitespace-nowrap rounded-md px-1.5 py-0.5 transition-colors ${
+                  piiShield
+                    ? "text-emerald-400 bg-emerald-400/10 hover:bg-emerald-400/20"
+                    : "text-white/30 hover:text-white/60 hover:bg-white/10"
+                }`}
+                title={piiShield ? t("input.pii.tooltipOn") : t("input.pii.tooltipOff")}
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill={piiShield ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                </svg>
+                <span>{piiShield ? t("input.pii.on") : t("input.pii.off")}</span>
+              </button>
+            )}
 
             {/* Permission mode — single real "Auto mode", Claude only */}
             {showPermissionToggle && (

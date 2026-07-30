@@ -184,6 +184,11 @@
     }
   },
   "daemons": {
+    "rizzo-pii": {
+      "command": "/PATH/A/rizzo-pii/pii-backend",
+      "env": { "PII_HOST": "127.0.0.1", "PII_PORT": "5005" },
+      "autostart": false
+    },
     "localops-llm": {
       "command": "/PATH/A/llama.cpp/build/bin/llama-server",
       "args": [

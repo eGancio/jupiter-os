@@ -12,6 +12,7 @@ import {
   renameChatSession as renameChatSessionCmd,
   compactChatSession as compactChatSessionCmd,
   classifyChatSession,
+  setChatPiiShield,
   getChatModel,
   setChatSessionModel,
   flushSessionMessages,
@@ -1113,6 +1114,19 @@ export function useChat() {
     }
   }, [refreshSessionList]);
 
+  /** Scudo PII della chat attiva: toggle ON/OFF (persistito con la sessione). */
+  const togglePiiShield = useCallback(async () => {
+    const sid = activeRef.current;
+    if (!sid) return;
+    const current = sessionsRef.current.find((s) => s.id === sid)?.pii_shield ?? false;
+    try {
+      await setChatPiiShield(sid, !current);
+      await refreshSessionList();
+    } catch {
+      // ignore
+    }
+  }, [refreshSessionList]);
+
   /** Clear frontend messages for the active session (backend keeps full context) */
   const clearMessages = useCallback(() => {
     if (!activeRef.current) return;
@@ -1155,6 +1169,7 @@ export function useChat() {
     switchSession,
     deleteSession,
     renameSession,
+    togglePiiShield,
     newSession,
     compactSession,
 

@@ -21,6 +21,11 @@ export const it: Record<string, string> = {
   "chatlist.title": "Chat",
   "chatlist.new": "Nuova chat",
   "chatlist.empty": "Nessuna chat",
+  "input.pii.on": "Anonimizzazione ON",
+  "input.pii.off": "Anonimizza dati",
+  "input.pii.tooltipOn": "Scudo PII attivo: i dati sensibili non lasciano questo computer",
+  "input.pii.tooltipOff": "Attiva lo scudo PII: i messaggi escono anonimizzati verso il cloud",
+
   "chatlist.untitled": "Nuova chat",
   "chatlist.rename": "Rinomina",
   "chatlist.delete": "Elimina",

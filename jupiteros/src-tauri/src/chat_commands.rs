@@ -15,6 +15,8 @@ pub struct ChatSessionInfo {
     pub message_count: usize,
     pub model: String,
     pub engine: String,
+    /// Scudo PII attivo su questa chat.
+    pub pii_shield: bool,
 }
 
 #[derive(Serialize)]
@@ -37,13 +39,50 @@ pub fn restart_sidecar(state: State<'_, ChatState>) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub fn send_chat_message(
+pub async fn send_chat_message(
     session_id: String,
     message: String,
     images: Vec<String>,
     state: State<'_, ChatState>,
 ) -> Result<(), String> {
-    // Record user message and mark busy
+    // Scudo PII: leggi flag e dizionario sotto lock breve, PRIMA di qualsiasi
+    // await (il MutexGuard std non può attraversare un await).
+    let shield_map = {
+        let sessions = state.sessions.lock().map_err(|e| e.to_string())?;
+        let session = sessions
+            .iter()
+            .find(|s| s.id == session_id)
+            .ok_or_else(|| format!("Session {} not found", session_id))?;
+        if session.is_busy() {
+            return Err("Chat is busy".to_string());
+        }
+        if session.pii_shield { Some(session.pii_map.clone()) } else { None }
+    };
+
+    // Anonimizzazione (fuori lock). Se il motore non risponde il messaggio NON
+    // parte: mai fallback silenzioso al testo in chiaro con lo scudo attivo.
+    let mut outbound = message.clone();
+    let mut pii_mapping: Option<std::collections::BTreeMap<String, String>> = None;
+    if let Some(session_map) = shield_map {
+        let (anon, new_map) = crate::pii::analyze(&message).await?;
+        let (anon, additions) = crate::pii::renumber(&anon, &new_map, &session_map);
+        // Istruzione inline: senza, il modello commenta i segnaposto ("il testo
+        // contiene dati anonimizzati...") rompendo l'esperienza. Solo quando ne
+        // esistono davvero.
+        outbound = if anon != message {
+            format!(
+                "{anon}\n\n[Nota: alcuni dati sono sostituiti da segnaposto come [NOME_1]; \
+                 usali nella risposta così come sono, senza commentarli né spiegarli.]"
+            )
+        } else {
+            anon
+        };
+        let mut merged = session_map;
+        merged.extend(additions);
+        pii_mapping = Some(merged);
+    }
+
+    // Record user message (testo REALE in locale) and mark busy
     {
         let mut sessions = state.sessions.lock().map_err(|e| e.to_string())?;
         let session = sessions
@@ -56,14 +95,25 @@ pub fn send_chat_message(
         }
         session.set_busy(true);
         session.add_user_message(message.clone());
+        if let Some(ref merged) = pii_mapping {
+            session.pii_map = merged.clone();
+        }
+        if pii_mapping.is_some() {
+            crate::claude::save_sessions_to_disk(&sessions);
+        }
     }
 
-    // Send to sidecar
+    // Send to sidecar (testo anonimizzato se lo scudo è attivo)
     let mut cmd = serde_json::json!({
         "cmd": "send",
         "session_id": session_id,
-        "message": message,
+        "message": outbound,
     });
+    // Il sidecar usa il dizionario per ripristinare i valori veri negli
+    // argomenti dei tool (che girano in locale). Mai inviato al cloud.
+    if let Some(ref merged) = pii_mapping {
+        cmd["pii_mapping"] = serde_json::json!(merged);
+    }
 
     // Include images if any (base64 encoded)
     if !images.is_empty() {
@@ -134,6 +184,7 @@ pub fn list_chat_sessions(state: State<'_, ChatState>) -> Vec<ChatSessionInfo> {
             message_count: s.messages.len(),
             model: s.model.clone(),
             engine: s.engine.clone(),
+            pii_shield: s.pii_shield,
         })
         .collect()
 }
@@ -253,6 +304,29 @@ pub fn rename_chat_session(
     // A hand-set title must never be clobbered by the Haiku auto-titler.
     session.title_manual = true;
     crate::claude::save_sessions_to_disk(&sessions);
+    Ok(())
+}
+
+/// Toggle dello scudo PII per una chat. All'attivazione pre-riscalda il
+/// backend di anonimizzazione (il primo avvio carica il modello ~10s).
+#[tauri::command]
+pub fn set_chat_pii_shield(
+    session_id: String,
+    enabled: bool,
+    state: State<'_, ChatState>,
+) -> Result<(), String> {
+    {
+        let mut sessions = state.sessions.lock().map_err(|e| e.to_string())?;
+        let session = sessions
+            .iter_mut()
+            .find(|s| s.id == session_id)
+            .ok_or_else(|| format!("Session {} not found", session_id))?;
+        session.pii_shield = enabled;
+        crate::claude::save_sessions_to_disk(&sessions);
+    }
+    if enabled {
+        std::thread::spawn(crate::pii::ensure_running);
+    }
     Ok(())
 }
 

@@ -65,6 +65,11 @@ export function classifyChatSession(sessionId: string): Promise<void> {
   return invoke("classify_chat_session", { sessionId });
 }
 
+/** Scudo PII per-chat: ON = i messaggi escono anonimizzati verso il cloud. */
+export function setChatPiiShield(sessionId: string, enabled: boolean): Promise<void> {
+  return invoke("set_chat_pii_shield", { sessionId, enabled });
+}
+
 export function getChatModel(): Promise<string> {
   return invoke("get_chat_model");
 }

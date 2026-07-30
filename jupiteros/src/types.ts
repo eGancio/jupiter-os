@@ -87,6 +87,8 @@ export interface ChatSessionInfo {
   message_count: number;
   model: string;
   engine: string;
+  /** Scudo PII attivo su questa chat. */
+  pii_shield: boolean;
   /** User set the group by hand (auto-classifier won't touch it). */
   manual: boolean;
 }

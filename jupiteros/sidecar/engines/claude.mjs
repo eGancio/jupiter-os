@@ -144,7 +144,7 @@ export class ClaudeAgentEngine {
    * emits). Errors propagate to the transport; the transport decides done/error.
    */
   async *run(prompt, options) {
-    const { session_id, model, cwd, mcpConfigPath, permissionMode, images } = options;
+    const { session_id, model, cwd, mcpConfigPath, permissionMode, images, piiMapping } = options;
 
     const mcpServers = mcpConfigPath ? loadMcpServers(mcpConfigPath) : {};
 
@@ -179,6 +179,45 @@ export class ClaudeAgentEngine {
         process.stderr.write(`[CLI-STDERR ${session_id}] ${line}\n`);
       },
     };
+
+    // Scudo PII: il modello vede placeholder, ma i tool girano IN LOCALE e
+    // devono lavorare sui valori veri — ripristinali negli argomenti prima
+    // dell'esecuzione. Hook PreToolUse con updatedInput, NON canUseTool:
+    // sotto bypassPermissions l'SDK salta canUseTool (verificato), mentre gli
+    // hook di lifecycle girano sempre.
+    if (piiMapping && Object.keys(piiMapping).length > 0) {
+      const restoreDeep = (v) => {
+        if (typeof v === "string") {
+          let s = v;
+          for (const [ph, real] of Object.entries(piiMapping)) s = s.split(ph).join(real);
+          return s;
+        }
+        if (Array.isArray(v)) return v.map(restoreDeep);
+        if (v && typeof v === "object")
+          return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, restoreDeep(x)]));
+        return v;
+      };
+      const hasPlaceholder = (v) =>
+        Object.keys(piiMapping).some((ph) => JSON.stringify(v).includes(ph));
+      queryOptions.hooks = {
+        PreToolUse: [
+          {
+            hooks: [
+              async (input) => {
+                if (!input.tool_input || !hasPlaceholder(input.tool_input)) return {};
+                process.stderr.write(`[PII-TOOLS ${session_id}] restore su ${input.tool_name}\n`);
+                return {
+                  hookSpecificOutput: {
+                    hookEventName: "PreToolUse",
+                    updatedInput: restoreDeep(input.tool_input),
+                  },
+                };
+              },
+            ],
+          },
+        ],
+      };
+    }
 
     // Resume from previous SDK session if available
     if (this.sdkSessionId) {

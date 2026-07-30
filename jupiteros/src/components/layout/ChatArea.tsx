@@ -52,6 +52,9 @@ export function ChatArea({ chat, services, onPreviewChart, onOpenEngineSettings 
   // Engine badge: derived from the active tab's session (single source of truth)
   const activeEngine =
     chat.sessions.find((s) => s.id === chat.sessionId)?.engine ?? "claude";
+  // Scudo PII della chat attiva (stessa fonte di verità dell'engine)
+  const activePiiShield =
+    chat.sessions.find((s) => s.id === chat.sessionId)?.pii_shield ?? false;
 
   // Check CLAUDE.md status on mount
   useEffect(() => {
@@ -364,6 +367,8 @@ export function ChatArea({ chat, services, onPreviewChart, onOpenEngineSettings 
         activeTool={activeTool}
         contextPercent={lastInputTokens > 0 ? Math.min(100, Math.round(lastInputTokens / 2000)) : 0}
         activeFile={activeFile}
+        piiShield={activePiiShield}
+        onPiiShieldToggle={() => chat.togglePiiShield()}
         modelSlot={
           <ModelDropdown
             engine={activeEngine}
