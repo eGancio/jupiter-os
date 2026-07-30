@@ -789,11 +789,47 @@ fn sessions_file_path() -> std::path::PathBuf {
     config::get_base_dir().join("jupiteros-sessions.json")
 }
 
+fn debug_log(msg: &str) {
+    if let Ok(mut log) = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(config::get_base_dir().join(".claude-gui-debug.log"))
+    {
+        let _ = writeln!(log, "{}", msg);
+    }
+}
+
 pub fn save_sessions_to_disk(sessions: &[ChatSession]) {
     let persist: Vec<ChatSessionPersist> = sessions.iter().map(|s| s.to_persist()).collect();
     if let Ok(json) = serde_json::to_string_pretty(&persist) {
-        let _ = std::fs::write(sessions_file_path(), json);
+        // Atomic replace: a crash mid-write must never leave a truncated
+        // sessions file (a truncated file reads as "no sessions" and the next
+        // save would make the loss permanent).
+        let path = sessions_file_path();
+        let tmp = path.with_extension("json.tmp");
+        if std::fs::write(&tmp, json).is_ok() {
+            // Windows can't rename over an existing file.
+            #[cfg(windows)]
+            let _ = std::fs::remove_file(&path);
+            let _ = std::fs::rename(&tmp, &path);
+        }
     }
+}
+
+/// Parse the sessions file leniently: a corrupt session is skipped (and
+/// counted), the valid ones survive. Err only when the content isn't a JSON
+/// array at all (e.g. truncated file) — the caller quarantines it.
+fn parse_sessions(content: &str) -> Result<(Vec<ChatSessionPersist>, usize), ()> {
+    let values: Vec<serde_json::Value> = serde_json::from_str(content).map_err(|_| ())?;
+    let mut ok = Vec::new();
+    let mut skipped = 0usize;
+    for v in values {
+        match serde_json::from_value::<ChatSessionPersist>(v) {
+            Ok(p) => ok.push(p),
+            Err(_) => skipped += 1,
+        }
+    }
+    Ok((ok, skipped))
 }
 
 pub fn load_sessions_from_disk() -> Vec<ChatSession> {
@@ -801,13 +837,86 @@ pub fn load_sessions_from_disk() -> Vec<ChatSession> {
     if !path.exists() {
         return Vec::new();
     }
+
+    // Never overwrite silently: an unreadable/unparseable file is renamed
+    // aside (quarantine) so the data survives on disk for manual recovery.
+    let quarantine = || {
+        let dest = path.with_extension(format!("json.corrotto-{}", now_secs()));
+        let _ = std::fs::rename(&path, &dest);
+        debug_log(&format!(
+            "[SESSIONS] file illeggibile — messo in quarantena come {:?}",
+            dest.file_name().unwrap_or_default()
+        ));
+    };
+
     match std::fs::read_to_string(&path) {
-        Ok(content) => {
-            match serde_json::from_str::<Vec<ChatSessionPersist>>(&content) {
-                Ok(persisted) => persisted.into_iter().map(ChatSession::from_persist).collect(),
-                Err(_) => Vec::new(),
+        Ok(content) => match parse_sessions(&content) {
+            Ok((persisted, skipped)) => {
+                if skipped > 0 {
+                    debug_log(&format!(
+                        "[SESSIONS] {} sessioni corrotte scartate, {} recuperate",
+                        skipped,
+                        persisted.len()
+                    ));
+                }
+                persisted.into_iter().map(ChatSession::from_persist).collect()
             }
+            Err(()) => {
+                quarantine();
+                Vec::new()
+            }
+        },
+        Err(_) => {
+            quarantine();
+            Vec::new()
         }
-        Err(_) => Vec::new(),
+    }
+}
+
+/// Rotate startup backups of the sessions file: .bak2→.bak3, .bak1→.bak2,
+/// current→.bak1. Called once at startup, before anything can write.
+pub fn backup_sessions_file() {
+    let path = sessions_file_path();
+    let non_empty = std::fs::metadata(&path).map(|m| m.len() > 2).unwrap_or(false);
+    if !non_empty {
+        return;
+    }
+    let bak = |n: u8| path.with_extension(format!("json.bak{}", n));
+    let _ = std::fs::rename(bak(2), bak(3));
+    let _ = std::fs::rename(bak(1), bak(2));
+    let _ = std::fs::copy(&path, bak(1));
+}
+
+#[cfg(test)]
+mod sessions_parse_tests {
+    use super::parse_sessions;
+
+    const VALID: &str = r#"{"id":"a","sdk_session_id":null,"messages":[],"model":"opus",
+        "engine":"claude","title":"t","created_at":1,"updated_at":1}"#;
+
+    #[test]
+    fn broken_session_is_skipped_valid_survives() {
+        let content = format!(r#"[{},{{"id":"rotta","messages":"non-un-array"}}]"#, VALID);
+        let (ok, skipped) = parse_sessions(&content).unwrap();
+        assert_eq!(ok.len(), 1);
+        assert_eq!(ok[0].id, "a");
+        assert_eq!(skipped, 1);
+    }
+
+    #[test]
+    fn truncated_file_is_err() {
+        let content = format!("[{}", VALID); // troncato: niente ']' finale
+        assert!(parse_sessions(&content).is_err());
+    }
+
+    #[test]
+    fn unknown_fields_are_ignored() {
+        // Vecchi campi (company/topic/pinned) non devono rompere il load.
+        let content = format!(
+            r#"[{}]"#,
+            VALID.replace(r#""title":"t""#, r#""title":"t","company":"X","pinned":true"#)
+        );
+        let (ok, skipped) = parse_sessions(&content).unwrap();
+        assert_eq!((ok.len(), skipped), (1, 0));
     }
 }

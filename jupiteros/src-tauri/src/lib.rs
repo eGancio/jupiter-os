@@ -113,9 +113,9 @@ pub fn run() {
             // the same instance/storage instead of racing to spawn their own.
             qdrant::ensure_running();
 
-            // Auto-start daemons
+            // Auto-start daemons + Moon servers (autostart: true, il default)
             let state = app.state::<AppState>();
-            state.autostart_daemons(handle.clone());
+            state.autostart_services(handle.clone());
 
             // Initialize Agent SDK sidecar
             let chat_state = app.state::<ChatState>();

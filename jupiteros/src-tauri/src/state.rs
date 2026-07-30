@@ -48,10 +48,18 @@ impl AppState {
         }
     }
 
-    pub fn autostart_daemons(&self, app_handle: AppHandle) {
+    /// Start everything flagged for autostart: daemons (as always) AND Moon
+    /// servers — otherwise the Moons die with the app and never come back,
+    /// which reads as "email/RAG spariti" in chat. Opt-out per server with
+    /// `"autostart": false` in .mcp.json.
+    pub fn autostart_services(&self, app_handle: AppHandle) {
         if let Ok(mut services) = self.services.lock() {
             for state in services.values_mut() {
-                if state.kind == ProcessKind::Daemon && !state.running {
+                let wanted = match state.kind {
+                    ProcessKind::Daemon => true,
+                    ProcessKind::McpServer => state.def.autostart,
+                };
+                if wanted && !state.running {
                     state.start(Some(app_handle.clone()));
                 }
             }

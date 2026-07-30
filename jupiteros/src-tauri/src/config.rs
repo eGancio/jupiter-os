@@ -84,6 +84,14 @@ pub struct ServerDef {
     pub cwd: Option<String>,
     #[serde(default)]
     pub env: BTreeMap<String, String>,
+    /// Start automatically at app launch. Default true; set false in
+    /// .mcp.json to keep a server manual-start only.
+    #[serde(default = "default_true")]
+    pub autostart: bool,
+}
+
+fn default_true() -> bool {
+    true
 }
 
 #[derive(Clone, Copy, PartialEq, Serialize, Deserialize)]

@@ -242,7 +242,7 @@ pub fn add_local_moon(
         .map_err(|e| format!("Impossibile scrivere .mcp.json: {}", e))?;
 
     // Hot-reload: inject into live AppState (no restart needed)
-    let def = ServerDef { command, args, cwd, env };
+    let def = ServerDef { command, args, cwd, env, autostart: true };
     state
         .services
         .lock()

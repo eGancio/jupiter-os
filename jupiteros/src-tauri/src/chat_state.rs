@@ -22,6 +22,9 @@ pub struct ChatState {
 
 impl ChatState {
     pub fn new() -> Self {
+        // Startup backup BEFORE anything can write: 3 rotating generations,
+        // so a bad load can never make a loss permanent.
+        crate::claude::backup_sessions_file();
         Self {
             sessions: Arc::new(Mutex::new(load_sessions_from_disk())),
             model: Arc::new(Mutex::new("opus".to_string())),
