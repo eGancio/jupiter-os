@@ -362,16 +362,25 @@ pub fn prepare_embedding_text(subject: &str, body: &str) -> String {
 fn strip_signature(text: &str) -> &str {
     // 1. RFC 3676 delimiter: "-- "
     if let Some(m) = sig_delimiter().find(text) {
-        return &text[..m.start()];
+        let head = &text[..m.start()];
+        // Guardrail: un delimiter in testa non deve azzerare il corpo.
+        if !head.trim().is_empty() {
+            return head;
+        }
     }
 
-    // 2. Heuristic: scan last 40% of lines for signature patterns
+    // 2. Heuristic: scan last 40% of lines for signature patterns.
+    //    Serve un minimo di righe: certi mailer emettono il text/plain come
+    //    UNA riga unica da migliaia di caratteri, e "l'ultimo 40%" sarebbe
+    //    l'intero corpo — un "Web: www…" nella firma CITATA nel thread lo
+    //    cancellava per intero (l'indice conservava solo l'oggetto).
     let lines: Vec<&str> = text.lines().collect();
-    if lines.is_empty() {
+    if lines.len() < 4 {
         return text;
     }
 
-    let start_line = (lines.len() as f64 * 0.6) as usize;
+    // Mai partire dalla riga 0: il corpo non può essere tutta firma.
+    let start_line = ((lines.len() as f64 * 0.6) as usize).max(1);
     let patterns = [
         sig_p_iva(),
         sig_cod_fisc(),
@@ -385,7 +394,13 @@ fn strip_signature(text: &str) -> &str {
             if pat.is_match(line) {
                 // Found a signature pattern — return text up to this line
                 let byte_offset: usize = lines[..i].iter().map(|l| l.len() + 1).sum();
-                return &text[..floor_char_boundary(text, byte_offset)];
+                let head = &text[..floor_char_boundary(text, byte_offset)];
+                // Guardrail: se il taglio svuota il testo, meglio la firma
+                // nell'indice che nessun contenuto.
+                if head.trim().is_empty() {
+                    return text;
+                }
+                return head;
             }
         }
     }
@@ -479,6 +494,23 @@ fn skip_inline_headers(text: &str) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_strip_signature_single_line_not_wiped() {
+        // Certi mailer emettono il corpo come UNA riga unica: l'euristica
+        // firma non deve azzerarlo anche se nel thread citato compare
+        // "Web: www…" (caso reale: fornitore evtaurus, UID 20034/20066).
+        let text = "Dear all, follow-up on the order. Quoted signature: Web: www.emotion-team.com and more text after";
+        assert_eq!(strip_signature(text), text);
+    }
+
+    #[test]
+    fn test_strip_signature_few_lines_not_wiped() {
+        let text = "Riga uno del corpo
+Tel: +39 000 — dentro una citazione
+Riga tre";
+        assert_eq!(strip_signature(text), text);
+    }
 
     #[test]
     fn test_strip_signature_rfc3676() {

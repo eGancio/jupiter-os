@@ -556,10 +556,18 @@ impl GmailApiBackend {
                 .collect::<Vec<&str>>()
                 .join(" ")
         });
+        // Come in email_client: un text/plain presente ma vuoto è Some("") e
+        // senza filter il fallback sull'HTML non scatterebbe mai.
         let body = parsed
             .body_text(0)
             .map(|s| s.to_string())
-            .or_else(|| parsed.body_html(0).map(|h| html_to_text(&h)))
+            .filter(|s| !s.trim().is_empty())
+            .or_else(|| {
+                parsed
+                    .body_html(0)
+                    .map(|h| html_to_text(&h))
+                    .filter(|s| !s.trim().is_empty())
+            })
             .unwrap_or_default();
         let body: String = body.chars().take(5000).collect();
 
@@ -673,8 +681,13 @@ impl GmailApiBackend {
 
 fn html_to_text(html: &str) -> String {
     use regex::Regex;
+    // Come in email_client: CSS/JS e commenti via prima dei tag.
+    let block_re = Regex::new(r"(?is)<style\b[^>]*>.*?</style>|<script\b[^>]*>.*?</script>|<head\b[^>]*>.*?</head>").unwrap();
+    let html = block_re.replace_all(html, " ");
+    let comment_re = Regex::new(r"(?s)<!--.*?-->").unwrap();
+    let html = comment_re.replace_all(&html, " ");
     let tag_re = Regex::new(r"<[^>]+>").unwrap();
-    let text = tag_re.replace_all(html, " ");
+    let text = tag_re.replace_all(&html, " ");
     let text = text
         .replace("&nbsp;", " ")
         .replace("&amp;", "&")

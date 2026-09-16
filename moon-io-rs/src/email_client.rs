@@ -1337,10 +1337,19 @@ impl EmailClient {
     ) -> EmailData {
         let mut email = self.parse_mail_header(parsed, uid, internal_date);
 
+        // Un text/plain PRESENTE ma vuoto (newsletter, mail solo-HTML) è
+        // Some(""): senza il filter il fallback sull'HTML non scatterebbe mai
+        // e il corpo finirebbe vuoto nell'indice.
         let body = parsed
             .body_text(0)
             .map(|s| s.to_string())
-            .or_else(|| parsed.body_html(0).map(|html| html_to_text(&html)))
+            .filter(|s| !s.trim().is_empty())
+            .or_else(|| {
+                parsed
+                    .body_html(0)
+                    .map(|html| html_to_text(&html))
+                    .filter(|s| !s.trim().is_empty())
+            })
             .unwrap_or_default();
 
         email.body = body.chars().take(5000).collect();
@@ -1389,8 +1398,15 @@ impl EmailClient {
 // ---------------------------------------------------------------------------
 
 fn html_to_text(html: &str) -> String {
+    // <style>/<script>/<head> e i commenti (condizionali Outlook) contengono
+    // CSS/JS, non contenuto: via PRIMA di strippare i tag, altrimenti le
+    // newsletter indicizzano fogli di stile al posto del testo.
+    let block_re = Regex::new(r"(?is)<style\b[^>]*>.*?</style>|<script\b[^>]*>.*?</script>|<head\b[^>]*>.*?</head>").unwrap();
+    let html = block_re.replace_all(html, " ");
+    let comment_re = Regex::new(r"(?s)<!--.*?-->").unwrap();
+    let html = comment_re.replace_all(&html, " ");
     let tag_re = Regex::new(r"<[^>]+>").unwrap();
-    let text = tag_re.replace_all(html, " ");
+    let text = tag_re.replace_all(&html, " ");
     let text = text.replace("&nbsp;", " ");
     let text = text.replace("&amp;", "&");
     let text = text.replace("&lt;", "<");
