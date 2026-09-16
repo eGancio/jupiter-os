@@ -13,7 +13,7 @@ license = "AGPL-3.0-or-later"
 authors = [{ name = "Edoardo Mancinelli", email = "e.mancinelli@brunelleschi.ai" }]
 requires-python = ">=3.10"
 dependencies = [
-    "mcp[cli]>=1.2.0",
+    "mcp[cli]>=1.2.0,<2",
     "python-dotenv>=1.0.0",
     "faster-whisper>=1.0.0",
 ]

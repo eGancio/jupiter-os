@@ -20,7 +20,7 @@ export const COMMANDS: SlashCommand[] = [
   {
     name: "/model",
     descKey: "cmd.model.desc",
-    usage: "/model claude-opus-4-5",
+    usage: "/model opus",
   },
   {
     name: "/cost",
