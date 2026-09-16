@@ -16,7 +16,7 @@ path = "src/main.rs"
 rmcp = { version = "0.5", features = ["server", "transport-sse-server", "transport-io"] }
 
 # Shared infra: Qdrant DocStore + ONNX embeddings + file parsing
-jupiteros-shared = { path = "../../shared" }
+jupiteros-shared = { path = "../shared" }
 
 # Async runtime
 tokio = { workspace = true }

@@ -6,15 +6,15 @@
 #  - Rust workspace (Rust Moons + shared) in release
 #  - Tauri GUI (app) in release
 #  - Python venv for Moon Amalthea
-#  - .mcp.json bootstrapped from .mcp.json.example with Linux binary paths
+#  - .mcp.json bootstrapped from docs/mcp.json.example with Linux binary paths
 #
 # Qdrant binary + ONNX BGE-M3 model are NOT installed by this script:
 # moon-io's setup.rs auto-downloads them on first run (~660 MB combined).
 #
 # Credentials (IMAP password, Gmail OAuth, Telegram session) are NOT touched.
 # After this script finishes, run:
-#   ./target/release/moon-io credentials set aruba
-#   ./target/release/moon-io oauth connect gmail
+#   ./moons/target/release/moon-io credentials set aruba
+#   ./moons/target/release/moon-io oauth connect gmail
 # to populate the system keyring (gnome-keyring / kwallet via secret-service).
 
 set -euo pipefail
@@ -60,7 +60,7 @@ install_system_deps() {
         sudo apt-get install -y nodejs
     fi
 
-    # Rust toolchain via rustup (project pins via rust-toolchain.toml).
+    # Rust toolchain via rustup (project pins via moons/rust-toolchain.toml).
     if ! command -v cargo >/dev/null 2>&1; then
         log "Installing Rust toolchain via rustup…"
         curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
@@ -77,8 +77,8 @@ install_system_deps() {
 # ---------------------------------------------------------------------------
 build_rust_workspace() {
     log "Building Rust workspace (release)…"
-    cargo build --release --workspace
-    log "Rust binaries: $REPO_DIR/target/release/{moon-io,moon-europa}"
+    (cd moons && cargo build --release --workspace)
+    log "Rust binaries: $REPO_DIR/moons/target/release/{moon-io,moon-europa}"
 }
 
 # ---------------------------------------------------------------------------
@@ -151,8 +151,8 @@ bootstrap_mcp_json() {
         warn "  Edit it manually if binary paths are stale."
         return
     fi
-    if [[ ! -f .mcp.json.example ]]; then
-        warn "No .mcp.json.example found — skipping config bootstrap."
+    if [[ ! -f docs/mcp.json.example ]]; then
+        warn "No docs/mcp.json.example found — skipping config bootstrap."
         return
     fi
 
@@ -166,7 +166,7 @@ bootstrap_mcp_json() {
         -e 's|target/release/moon-himalia\.exe|target/release/moon-himalia|g' \
         -e 's|target/release/moon-elara\.exe|target/release/moon-elara|g' \
         -e 's|\.venv/Scripts/python\.exe|.venv/bin/python|g' \
-        .mcp.json.example > .mcp.json
+        docs/mcp.json.example > .mcp.json
     log ".mcp.json created — review and fill in your credentials/env vars."
 }
 
@@ -183,8 +183,8 @@ Next steps:
 1. Review and edit .mcp.json (account email, Telegram credentials, etc.).
 
 2. Populate the system keyring with your credentials:
-     ./target/release/moon-io credentials set aruba
-     ./target/release/moon-io oauth connect gmail   # opens browser
+     ./moons/target/release/moon-io credentials set aruba
+     ./moons/target/release/moon-io oauth connect gmail   # opens browser
 
 3. Launch the JupiterOS GUI:
      ./app/src-tauri/target/release/jupiteros

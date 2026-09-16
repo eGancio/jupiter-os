@@ -26,7 +26,7 @@ This project follows the [Contributor Covenant 2.1](CODE_OF_CONDUCT.md). By part
 
 - **Bug reports** — use the issue template, include OS, JupiterOS version, and reproduction steps.
 - **Feature requests** — open a discussion first if the scope is unclear; once aligned, an issue.
-- **Code** — pick a [`good first issue`](../../labels/good%20first%20issue) or propose your own. Always link the issue from the PR.
+- **Code** — pick a [`good first issue`](https://github.com/eGancio/jupiter-os/labels/good%20first%20issue) or propose your own. Always link the issue from the PR.
 - **Docs** — typos, clarifications, missing pieces in the README or per-Moon docs. These are very welcome PRs.
 - **New Moon** — see [Building a new Moon](#building-a-new-moon) below.
 
@@ -36,7 +36,7 @@ This project follows the [Contributor Covenant 2.1](CODE_OF_CONDUCT.md). By part
 
 | Tool | Version | Notes |
 |------|---------|-------|
-| Rust | stable (toolchain pinned in `rust-toolchain.toml`) | Installed via [rustup](https://rustup.rs) |
+| Rust | nightly (pinned in `moons/rust-toolchain.toml`) | Installed via [rustup](https://rustup.rs) |
 | Node.js | >= 18 | For the Tauri GUI |
 | Python | >= 3.10 | For the Python Moons (`moons/amalthea`, `moons/callisto`, …) |
 | Tauri prerequisites | platform-specific | See [Tauri prerequisites](https://tauri.app/start/prerequisites/) |
@@ -48,7 +48,7 @@ git clone https://github.com/eGancio/jupiter-os.git
 cd jupiter-os
 
 # 1. Build the Rust Moons + shared library
-cargo build --release
+(cd moons && cargo build --release)
 
 # 2. Build the GUI
 cd app
@@ -62,10 +62,10 @@ The desktop binary is in `app/src-tauri/target/release/`.
 
 ```bash
 # Rust
-cargo test --workspace
+(cd moons && cargo test --workspace)
 
 # TypeScript / frontend
-cd app && npm run typecheck
+(cd app && npm run typecheck)
 ```
 
 CI runs the same commands on `windows-latest`, `macos-latest`, and `ubuntu-latest`. Your PR must keep CI green.
@@ -83,13 +83,13 @@ This rebuilds on save and gives you devtools.
 
 ```
 app/                Desktop app: src/ (React + TypeScript), src-tauri/ (Tauri v2, Rust), sidecar/ (engines)
-shared/             Shared Rust library: Qdrant client, ONNX embeddings, document store, file parsing
-moons/              One folder per Moon
+moons/              Rust workspace (Cargo.toml, rust-toolchain.toml, .cargo/) + one folder per Moon
   io/ europa/ ganymede/ metis/ himalia/ elara/        Rust (workspace members)
   amalthea/ callisto/ thebe/ google-ads/ meta-ads/    Python
-scripts/            run-macos.sh, run-linux.sh, setup-linux.sh
-tools/              localops-eval: tool-calling evaluation harness
-docs/               Design notes
+  shared/                                             Shared Rust library: Qdrant, ONNX embeddings, document store
+scripts/            run-macos.sh, run-linux.sh, setup-linux.sh, localops-eval/ (tool-calling eval)
+docs/               mcp.json.example, SPONSORS.md, design notes
+.github/            CONTRIBUTING.md, SECURITY.md
 ```
 
 Each Moon is a self-contained MCP server. Adding one does **not** require touching the `app/` core.
@@ -98,8 +98,8 @@ Each Moon is a self-contained MCP server. Adding one does **not** require touchi
 
 A Moon is just an MCP server that the JupiterOS GUI can spawn and talk to. To create one:
 
-1. **Pick a name** from Jupiter's moons (Adrastea, Leda, Carme, Sinope, …). Check the [Moons in the README](README.md#moons) so you don't reuse one already taken.
-2. **Create the crate / package** in `moons/<name>/`: a Rust crate added to `members` in the root `Cargo.toml`, or a Python package with a `pyproject.toml`.
+1. **Pick a name** from Jupiter's moons (Adrastea, Leda, Carme, Sinope, …). Check the [Moons in the README](../README.md#moons) so you don't reuse one already taken.
+2. **Create the crate / package** in `moons/<name>/`: a Rust crate added to `members` in `moons/Cargo.toml`, or a Python package with a `pyproject.toml`.
 3. **Implement the MCP server** exposing a small, focused set of tools. Keep tool inputs/outputs typed and documented.
 4. **Add a settings entry** the GUI can show in the *Services* panel so users can start/stop your Moon.
 5. **Document it**: a per-Moon README with what tools it exposes, what credentials it needs, and a config example.
@@ -155,7 +155,7 @@ A clean Conventional Commit history powers our generated `CHANGELOG.md`.
 
 1. **Fork** the repo and create a topic branch off `main` (`git checkout -b feat/my-thing`).
 2. **Write tests** for new behaviour, or a regression test for a bug fix.
-3. **Run** `cargo fmt && cargo clippy && cargo test` locally before pushing.
+3. **Run** `cargo fmt && cargo clippy && cargo test` in `moons/` locally before pushing.
 4. **Push** and open a PR using the template. Link the issue you're solving.
 5. **CI must be green**. If it goes red, fix it; don't ask a maintainer to ignore it.
 6. **One reviewer approval** is required to merge. Squash-merge by default — your branch's commit history is rewritten into one Conventional Commit on `main`.
@@ -165,7 +165,7 @@ PRs that touch the **chat sidecar** (`app/sidecar/agent.mjs`) or the **agent int
 ## Referral & sponsorship transparency
 
 JupiterOS is funded by disclosed integration referrals and professional services
-(see [SPONSORS.md](SPONSORS.md)). To keep that promise enforceable, one rule is
+(see [SPONSORS.md](../docs/SPONSORS.md)). To keep that promise enforceable, one rule is
 **non-negotiable**:
 
 > **No referral link enters the codebase without its row in `SPONSORS.md` in the same
@@ -185,7 +185,7 @@ it's the whole reason users can trust the recommendations.
 
 ## Reporting bugs & security issues
 
-- **Bugs** → [open an issue](../../issues/new/choose) using the bug template.
+- **Bugs** → [open an issue](https://github.com/eGancio/jupiter-os/issues/new/choose) using the bug template.
 - **Security vulnerabilities** → see [SECURITY.md](SECURITY.md). **Do not** open public issues for security problems.
 
 ## License of your contribution
@@ -200,4 +200,4 @@ We don't require a CLA. The DCO (Developer Certificate of Origin) is implied by 
 
 ---
 
-Welcome on board. Questions? [Start a discussion](../../discussions).
+Welcome on board. Questions? [Start a discussion](https://github.com/eGancio/jupiter-os/discussions).

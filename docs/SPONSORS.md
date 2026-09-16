@@ -31,7 +31,7 @@ No venture capital, so no pressure to ever change that.
 ## Current referral partners
 
 _None active yet._ When a partner is added, it is listed here in full — in the **same
-commit** that introduces the referral in the code (see [CONTRIBUTING.md](CONTRIBUTING.md)):
+commit** that introduces the referral in the code (see [CONTRIBUTING.md](../.github/CONTRIBUTING.md)):
 
 | Partner | What it is | Why we integrate it | Compensation |
 |---------|-----------|---------------------|--------------|

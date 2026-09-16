@@ -17,7 +17,7 @@ Security fixes are issued for the latest minor release on the `main` branch. Old
 
 Report privately via one of:
 
-1. **GitHub Security Advisories** — preferred. Go to the [Security tab](../../security/advisories/new) and open a draft advisory. We get a notification immediately.
+1. **GitHub Security Advisories** — preferred. Go to the [Security tab](https://github.com/eGancio/jupiter-os/security/advisories/new) and open a draft advisory. We get a notification immediately.
 2. **Email** — `security@jupiteros.ai`. PGP key on request.
 
 Please include:
@@ -59,7 +59,7 @@ Out of scope:
 
 ## Hardening notes for users
 
-- Keep credentials in the OS keyring. **Never** commit `.mcp.json` with real passwords — use `.mcp.json.example` as a template.
+- Keep credentials in the OS keyring. **Never** commit `.mcp.json` with real passwords — use `docs/mcp.json.example` as a template.
 - Qdrant runs on `127.0.0.1`. If you expose it to a network, you are responsible for authentication.
 - The Anthropic API key used by the chat sidecar lives in the OS keyring and is sent only to `api.anthropic.com`.
 - Email and Telegram data stay local. JupiterOS performs **no telemetry** and has **no opt-out toggle to disable**, because there is nothing to disable.

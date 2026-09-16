@@ -68,7 +68,7 @@
   },
   "servers": {
     "io": {
-      "command": "target/release/moon-io.exe",
+      "command": "moons/target/release/moon-io.exe",
       "args": [],
       "cwd": "moons/io",
       "env": {
@@ -82,7 +82,7 @@
       }
     },
     "europa": {
-      "command": "target/release/moon-europa.exe",
+      "command": "moons/target/release/moon-europa.exe",
       "args": [],
       "cwd": "moons/europa",
       "env": {
@@ -115,7 +115,7 @@
       }
     },
     "ganymede": {
-      "command": "target/release/moon-ganymede.exe",
+      "command": "moons/target/release/moon-ganymede.exe",
       "args": [],
       "cwd": "moons/ganymede",
       "env": {
@@ -139,7 +139,7 @@
       }
     },
     "metis": {
-      "command": "target/release/moon-metis.exe",
+      "command": "moons/target/release/moon-metis.exe",
       "args": [],
       "cwd": "moons/metis",
       "env": {
@@ -155,7 +155,7 @@
       }
     },
     "himalia": {
-      "command": "target/release/moon-himalia.exe",
+      "command": "moons/target/release/moon-himalia.exe",
       "args": [],
       "cwd": "moons/himalia",
       "env": {
@@ -170,7 +170,7 @@
       }
     },
     "elara": {
-      "command": "target/release/moon-elara.exe",
+      "command": "moons/target/release/moon-elara.exe",
       "args": [],
       "cwd": "moons/elara",
       "env": {

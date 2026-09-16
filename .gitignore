@@ -111,5 +111,5 @@ moons/thebe/data/
 moons/thebe/output/
 
 # localops-eval: artefatti rigenerabili (dump tool live + risultati run)
-tools/localops-eval/tools-snapshot.json
-tools/localops-eval/results.json
+scripts/localops-eval/tools-snapshot.json
+scripts/localops-eval/results.json

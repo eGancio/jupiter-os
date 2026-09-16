@@ -46,7 +46,7 @@ registerEngine("dwarfstar", (cfg) => new OpenAICompatEngine(cfg, { name: "dwarfs
 // localops: llama-server locale (llama.cpp, CPU) con Qwen3-30B-A3B per le
 // operazioni. Il server è lanciato come daemon dal .mcp.json (porta 8080).
 // budget tool stretto come ollama: su CPU ogni token di schema è prefill;
-// l'eval Fase 0 (tools/localops-eval) mostra che la superficie ristretta è
+// l'eval Fase 0 (scripts/localops-eval) mostra che la superficie ristretta è
 // ciò che rende il modello affidabile, non un limite da allargare.
 registerEngine("localops", (cfg) => new OpenAICompatEngine(cfg, { name: "localops", baseUrl: process.env.LOCALOPS_BASE_URL || "http://127.0.0.1:8080/v1", keyEnvs: ["LOCALOPS_API_KEY"], defaultKey: "localops-local", maxToolTokens: 2500 }));
 

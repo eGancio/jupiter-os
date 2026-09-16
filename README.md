@@ -86,8 +86,8 @@ cross-platform (macOS, Linux, Windows).
 
 | Tool | Version | Needed for |
 |------|---------|------------|
-| Rust | nightly, pinned in `rust-toolchain.toml` | Rust Moons and the app. Install [rustup](https://rustup.rs); the toolchain is picked up automatically |
-| sccache | latest | Required: it is the compiler wrapper in `.cargo/config.toml` (`cargo install sccache`) |
+| Rust | nightly, pinned in `moons/rust-toolchain.toml` | Rust Moons and the app. Install [rustup](https://rustup.rs); inside `moons/` the pinned toolchain is picked up automatically |
+| sccache | latest | Required for the Moons: compiler wrapper set in `moons/.cargo/config.toml` (`cargo install sccache`) |
 | Node.js | >= 18 | GUI, chat sidecar, WhatsApp helper |
 | Python | >= 3.10 | Python Moons (Amalthea, Callisto, Thebe, Google Ads, Meta Ads) |
 | Tauri prerequisites | per platform | See [Tauri prerequisites](https://tauri.app/start/prerequisites/) |
@@ -103,8 +103,8 @@ On Debian/Ubuntu, `scripts/setup-linux.sh` installs the system packages and buil
 git clone https://github.com/eGancio/jupiter-os.git
 cd jupiter-os
 
-# Rust Moons + shared library → target/release/
-cargo build --release
+# Rust Moons + shared library → moons/target/release/
+(cd moons && cargo build --release)
 
 # Chat sidecar
 (cd app/sidecar && npm install)
@@ -147,7 +147,7 @@ ln -s "$PWD/app/sidecar" ~/.config/jupiteros/sidecar
 
 ### `.mcp.json`
 
-Start from the example: `cp .mcp.json.example .mcp.json`. It has three sections:
+Start from the example: `cp docs/mcp.json.example .mcp.json`. It has three sections:
 
 - `mcpServers` — what the chat connects to (URL for SSE/HTTP Moons, command for stdio ones)
 - `servers` — Moon processes JupiterOS starts and supervises (command, working dir, env, port)
@@ -177,8 +177,8 @@ keyring (service `MoonAds`). Email credentials live in the keyring too — use t
 the app, or the CLI:
 
 ```bash
-target/release/moon-io credentials set <account>   # IMAP password
-target/release/moon-io oauth connect gmail         # Gmail via OAuth
+moons/target/release/moon-io credentials set <account>   # IMAP password
+moons/target/release/moon-io oauth connect gmail         # Gmail via OAuth
 ```
 
 ### Claude authentication
@@ -227,18 +227,19 @@ On first start:
 
 ```
 jupiter-os/
-├── app/          desktop app: src/ (React UI), src-tauri/ (Rust backend), sidecar/ (engines)
-├── shared/       shared Rust library: Qdrant client, ONNX embeddings, document store, file parsing
-├── moons/        one folder per Moon: io, europa, ganymede, metis, himalia, elara (Rust)
-│                 amalthea, callisto, thebe, google-ads, meta-ads (Python)
-├── scripts/      run-macos.sh, run-linux.sh, setup-linux.sh
-├── tools/        localops-eval: tool-calling evaluation harness for local models
-└── docs/
+├── app/        desktop app: src/ (React UI), src-tauri/ (Rust backend), sidecar/ (engines)
+├── moons/      Rust workspace (Cargo.toml) with one folder per Moon
+│               io, europa, ganymede, metis, himalia, elara (Rust)
+│               amalthea, callisto, thebe, google-ads, meta-ads (Python)
+│               shared/: Rust library for the Moons (Qdrant, ONNX embeddings, document store)
+├── scripts/    run-macos.sh, run-linux.sh, setup-linux.sh, localops-eval/ (local-model eval)
+├── docs/       config example, sponsors, design notes
+└── .github/    contributing and security guides
 ```
 
 ## Build your own Moon
 
-A Moon is any MCP server. See [CONTRIBUTING.md](CONTRIBUTING.md#building-a-new-moon) for the step-by-step guide.
+A Moon is any MCP server. See [CONTRIBUTING.md](.github/CONTRIBUTING.md#building-a-new-moon) for the step-by-step guide.
 
 Reference implementations to copy from:
 - [`moons/amalthea/`](moons/amalthea/) — minimal Python, no credentials, deterministic
@@ -246,11 +247,11 @@ Reference implementations to copy from:
 
 ## Contributing
 
-PRs welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for style, commits, PR process and how to build a new Moon.
+PRs welcome. See [CONTRIBUTING.md](.github/CONTRIBUTING.md) for style, commits, PR process and how to build a new Moon.
 
 ## Security
 
-Report vulnerabilities privately. See [SECURITY.md](SECURITY.md).
+Report vulnerabilities privately. See [SECURITY.md](.github/SECURITY.md).
 
 ## License
 

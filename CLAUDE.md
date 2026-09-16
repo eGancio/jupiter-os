@@ -108,7 +108,7 @@ inseriti dalla GUI (Service Detail → google-ads / meta-ads), mai in chiaro su 
 
 ## Credenziali
 
-Vedere `.mcp.json.example` per la struttura. Le credenziali reali vanno nel file
+Vedere `docs/mcp.json.example` per la struttura. Le credenziali reali vanno nel file
 `.mcp.json` (gitignored), oppure nel keyring di sistema (vedi
 `moon-io credentials set <account>` per Moon Io). Le chiavi API di **Google Ads** e
 **Meta Ads** si inseriscono dalla GUI e vivono nel keyring (service `MoonAds`).
@@ -141,7 +141,8 @@ ciascun Moon (click su un Moon nella sidebar).
 
 ```
 app/                   # Desktop GUI (Tauri v2 + React + TS) + chat sidecar (motori)
-shared/                # Libreria Rust condivisa: Qdrant + ONNX embeddings + file parsing
+moons/                 # Workspace Rust (Cargo.toml) + un Moon per cartella
+moons/shared/          # Libreria Rust condivisa: Qdrant + ONNX embeddings + file parsing
 moons/io/              # Moon Io — Email (Rust)
 moons/europa/          # Moon Europa — Messaging (Rust)
 moons/ganymede/        # Moon Ganymede — Wiki / memoria operativa (Rust)
@@ -153,7 +154,8 @@ moons/callisto/        # Moon Callisto — Video → trascrizione (Python)
 moons/thebe/           # Moon Thebe — Brand kit + report PDF (Python)
 moons/google-ads/      # Moon Google Ads (Python)
 moons/meta-ads/        # Moon Meta Ads (Python)
-scripts/               # Avvio macOS/Linux + setup Linux
+scripts/               # Avvio macOS/Linux, setup Linux, eval LocalOps
+docs/                  # mcp.json.example, SPONSORS, note
 .mcp.json              # Config Moon servers (locale, gitignored)
 .claude/skills/        # Skill per-Moon (operatività caricata on-demand)
 ```

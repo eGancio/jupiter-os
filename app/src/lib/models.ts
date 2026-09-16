@@ -17,7 +17,7 @@ export const ENGINE_MODELS: Record<string, string[]> = {
   dwarfstar: ["deepseek-v4-flash", "deepseek-v4-pro"],
   // localops: llama-server (llama.cpp) su CPU per le operazioni; l'id è
   // l'--alias del GGUF caricato dal daemon localops-llm (.mcp.json).
-  // Qwen3.6-35B-A3B: 100% sull'eval tool-calling (tools/localops-eval),
+  // Qwen3.6-35B-A3B: 100% sull'eval tool-calling (scripts/localops-eval),
   // contro l'88.5% del 30B-A3B-2507. Thinking disabilitato da template.
   localops: ["qwen3.6-35b-a3b"],
   // openrouter: API multi-modello (chiave OPENROUTER_API_KEY in

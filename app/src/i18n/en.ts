@@ -145,7 +145,7 @@ export const en: Record<string, string> = {
   "addMoon.name": "Moon name",
   "addMoon.namePh": "e.g. moon-gtd",
   "addMoon.command": "Command (executable)",
-  "addMoon.commandPh": "e.g. ./target/release/moon-gtd",
+  "addMoon.commandPh": "e.g. ./moons/target/release/moon-gtd",
   "addMoon.cwd": "Working dir (opt.)",
   "addMoon.cwdPh": "e.g. moon-gtd-rs",
   "addMoon.port": "MCP port",
