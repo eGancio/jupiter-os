@@ -79,11 +79,13 @@ async fn main() -> anyhow::Result<()> {
     setup::ensure_qdrant(&config.qdrant_url, &config.data_dir).await?;
 
     // Point ORT to the bundled runtime library if present in data/lib/
-    // and not already overridden by the environment
-    let bundled_ort = config.data_dir.join("lib").join("libonnxruntime.so");
-    if bundled_ort.exists() && std::env::var("ORT_DYLIB_PATH").is_err() {
-        std::env::set_var("ORT_DYLIB_PATH", &bundled_ort);
-        info!("ORT dylib: {:?}", bundled_ort);
+    // and not already overridden by the environment. The filename is
+    // platform-specific (.dylib on macOS): find_ort_dylib picks the right one.
+    if std::env::var("ORT_DYLIB_PATH").is_err() {
+        if let Some(bundled_ort) = jupiteros_shared::find_ort_dylib(&config.data_dir.join("lib")) {
+            std::env::set_var("ORT_DYLIB_PATH", &bundled_ort);
+            info!("ORT dylib: {:?}", bundled_ort);
+        }
     }
 
     // Load embedding model

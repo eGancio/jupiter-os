@@ -10,4 +10,4 @@ pub mod file_utils;
 pub use error::{SharedError, Result};
 pub use store::MessageStore;
 pub use doc_store::{DocChunk, DocHit, DocStore, DocSummary};
-pub use embeddings::OnnxEmbedding;
+pub use embeddings::{find_ort_dylib, OnnxEmbedding};

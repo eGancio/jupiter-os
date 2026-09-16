@@ -277,7 +277,9 @@ impl AgentSidecar {
         };
         #[cfg(not(target_os = "windows"))]
         let mut cmd = {
-            let mut c = Command::new("node");
+            // Percorso assoluto, non "node": da Finder l'app non eredita il PATH
+            // della shell e la ricerca fallirebbe (vedi config::node_binary).
+            let mut c = Command::new(config::node_binary());
             c.arg(&sidecar_path);
             c
         };
@@ -313,7 +315,16 @@ impl AgentSidecar {
             cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
         }
 
-        let mut child = cmd.spawn().map_err(|e| format!("Failed to spawn sidecar: {}", e))?;
+        let mut child = cmd.spawn().map_err(|e| {
+            // Includere il binario risolto: senza, un ENOENT non dice se manchi
+            // node o lo script, e la diagnosi costa un'ora.
+            format!(
+                "Failed to spawn sidecar: {} (node: {:?}, script: {:?})",
+                e,
+                config::node_binary(),
+                sidecar_path
+            )
+        })?;
 
         let stdin = child
             .stdin

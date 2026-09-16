@@ -33,6 +33,7 @@ impl AppState {
             for (k, v) in &creds {
                 def.env.entry(k.clone()).or_insert_with(|| v.clone());
             }
+            crate::config::expand_env_placeholders(&mut def.env, &creds);
             services.insert(name.clone(), ServiceState::new(name, def, ProcessKind::McpServer));
         }
 
@@ -40,6 +41,7 @@ impl AppState {
             for (k, v) in &creds {
                 def.env.entry(k.clone()).or_insert_with(|| v.clone());
             }
+            crate::config::expand_env_placeholders(&mut def.env, &creds);
             services.insert(name.clone(), ServiceState::new(name, def, ProcessKind::Daemon));
         }
 

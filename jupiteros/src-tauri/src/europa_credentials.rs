@@ -703,7 +703,7 @@ pub async fn whatsapp_start_pairing(state: State<'_, WhatsappPairing>) -> Result
     let session = whatsapp_session_dir();
     std::fs::create_dir_all(&session).map_err(|e| format!("Create session dir: {e}"))?;
 
-    let mut child = Command::new("node")
+    let mut child = Command::new(crate::config::node_binary())
         .arg(&helper)
         .arg("pair")
         .arg("--session")

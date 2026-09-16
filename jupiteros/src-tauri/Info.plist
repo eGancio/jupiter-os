@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!-- Un'app macOS lanciata da Finder/Dock NON eredita il PATH della shell:
+       riceve solo /usr/bin:/bin:/usr/sbin:/sbin. Il sidecar chat viene avviato
+       con Command::new("node"), quindi node dev'essere raggiungibile da qui.
+       Tauri fonde questo file nell'Info.plist del bundle a ogni build. -->
+  <key>LSEnvironment</key>
+  <dict>
+    <key>PATH</key>
+    <string>/Users/emotion/.local/tools/node-v22.22.3-darwin-arm64/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+  </dict>
+</dict>
+</plist>

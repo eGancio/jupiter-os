@@ -56,13 +56,13 @@ async fn main() -> anyhow::Result<()> {
     // it under `data/lib/`; since we reuse Io's model dir, the dylib is at
     // `<model_dir>/../lib/`. Point ORT_DYLIB_PATH at the first one that exists.
     if std::env::var("ORT_DYLIB_PATH").is_err() {
-        let mut candidates: Vec<std::path::PathBuf> =
-            vec![config.data_dir.join("lib").join("libonnxruntime.so")];
+        let mut lib_dirs: Vec<std::path::PathBuf> = vec![config.data_dir.join("lib")];
         if let Some(parent) = config.embedding_model_dir.parent() {
-            candidates.push(parent.join("lib").join("libonnxruntime.so"));
+            lib_dirs.push(parent.join("lib"));
         }
-        for c in candidates {
-            if c.exists() {
+        for dir in lib_dirs {
+            // Platform-aware: .dylib on macOS, fallback .so (layout Linux).
+            if let Some(c) = jupiteros_shared::find_ort_dylib(&dir) {
                 info!("ORT dylib: {}", c.display());
                 std::env::set_var("ORT_DYLIB_PATH", &c);
                 break;

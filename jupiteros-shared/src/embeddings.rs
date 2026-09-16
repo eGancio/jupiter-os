@@ -62,6 +62,28 @@ pub struct OnnxEmbedding {
     dense_size: usize,
 }
 
+/// Locate the bundled ONNX Runtime dylib inside a `lib/` directory, trying the
+/// platform's native name first and falling back to `.so` (the only name the
+/// Linux-era layouts shipped). Returns `None` if the directory has neither, in
+/// which case ORT_DYLIB_PATH should be left alone and `ort` will do its own
+/// system-wide lookup.
+pub fn find_ort_dylib(lib_dir: &Path) -> Option<std::path::PathBuf> {
+    let native = if cfg!(target_os = "macos") {
+        "libonnxruntime.dylib"
+    } else if cfg!(target_os = "windows") {
+        "onnxruntime.dll"
+    } else {
+        "libonnxruntime.so"
+    };
+    for name in [native, "libonnxruntime.so"] {
+        let p = lib_dir.join(name);
+        if p.exists() {
+            return Some(p);
+        }
+    }
+    None
+}
+
 impl OnnxEmbedding {
     /// Load ONNX model + tokenizer from a directory.
     ///

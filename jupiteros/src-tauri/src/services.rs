@@ -160,6 +160,7 @@ impl ServiceState {
             for (k, v) in &creds {
                 env.entry(k.clone()).or_insert_with(|| v.clone());
             }
+            crate::config::expand_env_placeholders(&mut env, &creds);
             self.def.env = env;
         }
     }
