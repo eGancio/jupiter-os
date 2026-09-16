@@ -99,7 +99,7 @@ Each Moon is a self-contained MCP server. Adding one does **not** require touchi
 
 A Moon is just an MCP server that the JupiterOS GUI can spawn and talk to. To create one:
 
-1. **Pick a name** from Jupiter's moons (Ganymede, Callisto, Pandora, Titan, …). Check the [roadmap](ROADMAP.md) so you don't collide with planned work.
+1. **Pick a name** from Jupiter's moons (Adrastea, Leda, Carme, Sinope, …). Check the [Moons in the README](README.md#moons) so you don't reuse one already taken.
 2. **Create the crate / package** at the repo root (`moon-<name>/` for Rust, or `moon-<name>/` with a `pyproject.toml` for Python).
 3. **Implement the MCP server** exposing a small, focused set of tools. Keep tool inputs/outputs typed and documented.
 4. **Add a settings entry** the GUI can show in the *Services* panel so users can start/stop your Moon.

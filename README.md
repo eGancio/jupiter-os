@@ -4,150 +4,243 @@
 [![Built with Tauri](https://img.shields.io/badge/Built%20with-Tauri%20v2-black?logo=tauri)](https://tauri.app)
 [![Made with Rust](https://img.shields.io/badge/Made%20with-Rust-black?logo=rust)](https://www.rust-lang.org/)
 
-> **Open-source desktop chat for Claude + MCP servers.**
+> **Open-source desktop environment for AI — Claude-first, multi-engine, local-first.**
 
-JupiterOS is a Tauri-based desktop application that gives you a native chat interface for Anthropic Claude with first-class support for MCP (Model Context Protocol) servers — local (stdio) and remote (SSE/HTTP). Manage your servers visually, see every tool call in real time, never hit the token wall.
+JupiterOS is a Tauri desktop app that gives an AI model the right context at the right
+moment: your email, your chats, your documents and the web, through specialised MCP
+servers called **Moons**. It runs the Moons for you, shows every tool call as it happens,
+and lets you pick the engine — Anthropic Claude, a cloud API, or a fully local model.
 
 <!-- TODO: hero GIF (chat + tool call live) -->
 
-## Why JupiterOS
+## Features
 
-- **Visual MCP management** — see every server in your sidebar, with live status, start/stop, log tail, and credentials. No more hand-editing `.mcp.json`.
-- **Transparent tool timeline** — every Claude tool call appears inline with the server it hits, a live status, elapsed time and the actual result. Token usage and cost tracked per turn.
-- **No token wall** — type `/compact` and JupiterOS summarises the conversation so far and hands it to a fresh session. Multi-session, slash commands (`/clear`, `/model`, `/cost`, `/mcp`, `/plan`), persistent history.
+**Chat**
+- Multiple sessions with persistent history and automatic titles
+- Live tool-call timeline: which Moon was called, status, elapsed time, result; token usage and cost per turn
+- Paste images straight into the chat (`Ctrl+V`)
+- Slash commands: `/clear`, `/compact` (summarise and continue in a fresh session), `/model`, `/cost`, `/mcp`, `/plan`
+- Italian and English UI
 
-## Pre-configured Moons
+**Engines** — chosen per session
 
-JupiterOS ships with 5 reference MCP servers ("Moons"):
+| Engine | Runs | Notes |
+|--------|------|-------|
+| **Claude** (Anthropic) | Cloud | Recommended. Uses the Claude Agent SDK: loads your Claude Code skills and settings, handles many tools and subagents in one conversation |
+| **Gemini** (Google) | Cloud | Your API key |
+| **Groq** | Cloud | Your API key |
+| **OpenRouter** | Cloud | DeepSeek V4 models, your API key |
+| **Ollama** | Local | Any local model served by Ollama |
+| **LocalOps** | Local | `llama.cpp` server started by JupiterOS as a daemon |
+
+**Moon management**
+- Sidebar with every Moon: status, start/stop, autostart, live logs
+- Setup panels inside the app: email accounts, Telegram and WhatsApp pairing, Google/Meta Ads credentials, brand kit, document ingest for Metis
+- Add any MCP server from the GUI — local (stdio) or remote (SSE/HTTP)
+
+**PII shield** (optional, per chat) — with a local PII backend configured as a daemon,
+personal data is replaced by placeholders before the message leaves your machine; the
+model only sees `[TAG_n]`, you see the real values. Current limit: tool results reach the
+model unmasked.
+
+## Moons
 
 | Moon | Function | Stack | Port |
 |------|----------|-------|------|
-| **Io** | Email (IMAP/SMTP, CalDAV, semantic search) | Rust + Qdrant | 8100 |
-| **Europa** | Messaging (Telegram + multi-channel, semantic search) | Rust + Qdrant | 8200 |
-| **Amalthea** | Charts & diagrams (16 deterministic types) | Python + ECharts/Mermaid | 8300 |
-| **Ganymede** | Operational wiki / memory (Markdown + YAML) | Rust | 8400 |
-| **Callisto** | Video → transcription (yt-dlp + faster-whisper) | Python | 8500 |
+| **Io** | Email: IMAP/SMTP, Gmail API, CalDAV calendar, semantic search | Rust + Qdrant | 8100 |
+| **Europa** | Messaging: Telegram, Slack, Teams, WhatsApp, semantic search | Rust + Qdrant | 8200 |
+| **Amalthea** | Charts and diagrams (16 deterministic types) | Python | 8300 |
+| **Ganymede** | Operational memory: Markdown wiki with tagged facts | Rust | 8400 |
+| **Callisto** | Video → clean transcript (yt-dlp + faster-whisper) | Python | 8500 |
+| **Metis** | Document library: RAG with mandatory citations (source + page), local OCR for scanned PDFs | Rust + Qdrant | 8600 |
+| **Himalia** | Web search and page extraction (Tavily), Italian company reports (openapi.it, with spend cap) | Rust | 8700 |
+| **Elara** | External signal: news (GDELT) and communities (Reddit) | Rust | 8800 |
+| **Thebe** | Brand kit + Markdown → on-brand PDF reports | Python | 8900 |
+| **Google Ads** | Keyword Planner and GAQL reporting (changes disabled by default) | Python | stdio |
+| **Meta Ads** | Insights, interest research, ad set creation | Python | stdio |
 
-Bring your own — any stdio, SSE or HTTP MCP server works out of the box.
+Every Moon is optional: start only the ones you need. Any other MCP server works too.
 
-## Privacy by design
+## Privacy
 
-- **Zero telemetry.** Nothing leaves your machine except calls to your own Anthropic API endpoint.
-- **Data stays local.** Embeddings run locally via ONNX. Vector store (Qdrant) runs locally.
-- **Bring your own key.** Your Anthropic API key, your billing, your control.
+- **Zero telemetry.** The app does not phone home.
+- **Your data stays on disk.** Email and message indexes, embeddings (BGE-M3 via ONNX),
+  the Qdrant vector store, the wiki and chat history are all local.
+- **What does leave your machine:** the conversation goes to the engine you pick (nothing
+  with Ollama or LocalOps), and Moons that use external services talk to them (Tavily,
+  openapi.it, GDELT, Reddit, Google/Meta Ads, video sites).
+- **Secrets in the OS keyring** — macOS Keychain, Windows Credential Manager, Linux Secret
+  Service — instead of plain-text config.
+
+> [!WARNING]
+> With the Claude engine, tools currently run **without confirmation prompts** (auto mode).
+> The guardrails in [`CLAUDE.md`](CLAUDE.md) tell the model to always show a draft and wait
+> for your OK before sending email or messages, but there is no approval dialog in the app yet.
 
 ## Installation
 
+There are no pre-built installers: JupiterOS is built from source. The code is
+cross-platform (macOS, Linux, Windows).
+
 ### Prerequisites
 
-| Tool | Version | Notes |
-|------|---------|-------|
-| Rust | nightly (pinned in `rust-toolchain.toml`) | Installed via [rustup](https://rustup.rs) |
-| sccache | latest | `cargo install sccache` — used by the workspace config |
-| Node.js | >= 18 | For the Tauri GUI |
-| Python | >= 3.10 | Only if you want Moon Amalthea |
-| Tauri prerequisites | platform-specific | See [Tauri prerequisites](https://tauri.app/start/prerequisites/) |
+| Tool | Version | Needed for |
+|------|---------|------------|
+| Rust | nightly, pinned in `rust-toolchain.toml` | Rust Moons and the app. Install [rustup](https://rustup.rs); the toolchain is picked up automatically |
+| sccache | latest | Required: it is the compiler wrapper in `.cargo/config.toml` (`cargo install sccache`) |
+| Node.js | >= 18 | GUI, chat sidecar, WhatsApp helper |
+| Python | >= 3.10 | Python Moons (Amalthea, Callisto, Thebe, Google Ads, Meta Ads) |
+| Tauri prerequisites | per platform | See [Tauri prerequisites](https://tauri.app/start/prerequisites/) |
+| poppler | any | Metis (`pdftotext`, `pdftoppm`) |
+| yt-dlp | latest | Callisto |
+| WeasyPrint system libraries | — | Thebe, see [WeasyPrint install](https://doc.courtbouillon.org/weasyprint/stable/first_steps.html) |
+
+On Debian/Ubuntu, `setup-linux.sh` installs the system packages and builds the core for you.
 
 ### Build
-
-> **Platforms.** The Rust/Tauri code is cross-platform (Linux, macOS, Windows). The
-> `setup-linux.sh` helper is **Debian/Ubuntu only** (`apt-get`); on Fedora, macOS or
-> Windows install the [Tauri prerequisites](https://tauri.app/start/prerequisites/) and
-> the tools in the table above by hand, then run the build steps below.
 
 ```bash
 git clone https://github.com/eGancio/jupiter-os.git
 cd jupiter-os
 
-# Rust Moons + shared library
+# Rust Moons + shared library → target/release/
 cargo build --release
 
-# GUI
+# Chat sidecar
+(cd jupiteros/sidecar && npm install)
+
+# Desktop app → jupiteros/src-tauri/target/release/
 cd jupiteros
 npm install
 npm run tauri build
 ```
 
-The desktop binary lands in `jupiteros/src-tauri/target/release/`.
+> **Note.** Build the app with `npm run tauri build`: a plain `cargo build` does not bundle
+> the frontend and gives an empty window.
 
-> **Note.** The GUI must be built with `npm run tauri build` — a bare `cargo build
-> --release` does not bundle the frontend and produces a non-functional window.
-
-### Authentication (Anthropic API key)
-
-JupiterOS is **bring-your-own-key** — it never ships or proxies a key. Export your
-Anthropic API key in the environment that launches the app:
+Python Moons, each in its own virtual environment (example for Amalthea):
 
 ```bash
-export ANTHROPIC_API_KEY=sk-ant-...
+cd moon-amalthea
+python3 -m venv .venv
+.venv/bin/pip install -e .      # Windows: .venv\Scripts\pip install -e .
 ```
 
-The chat sidecar reads it from the environment at startup; nothing is stored by JupiterOS.
+For WhatsApp in Europa: `(cd moon-europa-rs/whatsapp-helper && npm install)`.
 
-### Configure
+## Configuration
 
-1. Copy `.mcp.json.example` to `.mcp.json`
-2. Fill in your credentials (email IMAP, Telegram API ID/hash)
-3. **Prefer the OS keyring** for the email password: `moon-io credentials set <account>`
-4. Launch the JupiterOS binary
+### Where JupiterOS reads its config
 
-### First run
+The app looks for `.mcp.json` in this order and uses that folder as its base directory:
 
-1. Open the app — the sidebar lists the Moons
-2. Click **Start** on each Moon you want active
-3. On first run, each Rust Moon downloads its runtime dependencies on demand: the Qdrant
-   binary (~80 MB, from GitHub releases) and the BGE-M3 ONNX embedding model (~570 MB,
-   from Hugging Face). Allow a few minutes and a stable connection for the first start.
-4. For Moon Europa: enter the Telegram OTP when prompted
+1. next to the executable
+2. the current working directory
+3. `~/.config/jupiteros/` (macOS, Linux) or `%APPDATA%\jupiteros\` (Windows)
+
+The chat sidecar is looked up in the same folder, as `jupiteros/sidecar/agent.mjs` or
+`sidecar/agent.mjs`. When the config lives in `~/.config/jupiteros/`, link the sidecar there:
+
+```bash
+ln -s "$PWD/jupiteros/sidecar" ~/.config/jupiteros/sidecar
+```
+
+### `.mcp.json`
+
+Start from the example: `cp .mcp.json.example .mcp.json`. It has three sections:
+
+- `mcpServers` — what the chat connects to (URL for SSE/HTTP Moons, command for stdio ones)
+- `servers` — Moon processes JupiterOS starts and supervises (command, working dir, env, port)
+- `daemons` — helper processes that are not MCP servers (e.g. the PII backend, `llama-server`);
+  `"autostart": false` keeps one manual
+
+The example uses Windows paths (`moon-io.exe`, `.venv/Scripts/python.exe`). On macOS and
+Linux drop `.exe` and use `.venv/bin/python`. Absolute paths are the safest choice.
+
+### Secrets
+
+Keep secrets out of `.mcp.json`. Any `env` value in `servers` or `daemons` written as
+`${VAR}` is resolved at startup from, in order:
+
+1. `credentials.env` in the base directory (`VAR=value`, one per line)
+2. the OS keyring, service `MoonEnv`, account `VAR` — on macOS:
+   `security add-generic-password -U -s MoonEnv -a VAR -w 'value'`
+
+A placeholder that cannot be resolved is dropped, so the Moon falls back to its own
+defaults instead of using the literal `${VAR}` string.
+
+Engine keys go in `credentials.env`: `GEMINI_API_KEY`, `GROQ_API_KEY`, `OPENROUTER_API_KEY`
+(optional: `OLLAMA_BASE_URL`, `LOCALOPS_BASE_URL`).
+
+Google Ads and Meta Ads tokens are entered from their panel in the app and stored in the
+keyring (service `MoonAds`). Email credentials live in the keyring too — use the panel in
+the app, or the CLI:
+
+```bash
+target/release/moon-io credentials set <account>   # IMAP password
+target/release/moon-io oauth connect gmail         # Gmail via OAuth
+```
+
+### Claude authentication
+
+The Claude engine uses the Claude Agent SDK, which reuses your **Claude Code sign-in** on
+the same machine. To bill a separate account, set `ANTHROPIC_API_KEY` in the environment
+that launches the app (on macOS, `run-jupiteros-macos.sh` loads it from `~/.jupiteros.env`).
+
+## Run
+
+| Platform | Command |
+|----------|---------|
+| macOS | `./run-jupiteros-macos.sh` — finds `node` even outside a terminal session, reads config from `~/.config/jupiteros/` |
+| Linux | `./run-jupiteros.sh` — run from the repo root, reads `.mcp.json` there (`JUPITEROS_SAFE_GFX=1` if the window stays blank) |
+| Windows | `jupiteros\src-tauri\target\release\jupiteros.exe` |
+
+On first start:
+
+- Rust Moons download what they need: the Qdrant binary (~80 MB) and the BGE-M3 embedding
+  model (~570 MB); Metis also fetches its OCR models. Allow a few minutes.
+- Europa asks for the Telegram code, or shows a QR code for WhatsApp.
 
 ## Architecture
 
 ```
-┌────────────────────────────────────────────────┐
-│            JupiterOS Desktop GUI               │
-│            Tauri v2 + React + TS               │
-├────────────────────────────────────────────────┤
-│       Claude Agent SDK (Node sidecar)          │
-└────────┬───────────────────────────────────────┘
-         │  MCP protocol  (stdio · SSE · HTTP)
-         ▼
-┌────────────────┬────────────────┬──────────────┐
-│   Moon Io      │  Moon Europa   │ Moon Amalth. │
-│   (Email)      │  (Telegram)    │  (Charts)    │
-│                │                │              │
-│ IMAP/SMTP +    │ Telegram MTP + │ ECharts +    │
-│ Qdrant + ONNX  │ Qdrant + ONNX  │ Mermaid      │
-└────────────────┴────────────────┴──────────────┘
+┌──────────────────────────────────────────────────────────┐
+│                  JupiterOS desktop app                   │
+│   React + TypeScript UI   ·   Rust backend (Tauri v2)    │
+│   Moon processes · keyring · PII shield · sessions       │
+├──────────────────────────────────────────────────────────┤
+│                 Chat sidecar (Node.js)                   │
+│   Claude Agent SDK · Gemini · Groq · OpenRouter ·        │
+│   Ollama · LocalOps                                      │
+└───────────────────────────┬──────────────────────────────┘
+                            │  MCP  (SSE · HTTP · stdio)
+                            ▼
+┌──────────┬──────────┬──────────┬──────────┬──────────────┐
+│ Io       │ Europa   │ Metis    │ Himalia  │ Amalthea     │
+│ email    │ messages │ docs     │ web      │ Thebe        │
+│ Ganymede │ Elara    │ Callisto │ Ads      │ …your own    │
+└──────────┴──────────┴──────────┴──────────┴──────────────┘
+      │
+      ▼
+ Qdrant + ONNX embeddings (local)
 ```
 
-- **GUI**: Tauri v2 (Rust backend) + React (TypeScript frontend)
-- **Chat sidecar**: Anthropic [Claude Agent SDK](https://github.com/anthropics/claude-agent-sdk) for streaming + tool orchestration
-- **MCP transports**: stdio (local processes), SSE and HTTP (remote)
-- **Shared library** (`jupiteros-shared`): Qdrant client, ONNX embeddings, file parsing utilities
+- **`jupiteros/`** — the desktop app: `src/` (React UI), `src-tauri/` (Rust backend), `sidecar/` (engines)
+- **`jupiteros-shared/`** — shared Rust library: Qdrant client, ONNX embeddings, document store, file parsing
+- **`moon-*/`** — one folder per Moon
+- **`tools/localops-eval/`** — tool-calling evaluation harness for local models
 
 ## Build your own Moon
 
 A Moon is any MCP server. See [CONTRIBUTING.md](CONTRIBUTING.md#building-a-new-moon) for the step-by-step guide.
 
 Reference implementations to copy from:
-- [`moon-amalthea/`](moon-amalthea/) — minimal, no credentials, deterministic
-- [`moon-io-rs/`](moon-io-rs/) — production-grade Rust, credentials in keyring, background daemon, semantic search
-
-## Roadmap
-
-| Moon | Function | Status |
-|------|----------|--------|
-| **Io** | Email | Stable |
-| **Europa** | Messaging | Stable |
-| **Amalthea** | Charts | Stable |
-| Pandora | Filesystem (local + SSH) | Planned |
-| Hyperion | System Monitor | Planned |
-| Callisto | Browser AI | Planned |
-| Titan | Predictions & Analytics | Planned |
+- [`moon-amalthea/`](moon-amalthea/) — minimal Python, no credentials, deterministic
+- [`moon-io-rs/`](moon-io-rs/) — production-grade Rust: keyring credentials, background indexer, semantic search
 
 ## Contributing
 
-PRs welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for the full guide (style, commits, PR process, how to build a new Moon).
+PRs welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for style, commits, PR process and how to build a new Moon.
 
 ## Security
 
