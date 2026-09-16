@@ -8,15 +8,15 @@
 import * as fs from "fs";
 import * as path from "path";
 import { fileURLToPath } from "url";
-import { loadMcpServers, relaxSchemaForValidation } from "../../jupiteros/sidecar/engines/engine.mjs";
-import { isUnsafeTool } from "../../jupiteros/sidecar/engines/ollama.mjs";
-import { Client } from "../../jupiteros/sidecar/node_modules/@modelcontextprotocol/sdk/dist/esm/client/index.js";
-import { SSEClientTransport } from "../../jupiteros/sidecar/node_modules/@modelcontextprotocol/sdk/dist/esm/client/sse.js";
-import { StreamableHTTPClientTransport } from "../../jupiteros/sidecar/node_modules/@modelcontextprotocol/sdk/dist/esm/client/streamableHttp.js";
+import { loadMcpServers, relaxSchemaForValidation } from "../../app/sidecar/engines/engine.mjs";
+import { isUnsafeTool } from "../../app/sidecar/engines/ollama.mjs";
+import { Client } from "../../app/sidecar/node_modules/@modelcontextprotocol/sdk/dist/esm/client/index.js";
+import { SSEClientTransport } from "../../app/sidecar/node_modules/@modelcontextprotocol/sdk/dist/esm/client/sse.js";
+import { StreamableHTTPClientTransport } from "../../app/sidecar/node_modules/@modelcontextprotocol/sdk/dist/esm/client/streamableHttp.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const mcpConfigPath = process.argv[2]
-  || path.join(here, "../../jupiteros/src-tauri/target/release/.mcp.json");
+  || path.join(here, "../../app/src-tauri/target/release/.mcp.json");
 
 const servers = loadMcpServers(mcpConfigPath);
 const out = { mcpConfigPath, dumpedAt: new Date().toISOString(), tools: [], excludedUnsafe: [], skipped: [] };

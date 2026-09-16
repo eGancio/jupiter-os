@@ -95,7 +95,7 @@ cross-platform (macOS, Linux, Windows).
 | yt-dlp | latest | Callisto |
 | WeasyPrint system libraries | — | Thebe, see [WeasyPrint install](https://doc.courtbouillon.org/weasyprint/stable/first_steps.html) |
 
-On Debian/Ubuntu, `setup-linux.sh` installs the system packages and builds the core for you.
+On Debian/Ubuntu, `scripts/setup-linux.sh` installs the system packages and builds the core for you.
 
 ### Build
 
@@ -107,10 +107,10 @@ cd jupiter-os
 cargo build --release
 
 # Chat sidecar
-(cd jupiteros/sidecar && npm install)
+(cd app/sidecar && npm install)
 
-# Desktop app → jupiteros/src-tauri/target/release/
-cd jupiteros
+# Desktop app → app/src-tauri/target/release/
+cd app
 npm install
 npm run tauri build
 ```
@@ -121,12 +121,12 @@ npm run tauri build
 Python Moons, each in its own virtual environment (example for Amalthea):
 
 ```bash
-cd moon-amalthea
+cd moons/amalthea
 python3 -m venv .venv
 .venv/bin/pip install -e .      # Windows: .venv\Scripts\pip install -e .
 ```
 
-For WhatsApp in Europa: `(cd moon-europa-rs/whatsapp-helper && npm install)`.
+For WhatsApp in Europa: `(cd moons/europa/whatsapp-helper && npm install)`.
 
 ## Configuration
 
@@ -138,11 +138,11 @@ The app looks for `.mcp.json` in this order and uses that folder as its base dir
 2. the current working directory
 3. `~/.config/jupiteros/` (macOS, Linux) or `%APPDATA%\jupiteros\` (Windows)
 
-The chat sidecar is looked up in the same folder, as `jupiteros/sidecar/agent.mjs` or
+The chat sidecar is looked up in the same folder, as `app/sidecar/agent.mjs` or
 `sidecar/agent.mjs`. When the config lives in `~/.config/jupiteros/`, link the sidecar there:
 
 ```bash
-ln -s "$PWD/jupiteros/sidecar" ~/.config/jupiteros/sidecar
+ln -s "$PWD/app/sidecar" ~/.config/jupiteros/sidecar
 ```
 
 ### `.mcp.json`
@@ -185,15 +185,15 @@ target/release/moon-io oauth connect gmail         # Gmail via OAuth
 
 The Claude engine uses the Claude Agent SDK, which reuses your **Claude Code sign-in** on
 the same machine. To bill a separate account, set `ANTHROPIC_API_KEY` in the environment
-that launches the app (on macOS, `run-jupiteros-macos.sh` loads it from `~/.jupiteros.env`).
+that launches the app (on macOS, `scripts/run-macos.sh` loads it from `~/.jupiteros.env`).
 
 ## Run
 
 | Platform | Command |
 |----------|---------|
-| macOS | `./run-jupiteros-macos.sh` — finds `node` even outside a terminal session, reads config from `~/.config/jupiteros/` |
-| Linux | `./run-jupiteros.sh` — run from the repo root, reads `.mcp.json` there (`JUPITEROS_SAFE_GFX=1` if the window stays blank) |
-| Windows | `jupiteros\src-tauri\target\release\jupiteros.exe` |
+| macOS | `scripts/run-macos.sh` — finds `node` even outside a terminal session, reads config from `~/.config/jupiteros/` |
+| Linux | `scripts/run-linux.sh` — reads `.mcp.json` from the repo root (`JUPITEROS_SAFE_GFX=1` if the window stays blank) |
+| Windows | `app\src-tauri\target\release\jupiteros.exe` |
 
 On first start:
 
@@ -225,18 +225,24 @@ On first start:
  Qdrant + ONNX embeddings (local)
 ```
 
-- **`jupiteros/`** — the desktop app: `src/` (React UI), `src-tauri/` (Rust backend), `sidecar/` (engines)
-- **`jupiteros-shared/`** — shared Rust library: Qdrant client, ONNX embeddings, document store, file parsing
-- **`moon-*/`** — one folder per Moon
-- **`tools/localops-eval/`** — tool-calling evaluation harness for local models
+```
+jupiter-os/
+├── app/          desktop app: src/ (React UI), src-tauri/ (Rust backend), sidecar/ (engines)
+├── shared/       shared Rust library: Qdrant client, ONNX embeddings, document store, file parsing
+├── moons/        one folder per Moon: io, europa, ganymede, metis, himalia, elara (Rust)
+│                 amalthea, callisto, thebe, google-ads, meta-ads (Python)
+├── scripts/      run-macos.sh, run-linux.sh, setup-linux.sh
+├── tools/        localops-eval: tool-calling evaluation harness for local models
+└── docs/
+```
 
 ## Build your own Moon
 
 A Moon is any MCP server. See [CONTRIBUTING.md](CONTRIBUTING.md#building-a-new-moon) for the step-by-step guide.
 
 Reference implementations to copy from:
-- [`moon-amalthea/`](moon-amalthea/) — minimal Python, no credentials, deterministic
-- [`moon-io-rs/`](moon-io-rs/) — production-grade Rust: keyring credentials, background indexer, semantic search
+- [`moons/amalthea/`](moons/amalthea/) — minimal Python, no credentials, deterministic
+- [`moons/io/`](moons/io/) — production-grade Rust: keyring credentials, background indexer, semantic search
 
 ## Contributing
 

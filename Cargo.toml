@@ -3,16 +3,16 @@ cargo-features = ["codegen-backend"]
 [workspace]
 resolver = "2"
 members = [
-    "jupiteros-shared",
-    "moon-europa-rs",
-    "moon-io-rs",
-    "moon-ganymede-rs",
-    "moon-metis-rs",
-    "moon-himalia-rs",
-    "moon-elara-rs",
+    "shared",
+    "moons/europa",
+    "moons/io",
+    "moons/ganymede",
+    "moons/metis",
+    "moons/himalia",
+    "moons/elara",
 ]
 exclude = [
-    "jupiteros/src-tauri",
+    "app/src-tauri",
 ]
 
 [workspace.package]

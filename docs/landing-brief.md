@@ -627,7 +627,7 @@ Dashboard CF → Analytics → Web Analytics → Add site `jupiteros.ai` → gen
 
 - Repo attuale (privato, "OLD"): `https://github.com/jupiter-os/jupiteros-OLD`
 - Repo target pubblico (al momento del lancio): `https://github.com/jupiter-os/jupiteros`
-- Codice da cui è stato estratto il positioning: `jupiteros/src/App.tsx`, `jupiteros/src/hooks/useChat.ts`, `jupiteros/sidecar/agent.mjs`, `jupiteros/src/components/chat/ToolTimeline.tsx`, `jupiteros/src/components/chat/ChatArea.tsx`, `jupiteros/src-tauri/src/config.rs`
+- Codice da cui è stato estratto il positioning: `app/src/App.tsx`, `app/src/hooks/useChat.ts`, `app/sidecar/agent.mjs`, `app/src/components/chat/ToolTimeline.tsx`, `app/src/components/chat/ChatArea.tsx`, `app/src-tauri/src/config.rs`
 
 ---
 

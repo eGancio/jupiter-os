@@ -30,11 +30,11 @@ node_modules/
 memory-mcp/data/
 moon-io/data/
 moon-europa/data/
-moon-io-rs/data/
-moon-europa-rs/data/
-moon-metis-rs/data/
-moon-himalia-rs/data/
-moon-elara-rs/data/
+moons/io/data/
+moons/europa/data/
+moons/metis/data/
+moons/himalia/data/
+moons/elara/data/
 
 # Telegram session
 *.session
@@ -43,15 +43,15 @@ moon-elara-rs/data/
 .qdrant-initialized
 
 # ONNX model (downloaded at runtime)
-moon-europa-rs/model/
-moon-io-rs/model/
+moons/europa/model/
+moons/io/model/
 
 # Claude Code local settings
 .claude/
 
 # Rust build artifacts
 target/
-jupiteros/src-tauri/target/
+app/src-tauri/target/
 
 # Installer build artifacts
 installer/build/
@@ -61,10 +61,10 @@ installer/get-pip.py
 installer/templates/*.env
 
 # Moon Amalthea output
-moon-amalthea/output/
+moons/amalthea/output/
 
 # Moon Callisto output (video transcripts)
-moon-callisto/output/
+moons/callisto/output/
 
 # IDE
 .idea/
@@ -92,7 +92,7 @@ scraper-ricaricaveicolo/
 zeus/gui/dist/
 
 # JupiterOS build output + debug
-jupiteros/dist/
+app/dist/
 jupiteros-sessions.json
 .claude-gui-debug.log
 .claude-gui/
@@ -107,8 +107,8 @@ gemini-credentials.txt
 groq-credentials.txt
 
 # Moon Thebe — brand kits (personal data) + render output
-moon-thebe/data/
-moon-thebe/output/
+moons/thebe/data/
+moons/thebe/output/
 
 # localops-eval: artefatti rigenerabili (dump tool live + risultati run)
 tools/localops-eval/tools-snapshot.json

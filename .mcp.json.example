@@ -34,7 +34,7 @@
     },
     "google-ads": {
       "type": "stdio",
-      "command": "moon-google-ads/.venv/Scripts/python.exe",
+      "command": "moons/google-ads/.venv/Scripts/python.exe",
       "args": [
         "-m",
         "moon_google_ads.server"
@@ -51,7 +51,7 @@
     },
     "meta-ads": {
       "type": "stdio",
-      "command": "moon-meta-ads/.venv/Scripts/python.exe",
+      "command": "moons/meta-ads/.venv/Scripts/python.exe",
       "args": [
         "-m",
         "moon_meta_ads.server"
@@ -70,9 +70,9 @@
     "io": {
       "command": "target/release/moon-io.exe",
       "args": [],
-      "cwd": "moon-io-rs",
+      "cwd": "moons/io",
       "env": {
-        "DATA_DIR": "moon-io-rs/data",
+        "DATA_DIR": "moons/io/data",
         "IMAP_USERNAME": "YOUR_EMAIL@example.com",
         "IMAP_PASSWORD": "YOUR_PASSWORD",
         "QDRANT_URL": "http://127.0.0.1:6334",
@@ -84,9 +84,9 @@
     "europa": {
       "command": "target/release/moon-europa.exe",
       "args": [],
-      "cwd": "moon-europa-rs",
+      "cwd": "moons/europa",
       "env": {
-        "DATA_DIR": "moon-europa-rs/data",
+        "DATA_DIR": "moons/europa/data",
         "TELEGRAM_API_ID": "YOUR_API_ID",
         "TELEGRAM_API_HASH": "YOUR_API_HASH",
         "TELEGRAM_FOLDER": "",
@@ -102,14 +102,14 @@
       }
     },
     "amalthea": {
-      "command": "moon-amalthea/.venv/Scripts/python.exe",
+      "command": "moons/amalthea/.venv/Scripts/python.exe",
       "args": [
         "-m",
         "moon_amalthea.server"
       ],
-      "cwd": "moon-amalthea",
+      "cwd": "moons/amalthea",
       "env": {
-        "AMALTHEA_OUTPUT_DIR": "moon-amalthea/output",
+        "AMALTHEA_OUTPUT_DIR": "moons/amalthea/output",
         "MCP_TRANSPORT": "sse",
         "MCP_PORT": "8300"
       }
@@ -117,23 +117,23 @@
     "ganymede": {
       "command": "target/release/moon-ganymede.exe",
       "args": [],
-      "cwd": "moon-ganymede-rs",
+      "cwd": "moons/ganymede",
       "env": {
-        "GANYMEDE_WIKI_DIR": "../wiki",
-        "DATA_DIR": "../data",
+        "GANYMEDE_WIKI_DIR": "../../wiki",
+        "DATA_DIR": "../../data",
         "MCP_TRANSPORT": "sse",
         "MCP_PORT": "8400"
       }
     },
     "callisto": {
-      "command": "moon-callisto/.venv/Scripts/python.exe",
+      "command": "moons/callisto/.venv/Scripts/python.exe",
       "args": [
         "-m",
         "moon_callisto.server"
       ],
-      "cwd": "moon-callisto",
+      "cwd": "moons/callisto",
       "env": {
-        "CALLISTO_OUTPUT_DIR": "moon-callisto/output",
+        "CALLISTO_OUTPUT_DIR": "moons/callisto/output",
         "MCP_TRANSPORT": "sse",
         "MCP_PORT": "8500"
       }
@@ -141,10 +141,10 @@
     "metis": {
       "command": "target/release/moon-metis.exe",
       "args": [],
-      "cwd": "moon-metis-rs",
+      "cwd": "moons/metis",
       "env": {
-        "DATA_DIR": "moon-metis-rs/data",
-        "EMBEDDING_MODEL_DIR": "moon-io-rs/data/model",
+        "DATA_DIR": "moons/metis/data",
+        "EMBEDDING_MODEL_DIR": "moons/io/data/model",
         "QDRANT_URL": "http://127.0.0.1:6334",
         "METIS_COLLECTION": "metis_docs",
         "METIS_LLM_BASE_URL": "",
@@ -157,9 +157,9 @@
     "himalia": {
       "command": "target/release/moon-himalia.exe",
       "args": [],
-      "cwd": "moon-himalia-rs",
+      "cwd": "moons/himalia",
       "env": {
-        "DATA_DIR": "moon-himalia-rs/data",
+        "DATA_DIR": "moons/himalia/data",
         "TAVILY_API_KEY": "",
         "OPENAPI_TOKEN": "",
         "OPENAPI_COMPANY_TOKEN": "",
@@ -172,9 +172,9 @@
     "elara": {
       "command": "target/release/moon-elara.exe",
       "args": [],
-      "cwd": "moon-elara-rs",
+      "cwd": "moons/elara",
       "env": {
-        "DATA_DIR": "moon-elara-rs/data",
+        "DATA_DIR": "moons/elara/data",
         "REDDIT_CLIENT_ID": "",
         "REDDIT_CLIENT_SECRET": "",
         "REDDIT_USER_AGENT": "jupiteros-elara/0.1",

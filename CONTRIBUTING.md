@@ -38,7 +38,7 @@ This project follows the [Contributor Covenant 2.1](CODE_OF_CONDUCT.md). By part
 |------|---------|-------|
 | Rust | stable (toolchain pinned in `rust-toolchain.toml`) | Installed via [rustup](https://rustup.rs) |
 | Node.js | >= 18 | For the Tauri GUI |
-| Python | >= 3.10 | Only for `moon-amalthea` |
+| Python | >= 3.10 | For the Python Moons (`moons/amalthea`, `moons/callisto`, …) |
 | Tauri prerequisites | platform-specific | See [Tauri prerequisites](https://tauri.app/start/prerequisites/) |
 
 ### First build
@@ -51,12 +51,12 @@ cd jupiter-os
 cargo build --release
 
 # 2. Build the GUI
-cd jupiteros
+cd app
 npm install
 npm run tauri build
 ```
 
-The desktop binary is in `jupiteros/src-tauri/target/release/`.
+The desktop binary is in `app/src-tauri/target/release/`.
 
 ### Running tests
 
@@ -65,7 +65,7 @@ The desktop binary is in `jupiteros/src-tauri/target/release/`.
 cargo test --workspace
 
 # TypeScript / frontend
-cd jupiteros && npm run typecheck
+cd app && npm run typecheck
 ```
 
 CI runs the same commands on `windows-latest`, `macos-latest`, and `ubuntu-latest`. Your PR must keep CI green.
@@ -73,7 +73,7 @@ CI runs the same commands on `windows-latest`, `macos-latest`, and `ubuntu-lates
 ### Running locally without packaging
 
 ```bash
-cd jupiteros
+cd app
 npm run tauri dev
 ```
 
@@ -82,31 +82,30 @@ This rebuilds on save and gives you devtools.
 ## Project layout
 
 ```
-jupiteros-shared/   Shared Rust library: Qdrant client, ONNX embeddings, file parsing
-jupiteros/          Desktop GUI (Tauri v2 + React + TypeScript)
-moon-io-rs/         Email Moon (IMAP/SMTP/CalDAV, Rust)
-moon-europa-rs/     Messaging Moon (Telegram + multi-channel, Rust)
-moon-amalthea/      Charts & diagrams Moon (Python)
-moon-ganymede-rs/   Operational wiki / memory Moon (Rust)
-moon-callisto/      Video → transcription Moon (Python)
-.github/            Workflows, issue & PR templates
-docs/               Architecture, Moon authoring guide
+app/                Desktop app: src/ (React + TypeScript), src-tauri/ (Tauri v2, Rust), sidecar/ (engines)
+shared/             Shared Rust library: Qdrant client, ONNX embeddings, document store, file parsing
+moons/              One folder per Moon
+  io/ europa/ ganymede/ metis/ himalia/ elara/        Rust (workspace members)
+  amalthea/ callisto/ thebe/ google-ads/ meta-ads/    Python
+scripts/            run-macos.sh, run-linux.sh, setup-linux.sh
+tools/              localops-eval: tool-calling evaluation harness
+docs/               Design notes
 ```
 
-Each Moon is a self-contained MCP server. Adding one does **not** require touching `jupiteros/` core.
+Each Moon is a self-contained MCP server. Adding one does **not** require touching the `app/` core.
 
 ## Building a new Moon
 
 A Moon is just an MCP server that the JupiterOS GUI can spawn and talk to. To create one:
 
 1. **Pick a name** from Jupiter's moons (Adrastea, Leda, Carme, Sinope, …). Check the [Moons in the README](README.md#moons) so you don't reuse one already taken.
-2. **Create the crate / package** at the repo root (`moon-<name>/` for Rust, or `moon-<name>/` with a `pyproject.toml` for Python).
+2. **Create the crate / package** in `moons/<name>/`: a Rust crate added to `members` in the root `Cargo.toml`, or a Python package with a `pyproject.toml`.
 3. **Implement the MCP server** exposing a small, focused set of tools. Keep tool inputs/outputs typed and documented.
 4. **Add a settings entry** the GUI can show in the *Services* panel so users can start/stop your Moon.
 5. **Document it**: a per-Moon README with what tools it exposes, what credentials it needs, and a config example.
 6. **Write tests**: at minimum, one unit test per tool and one integration test for the end-to-end MCP call.
 
-A reference implementation is `moon-amalthea/` (small, no credentials, deterministic). For something bigger with credentials and a background daemon, see `moon-io-rs/`.
+A reference implementation is `moons/amalthea/` (small, no credentials, deterministic). For something bigger with credentials and a background daemon, see `moons/io/`.
 
 ## Coding style
 
@@ -120,7 +119,7 @@ A reference implementation is `moon-amalthea/` (small, no credentials, determini
 ### TypeScript / React
 
 - Strict TypeScript (`tsc --noEmit` is part of CI).
-- Components in `jupiteros/src/components/`, hooks in `jupiteros/src/hooks/`, IPC wrappers in `jupiteros/src/lib/tauri.ts`.
+- Components in `app/src/components/`, hooks in `app/src/hooks/`, IPC wrappers in `app/src/lib/tauri.ts`.
 - No `any` unless explicitly justified in a comment.
 
 ### Python (Amalthea)
@@ -161,7 +160,7 @@ A clean Conventional Commit history powers our generated `CHANGELOG.md`.
 5. **CI must be green**. If it goes red, fix it; don't ask a maintainer to ignore it.
 6. **One reviewer approval** is required to merge. Squash-merge by default — your branch's commit history is rewritten into one Conventional Commit on `main`.
 
-PRs that touch the **chat sidecar** (`jupiteros/sidecar/agent.mjs`) or the **agent integration** need extra care — that path is load-bearing for the GUI. Include a screenshot or short clip showing the GUI still works.
+PRs that touch the **chat sidecar** (`app/sidecar/agent.mjs`) or the **agent integration** need extra care — that path is load-bearing for the GUI. Include a screenshot or short clip showing the GUI still works.
 
 ## Referral & sponsorship transparency
 

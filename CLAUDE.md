@@ -140,14 +140,20 @@ ciascun Moon (click su un Moon nella sidebar).
 ## Architettura (riferimento)
 
 ```
-jupiteros/             # Desktop GUI (Tauri v2 + React + TS) + chat sidecar (Claude Agent SDK)
-jupiteros-shared/      # Libreria Rust condivisa: Qdrant + ONNX embeddings + file parsing
-moon-io-rs/            # Moon Io — Email (Rust)
-moon-europa-rs/        # Moon Europa — Messaging (Rust)
-moon-amalthea/         # Moon Amalthea — Charts (Python)
-moon-ganymede-rs/      # Moon Ganymede — Wiki / memoria operativa (Rust)
-moon-callisto/         # Moon Callisto — Video → trascrizione (Python)
-moon-metis-rs/         # Moon Metis — Knowledge layer / RAG citato (Rust)
+app/                   # Desktop GUI (Tauri v2 + React + TS) + chat sidecar (motori)
+shared/                # Libreria Rust condivisa: Qdrant + ONNX embeddings + file parsing
+moons/io/              # Moon Io — Email (Rust)
+moons/europa/          # Moon Europa — Messaging (Rust)
+moons/ganymede/        # Moon Ganymede — Wiki / memoria operativa (Rust)
+moons/metis/           # Moon Metis — Knowledge layer / RAG citato (Rust)
+moons/himalia/         # Moon Himalia — Ricerca web (Rust)
+moons/elara/           # Moon Elara — News + community (Rust)
+moons/amalthea/        # Moon Amalthea — Charts (Python)
+moons/callisto/        # Moon Callisto — Video → trascrizione (Python)
+moons/thebe/           # Moon Thebe — Brand kit + report PDF (Python)
+moons/google-ads/      # Moon Google Ads (Python)
+moons/meta-ads/        # Moon Meta Ads (Python)
+scripts/               # Avvio macOS/Linux + setup Linux
 .mcp.json              # Config Moon servers (locale, gitignored)
 .claude/skills/        # Skill per-Moon (operatività caricata on-demand)
 ```
